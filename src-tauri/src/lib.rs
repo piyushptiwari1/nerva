@@ -13,6 +13,8 @@ pub mod state;
 pub mod store;
 pub mod timers;
 pub mod workspaces;
+pub mod audio;
+pub mod focus;
 
 use state::AppState;
 use std::sync::Arc;
@@ -72,8 +74,17 @@ pub fn run() {
             ipc::workspace_active,
             // events (timeline)
             ipc::events_recent,
-            // sticky
+            // sticky / widgets
             ipc::open_sticky,
+            ipc::open_timer_widget,
+            // audio
+            ipc::audio_state,
+            ipc::audio_set_volume,
+            ipc::audio_set_muted,
+            ipc::audio_test,
+            // focus / DND
+            ipc::focus_state,
+            ipc::focus_set_dnd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

@@ -1,5 +1,6 @@
 //! Application-wide state: storage pool + in-memory projections.
 
+use crate::audio::{AudioEngine, AudioSettings};
 use crate::error::{NervaError, Result};
 use crate::notes::NotesProjection;
 use crate::store::Store;
@@ -15,6 +16,7 @@ pub struct AppState {
     pub timers: Arc<Mutex<TimerEngine>>,
     pub notes: Arc<Mutex<NotesProjection>>,
     pub workspaces: Arc<Mutex<WorkspacesProjection>>,
+    pub audio: Arc<AudioEngine>,
     pub data_dir: PathBuf,
 }
 
@@ -51,11 +53,24 @@ impl AppState {
             store.append_event("workspace.activated", &serde_json::json!({ "id": id }))?;
         }
 
+        // Restore audio settings from meta.
+        let mut audio_settings = AudioSettings::default();
+        if let Ok(Some(v)) = store.meta_get("audio.volume") {
+            if let Ok(f) = v.parse::<f32>() {
+                audio_settings.volume = f.clamp(0.0, 1.0);
+            }
+        }
+        if let Ok(Some(v)) = store.meta_get("audio.muted") {
+            audio_settings.muted = v == "true";
+        }
+        let audio = Arc::new(AudioEngine::spawn(audio_settings));
+
         Ok(Self {
             store,
             timers: Arc::new(Mutex::new(timers)),
             notes: Arc::new(Mutex::new(notes)),
             workspaces: Arc::new(Mutex::new(workspaces)),
+            audio,
             data_dir,
         })
     }

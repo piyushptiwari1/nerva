@@ -112,9 +112,14 @@ pub fn timer_list(state: State) -> Result<Vec<Timer>> {
 pub fn timer_tick(state: State) -> Result<TickReport> {
     let mut engine = state.timers.lock();
     let completed = engine.tick();
-    // Persist completion events for any that crossed the line.
+    // Persist completion events for any that crossed the line, then fire the
+    // completion sound once per batch (a single "ding" even if N timers finish
+    // in the same tick — avoids a cluster of overlapping tones).
     for id in &completed {
         let _ = state.store.append_event("timer.completed", &serde_json::json!({ "id": id }));
+    }
+    if !completed.is_empty() {
+        state.audio.play_completion();
     }
     Ok(TickReport { completed, timers: engine.list() })
 }
@@ -317,4 +322,88 @@ pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
         .build()
         .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))?;
     Ok(())
+}
+
+/// Spawn (or focus) the always-on-top floating timer widget. Single instance.
+#[tauri::command]
+pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    let label = "timer-widget";
+    if let Some(win) = app.get_webview_window(label) {
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=timer".into()))
+        .title("Nerva Timer")
+        .inner_size(280.0, 130.0)
+        .min_inner_size(220.0, 100.0)
+        .always_on_top(true)
+        .decorations(false)
+        .transparent(false)
+        .resizable(true)
+        .build()
+        .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))?;
+    Ok(())
+}
+
+// ---------- audio ----------
+
+#[derive(Debug, Serialize)]
+pub struct AudioState {
+    pub volume: f32,
+    pub muted: bool,
+    pub available: bool,
+}
+
+#[tauri::command]
+pub fn audio_state(state: State) -> Result<AudioState> {
+    let s = state.audio.snapshot();
+    Ok(AudioState { volume: s.volume, muted: s.muted, available: s.available })
+}
+
+#[tauri::command]
+pub fn audio_set_volume(state: State, volume: f32) -> Result<AudioState> {
+    let v = volume.clamp(0.0, 1.0);
+    state.audio.set_volume(v);
+    state.store.meta_set("audio.volume", &v.to_string())?;
+    audio_state(state)
+}
+
+#[tauri::command]
+pub fn audio_set_muted(state: State, muted: bool) -> Result<AudioState> {
+    state.audio.set_muted(muted);
+    state.store.meta_set("audio.muted", if muted { "true" } else { "false" })?;
+    audio_state(state)
+}
+
+#[tauri::command]
+pub fn audio_test(state: State) -> Result<()> {
+    state.audio.play_completion();
+    Ok(())
+}
+
+// ---------- focus / DND ----------
+
+#[derive(Debug, Serialize)]
+pub struct FocusState {
+    pub dnd: Option<bool>,
+    pub supported: bool,
+}
+
+#[tauri::command]
+pub fn focus_state() -> Result<FocusState> {
+    let dnd = crate::focus::get_dnd()?;
+    Ok(FocusState { dnd, supported: dnd.is_some() })
+}
+
+#[tauri::command]
+pub fn focus_set_dnd(state: State, enabled: bool) -> Result<FocusState> {
+    let toggled = crate::focus::set_dnd(enabled)?;
+    if toggled {
+        state
+            .store
+            .meta_set("focus.dnd", if enabled { "true" } else { "false" })?;
+    }
+    focus_state()
 }

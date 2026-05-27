@@ -35,6 +35,7 @@ parking_lot = "0.12"
 dirs = "5"
 once_cell = "1"
 async-trait = "0.1"
+rodio = { version = "0.19", default-features = false, features = ["wav"] }
 
 [features]
 default = []

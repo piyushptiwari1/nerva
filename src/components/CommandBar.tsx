@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ipc, type RuntimeInfo } from "@/lib/ipc";
+import { FocusMenu } from "@/components/FocusMenu";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
@@ -32,6 +33,8 @@ export function CommandBar() {
           <span className="text-sm">Search, spawn timers, jump to notes…</span>
         </div>
       </div>
+
+      <FocusMenu />
 
       <div className="text-xs text-ink-400 tnum">
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

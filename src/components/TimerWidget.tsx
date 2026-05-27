@@ -1,0 +1,78 @@
+import { useEffect, useState } from "react";
+import { ipc, formatRemaining, type Timer } from "@/lib/ipc";
+
+/**
+ * Floating always-on-top timer widget. Single window (label `timer-widget`).
+ * Shows the most "active" timer — running first, then paused, else most-recent.
+ * Click the header to drag, click the body to pause/resume.
+ */
+export function TimerWidget() {
+  const [timers, setTimers] = useState<Timer[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const rep = await ipc.timerTick();
+        if (alive) setTimers(rep.timers);
+      } catch {
+        /* ignore */
+      }
+    };
+    tick();
+    const h = window.setInterval(tick, 250);
+    return () => {
+      alive = false;
+      window.clearInterval(h);
+    };
+  }, []);
+
+  const active =
+    timers.find((t) => t.status === "running") ??
+    timers.find((t) => t.status === "paused") ??
+    timers[0] ??
+    null;
+
+  async function toggle() {
+    if (!active) return;
+    if (active.status === "running") await ipc.timerPause(active.id);
+    else if (active.status === "paused") await ipc.timerResume(active.id);
+    else if (active.status === "idle") await ipc.timerStart(active.id);
+  }
+
+  return (
+    <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 select-none">
+      <header
+        data-tauri-drag-region
+        className="h-7 px-3 flex items-center justify-between cursor-move bg-ink-900/80 border-b border-ink-700/40"
+      >
+        <span className="text-[10px] uppercase tracking-widest text-ink-400">
+          Nerva
+        </span>
+        <span
+          className="w-2 h-2 rounded-full"
+          style={{ background: active?.color ?? "#7c9cff" }}
+        />
+      </header>
+
+      <button
+        onClick={toggle}
+        disabled={!active}
+        className="flex-1 flex flex-col items-center justify-center hover:bg-ink-900/40 transition-colors disabled:cursor-default px-3"
+      >
+        {active ? (
+          <>
+            <div className="text-3xl font-semibold tnum" style={{ color: active.color }}>
+              {formatRemaining(active.remaining_ms)}
+            </div>
+            <div className="text-[11px] text-ink-400 mt-0.5 truncate max-w-full">
+              {active.name} · {active.status}
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-ink-400">No timer</div>
+        )}
+      </button>
+    </div>
+  );
+}

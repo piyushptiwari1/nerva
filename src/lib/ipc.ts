@@ -66,6 +66,17 @@ export interface NoteSearchHit {
   rank: number;
 }
 
+export interface AudioState {
+  volume: number;
+  muted: boolean;
+  available: boolean;
+}
+
+export interface FocusState {
+  dnd: boolean | null;
+  supported: boolean;
+}
+
 // ---- commands ----
 export const ipc = {
   ping: () => invoke<string>("ping"),
@@ -90,6 +101,13 @@ export const ipc = {
   lastNoteForWorkspace: (workspaceId: string) =>
     invoke<string | null>("last_note_for_workspace", { workspaceId }),
   openSticky: (noteId: string) => invoke<void>("open_sticky", { noteId }),
+  openTimerWidget: () => invoke<void>("open_timer_widget"),
+  audioState: () => invoke<AudioState>("audio_state"),
+  audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
+  audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
+  audioTest: () => invoke<void>("audio_test"),
+  focusState: () => invoke<FocusState>("focus_state"),
+  focusSetDnd: (enabled: boolean) => invoke<FocusState>("focus_set_dnd", { enabled }),
   // workspaces
   workspaceList: () => invoke<Workspace[]>("workspace_list"),
   workspaceCreate: (args: { name: string; color?: string }) =>
