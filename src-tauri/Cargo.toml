@@ -39,5 +39,8 @@ rodio = { version = "0.19", default-features = false, features = ["wav"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 futures-util = "0.3"
 
+[dev-dependencies]
+tempfile = "3"
+
 [features]
 default = []
