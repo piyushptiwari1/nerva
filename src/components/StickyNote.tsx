@@ -50,33 +50,33 @@ export function StickyNote({ noteId }: { noteId: string }) {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-amber-50 text-ink-950 font-sans">
+    <div className="h-screen w-screen flex flex-col bg-amber-50 text-stone-900 font-sans">
       <header
         data-tauri-drag-region
         className="px-3 py-2 flex items-center justify-between bg-amber-200 border-b border-amber-300 cursor-grab active:cursor-grabbing select-none"
         title="Drag to move"
       >
-        <span data-tauri-drag-region className="text-ink-700 text-sm leading-none pointer-events-none mr-2">⋮⋮</span>
+        <span data-tauri-drag-region className="text-stone-700 text-sm leading-none pointer-events-none mr-2">⋮⋮</span>
         <input
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
             scheduleSave(e.target.value, body);
           }}
-          className="bg-transparent text-sm font-semibold focus:outline-none flex-1 mr-2 placeholder:text-amber-700/50"
+          className="bg-transparent text-stone-900 text-sm font-semibold focus:outline-none flex-1 mr-2 placeholder:text-amber-700/50"
           placeholder="Untitled note"
         />
         <div className="flex items-center gap-1">
           <button
             onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
-            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-ink-900 transition-colors"
+            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-stone-900 transition-colors"
             title={mode === "edit" ? "Switch to preview" : "Switch to edit"}
           >
             {mode === "edit" ? "Preview" : "Edit"}
           </button>
           <button
             onClick={closeWin}
-            className="text-base leading-none px-1 text-ink-700 hover:text-ink-950"
+            className="text-base leading-none px-1 text-stone-700 hover:text-stone-950"
             title="Close"
           >
             ×
@@ -92,12 +92,12 @@ export function StickyNote({ noteId }: { noteId: string }) {
             scheduleSave(title, e.target.value);
           }}
           spellCheck={false}
-          className="flex-1 bg-transparent p-3 text-sm font-mono leading-relaxed focus:outline-none resize-none placeholder:text-amber-700/50"
+          className="flex-1 bg-transparent text-stone-900 p-3 text-sm font-mono leading-relaxed focus:outline-none resize-none placeholder:text-amber-700/50"
           placeholder="Start typing… Markdown supported, autosaves as you go."
         />
       ) : (
         <div
-          className="flex-1 p-3 text-sm leading-relaxed overflow-auto prose-sticky cursor-text"
+          className="flex-1 p-3 text-sm text-stone-900 leading-relaxed overflow-auto prose-sticky cursor-text"
           dangerouslySetInnerHTML={{
             __html: body.trim()
               ? renderMarkdown(body)
