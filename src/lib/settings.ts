@@ -17,3 +17,17 @@ export const settings = {
   setTimerPresets: (presets_min: number[]) =>
     invoke<number[]>("timer_presets_set", { args: { presets_min } }),
 };
+
+export interface CrashEntry {
+  name: string;
+  ts_ms: number;
+  size_bytes: number;
+  snippet: string;
+}
+
+export const diag = {
+  listCrashes: () => invoke<CrashEntry[]>("diag_list_crashes"),
+  readCrash: (name: string) =>
+    invoke<string>("diag_read_crash", { args: { name } }),
+  clearCrashes: () => invoke<number>("diag_clear_crashes"),
+};

@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
-import { settings as settingsApi, type SettingsBundle } from "@/lib/settings";
+import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai } from "@/lib/ai";
 
-type Tab = "ai" | "timers" | "audio" | "focus";
+type Tab = "ai" | "timers" | "audio" | "focus" | "diag";
 
 /**
  * Tabbed settings overlay. Opens via `useSettingsUi.toggle()` — bound to
@@ -72,7 +72,7 @@ export function SettingsPane() {
             <div className="flex-1 min-h-0 flex">
               {/* Tab rail */}
               <nav className="w-28 border-r border-ink-700/40 py-2 flex flex-col">
-                {(["ai", "timers", "audio", "focus"] as Tab[]).map((t) => (
+                {((["ai", "timers", "audio", "focus", "diag"] as Tab[])).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -82,7 +82,11 @@ export function SettingsPane() {
                         : "text-ink-400 hover:text-ink-100"
                     }`}
                   >
-                    {t === "ai" ? "Nerva AI" : t[0].toUpperCase() + t.slice(1)}
+                    {t === "ai"
+                      ? "Nerva AI"
+                      : t === "diag"
+                      ? "Diagnostics"
+                      : t[0].toUpperCase() + t.slice(1)}
                   </button>
                 ))}
               </nav>
@@ -96,6 +100,7 @@ export function SettingsPane() {
                     {tab === "timers" && <TimersTab bundle={bundle} onChange={setBundle} />}
                     {tab === "audio" && <AudioTab />}
                     {tab === "focus" && <FocusTab />}
+                    {tab === "diag" && <DiagTab />}
                   </>
                 )}
               </div>
@@ -445,4 +450,123 @@ function Status({ saving, error }: { saving?: boolean; error?: string | null }) 
   if (error) return <div className="mt-1 text-[10px] text-red-400">{error}</div>;
   if (saving) return <div className="mt-1 text-[10px] text-ink-500">saving…</div>;
   return null;
+}
+
+function DiagTab() {
+  const [list, setList] = useState<CrashEntry[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState<{ name: string; body: string } | null>(null);
+
+  async function refresh() {
+    setErr(null);
+    try {
+      setList(await diag.listCrashes());
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
+  useEffect(() => { void refresh(); }, []);
+
+  async function open(name: string) {
+    try {
+      const body = await diag.readCrash(name);
+      setViewing({ name, body });
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
+  async function clear() {
+    if (!list || list.length === 0) return;
+    if (!confirm(`Delete ${list.length} crash log${list.length === 1 ? "" : "s"}?`)) return;
+    setBusy(true);
+    try {
+      await diag.clearCrashes();
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 text-sm">
+      <div className="text-[11px] text-ink-400 leading-relaxed">
+        Local-only panic logs. Nerva writes a file here whenever the Rust
+        backend crashes, then surfaces them so you can copy the stack trace
+        into a bug report. Nothing is uploaded — files live under your
+        platform's user data directory.
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => void refresh()}
+          className="text-[11px] px-2 py-0.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-200"
+        >
+          Refresh
+        </button>
+        <button
+          onClick={() => void clear()}
+          disabled={busy || !list || list.length === 0}
+          className="text-[11px] px-2 py-0.5 rounded bg-red-500/15 hover:bg-red-500/25 text-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Clear all
+        </button>
+      </div>
+      {err && <div className="text-[11px] text-red-400">{err}</div>}
+      {list && list.length === 0 && (
+        <div className="text-[11px] text-ink-500">No crashes recorded. </div>
+      )}
+      {list && list.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {list.map((c) => (
+            <li
+              key={c.name}
+              className="border border-ink-700/60 rounded px-2 py-1.5 hover:bg-ink-800/50 cursor-pointer"
+              onClick={() => void open(c.name)}
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="text-[11px] text-ink-100 font-mono">{c.name}</span>
+                <span className="text-[10px] text-ink-500 tnum ml-auto">
+                  {new Date(c.ts_ms).toLocaleString()} · {(c.size_bytes / 1024).toFixed(1)} KB
+                </span>
+              </div>
+              {c.snippet && (
+                <div className="text-[10px] text-ink-400 truncate mt-0.5">{c.snippet}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {viewing && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/70 backdrop-blur-sm"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setViewing(null); }}
+        >
+          <div className="w-[640px] max-w-[94vw] max-h-[80vh] glass rounded-xl border border-ink-700/60 flex flex-col">
+            <header className="px-3 py-2 border-b border-ink-700/40 flex items-center gap-2">
+              <span className="text-xs font-mono text-ink-100">{viewing.name}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(viewing.body)}
+                className="ml-auto text-[10px] px-2 py-0.5 rounded bg-accent/20 hover:bg-accent/30 text-accent-glow"
+              >
+                Copy
+              </button>
+              <button
+                onClick={() => setViewing(null)}
+                className="text-[10px] px-2 py-0.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-200"
+              >
+                Close
+              </button>
+            </header>
+            <pre className="flex-1 min-h-0 overflow-auto text-[11px] text-ink-200 p-3 font-mono whitespace-pre-wrap">
+              {viewing.body}
+            </pre>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }

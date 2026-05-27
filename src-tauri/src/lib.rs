@@ -17,6 +17,7 @@ pub mod timers;
 pub mod workspaces;
 pub mod audio;
 pub mod focus;
+pub mod diag;
 
 use state::AppState;
 use std::sync::Arc;
@@ -24,6 +25,10 @@ use tracing_subscriber::EnvFilter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Install the crash hook BEFORE tracing/Tauri so a panic during setup is
+    // still captured. Strictly local — see `diag::install_panic_hook`.
+    diag::install_panic_hook();
+
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "nerva=info".into()))
         .with_target(false)
@@ -143,6 +148,10 @@ pub fn run() {
             // settings
             ipc::settings_get,
             ipc::timer_presets_set,
+            // diagnostics
+            ipc::diag_list_crashes,
+            ipc::diag_read_crash,
+            ipc::diag_clear_crashes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

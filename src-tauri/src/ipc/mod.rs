@@ -1115,3 +1115,27 @@ fn short_payload(v: &serde_json::Value) -> String {
     }
     parts.join(" ")
 }
+
+// =========================
+// Diagnostics IPC
+// =========================
+
+#[tauri::command]
+pub fn diag_list_crashes() -> Result<Vec<crate::diag::CrashEntry>> {
+    crate::diag::list_crashes()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CrashReadArgs {
+    pub name: String,
+}
+
+#[tauri::command]
+pub fn diag_read_crash(args: CrashReadArgs) -> Result<String> {
+    crate::diag::read_crash(&args.name)
+}
+
+#[tauri::command]
+pub fn diag_clear_crashes() -> Result<usize> {
+    crate::diag::clear_crashes()
+}
