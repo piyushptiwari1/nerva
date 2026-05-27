@@ -165,6 +165,10 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
     state
         .store
         .note_upsert(&id, ws.as_deref(), &args.title, &args.body)?;
+    // Remember this as the "resume" note for the workspace.
+    if let Some(ws_id) = ws.as_deref() {
+        let _ = state.store.meta_set(&format!("last_note:{ws_id}"), &id);
+    }
     let payload = serde_json::json!({
         "id": id,
         "title": args.title,
@@ -186,6 +190,49 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
 #[tauri::command]
 pub fn note_list(state: State) -> Result<Vec<NoteMeta>> {
     Ok(state.notes.lock().list())
+}
+
+#[derive(Debug, Serialize)]
+pub struct NoteSearchHit {
+    pub id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub snippet: String,
+    pub rank: f64,
+}
+
+#[tauri::command]
+pub fn note_search(state: State, query: String, limit: Option<i64>) -> Result<Vec<NoteSearchHit>> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+    // Sanitize: FTS5 MATCH treats some chars specially. Wrap each token in quotes
+    // and append `*` for prefix search to make casual queries forgiving.
+    let sanitized = q
+        .split_whitespace()
+        .map(|t| {
+            let safe = t.replace('"', "");
+            format!("\"{safe}\"*")
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let hits = state.store.note_search(&sanitized, limit.unwrap_or(20))?;
+    Ok(hits
+        .into_iter()
+        .map(|(id, ws, title, snippet, rank)| NoteSearchHit {
+            id,
+            workspace_id: ws,
+            title,
+            snippet,
+            rank,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn last_note_for_workspace(state: State, workspace_id: String) -> Result<Option<String>> {
+    state.store.meta_get(&format!("last_note:{workspace_id}"))
 }
 
 // ---------- workspaces ----------
@@ -241,4 +288,33 @@ pub fn workspace_active(state: State) -> Result<Option<Workspace>> {
 #[tauri::command]
 pub fn events_recent(state: State, limit: Option<i64>) -> Result<Vec<StoredEvent>> {
     state.store.recent_events(limit.unwrap_or(200))
+}
+
+// ---------- sticky windows ----------
+
+/// Spawn (or focus, if already open) a small always-on-top sticky-note window
+/// rendering a single note. The frontend is the same bundle — it reads the
+/// `sticky` URL query param and mounts the `<StickyNote/>` view.
+#[tauri::command]
+pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    let label = format!("sticky-{}", note_id.replace(['-', ' '], "_"));
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    let url = format!("index.html?sticky={note_id}");
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
+        .title("Nerva Sticky")
+        .inner_size(360.0, 420.0)
+        .min_inner_size(240.0, 240.0)
+        .always_on_top(true)
+        .decorations(false)
+        .transparent(false)
+        .skip_taskbar(false)
+        .resizable(true)
+        .build()
+        .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))?;
+    Ok(())
 }

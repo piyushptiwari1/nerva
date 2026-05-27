@@ -74,9 +74,98 @@ impl Store {
                 k TEXT PRIMARY KEY,
                 v TEXT NOT NULL
             );
+
+            -- FTS5 virtual table over notes (content-less; we sync manually via triggers).
+            CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+                id UNINDEXED,
+                workspace_id UNINDEXED,
+                title,
+                body,
+                tokenize = 'porter unicode61'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+                INSERT INTO notes_fts(id, workspace_id, title, body)
+                VALUES (new.id, new.workspace_id, new.title, new.body);
+            END;
+            CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+                DELETE FROM notes_fts WHERE id = old.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+                DELETE FROM notes_fts WHERE id = old.id;
+                INSERT INTO notes_fts(id, workspace_id, title, body)
+                VALUES (new.id, new.workspace_id, new.title, new.body);
+            END;
             "#,
         )?;
+        // Backfill FTS if it's empty but notes exist (first migration after upgrade).
+        let conn = self.pool.get()?;
+        let fts_count: i64 =
+            conn.query_row("SELECT count(*) FROM notes_fts", [], |r| r.get(0))?;
+        let notes_count: i64 =
+            conn.query_row("SELECT count(*) FROM notes", [], |r| r.get(0))?;
+        if fts_count == 0 && notes_count > 0 {
+            conn.execute(
+                "INSERT INTO notes_fts(id, workspace_id, title, body)
+                 SELECT id, workspace_id, title, body FROM notes",
+                [],
+            )?;
+        }
         Ok(())
+    }
+
+    pub fn meta_set(&self, k: &str, v: &str) -> Result<()> {
+        let conn = self.pool.get()?;
+        conn.execute(
+            "INSERT INTO meta (k, v) VALUES (?1, ?2)
+             ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+            params![k, v],
+        )?;
+        Ok(())
+    }
+
+    pub fn meta_get(&self, k: &str) -> Result<Option<String>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare("SELECT v FROM meta WHERE k = ?1")?;
+        let mut rows = stmt.query(params![k])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Full-text search across notes. Returns (id, workspace_id, title, snippet, rank).
+    pub fn note_search(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<(String, String, String, String, f64)>> {
+        let conn = self.pool.get()?;
+        // snippet(table, col_index, before, after, ellipsis, max_tokens)
+        let mut stmt = conn.prepare(
+            "SELECT id, COALESCE(workspace_id, ''), title,
+                    snippet(notes_fts, 3, '<mark>', '</mark>', '…', 12) AS snip,
+                    bm25(notes_fts) AS rank
+             FROM notes_fts
+             WHERE notes_fts MATCH ?1
+             ORDER BY rank
+             LIMIT ?2",
+        )?;
+        let rows = stmt.query_map(params![query, limit], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, f64>(4)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
     }
 
     /// Append an event with current wall-clock timestamp.

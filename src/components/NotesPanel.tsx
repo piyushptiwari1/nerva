@@ -1,32 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { ipc } from "@/lib/ipc";
+import { ipc, type NoteSearchHit } from "@/lib/ipc";
 import { useApp } from "@/store/app";
+import { renderMarkdown } from "@/lib/markdown";
+
+type Mode = "edit" | "view";
 
 /**
- * Persistent notes panel — autosaves on every keystroke (debounced 250ms).
- * Always editable; the active note is the most-recent one for the active
- * workspace (a "scratchpad" model). New notes are created on demand.
+ * Persistent notes panel — autosaves on every keystroke (debounced 250ms),
+ * renders Markdown in view mode, and supports FTS5 search + an always-on-top
+ * sticky-note window for the current note.
  */
 export function NotesPanel() {
-  const { notes, active, refreshNotes } = useApp();
+  const { notes, active, refreshNotes, lastNoteFor } = useApp();
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [mode, setMode] = useState<Mode>("edit");
+  const [search, setSearch] = useState("");
+  const [hits, setHits] = useState<NoteSearchHit[]>([]);
   const saveTimer = useRef<number | null>(null);
+  const searchTimer = useRef<number | null>(null);
 
-  // pick most-recent note for the active workspace on workspace change
+  // On workspace change: try resume last-edited note, else most-recent, else fresh.
   useEffect(() => {
-    const wsNotes = notes.filter((n) => n.workspace_id === active?.id);
-    const pick = wsNotes[0] ?? null;
-    if (pick && pick.id !== currentId) {
-      loadNote(pick.id);
-    } else if (!pick) {
-      // fresh scratchpad
-      setCurrentId(null);
-      setTitle("Scratchpad");
-      setBody("");
-    }
+    if (!active) return;
+    let cancelled = false;
+    (async () => {
+      const lastId = await lastNoteFor(active.id);
+      if (cancelled) return;
+      if (lastId) {
+        await loadNote(lastId);
+        return;
+      }
+      const wsNotes = notes.filter((n) => n.workspace_id === active.id);
+      const pick = wsNotes[0] ?? null;
+      if (pick) {
+        await loadNote(pick.id);
+      } else {
+        setCurrentId(null);
+        setTitle("Scratchpad");
+        setBody("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.id]);
 
@@ -59,70 +78,162 @@ export function NotesPanel() {
     setCurrentId(null);
     setTitle("New note");
     setBody("");
+    setMode("edit");
+  }
+
+  function onSearch(q: string) {
+    setSearch(q);
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    if (!q.trim()) {
+      setHits([]);
+      return;
+    }
+    searchTimer.current = window.setTimeout(async () => {
+      try {
+        setHits(await ipc.noteSearch(q, 10));
+      } catch {
+        setHits([]);
+      }
+    }, 150);
+  }
+
+  async function popSticky() {
+    if (!currentId) return;
+    try {
+      await ipc.openSticky(currentId);
+    } catch (e) {
+      console.error("open sticky", e);
+    }
   }
 
   return (
     <aside className="glass rounded-xl flex flex-col min-h-0">
-      <header className="flex items-center justify-between p-3 border-b border-ink-700/40">
-        <div className="flex flex-col">
+      <header className="flex items-center justify-between p-3 border-b border-ink-700/40 gap-2">
+        <div className="flex flex-col min-w-0">
           <h3 className="text-[11px] uppercase tracking-wider text-ink-400">
             Persistent notes
           </h3>
-          <span className="text-[10px] text-ink-500 mt-0.5">
-            {savedAt ? `Saved · ${new Date(savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Autosaves every keystroke"}
+          <span className="text-[10px] text-ink-500 mt-0.5 truncate">
+            {savedAt
+              ? `Saved · ${new Date(savedAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}`
+              : "Autosaves every keystroke"}
           </span>
         </div>
-        <button
-          onClick={newNote}
-          className="text-xs px-2 py-1 rounded-md hairline hover:bg-ink-700"
-        >
-          + New
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
+            className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700"
+            title="Toggle Markdown preview"
+          >
+            {mode === "edit" ? "View" : "Edit"}
+          </button>
+          <button
+            onClick={popSticky}
+            disabled={!currentId}
+            className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Pop out as always-on-top sticky"
+          >
+            Pop
+          </button>
+          <button
+            onClick={newNote}
+            className="text-xs px-2 py-1 rounded-md hairline hover:bg-ink-700"
+          >
+            + New
+          </button>
+        </div>
       </header>
 
-      <input
-        value={title}
-        onChange={(e) => {
-          setTitle(e.target.value);
-          scheduleSave(e.target.value, body);
-        }}
-        className="bg-transparent px-3 py-2 text-sm font-medium border-b border-ink-700/40 focus:outline-none"
-        placeholder="Title"
-      />
+      <div className="px-3 py-2 border-b border-ink-700/40">
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Search notes…"
+          className="w-full bg-ink-800/60 hairline rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent/50"
+        />
+      </div>
 
-      <textarea
-        value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-          scheduleSave(title, e.target.value);
-        }}
-        spellCheck={false}
-        className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0"
-        placeholder="Brain dump. Markdown welcome. Cursor and content survive reboot."
-      />
-
-      {notes.length > 0 && (
-        <div className="border-t border-ink-700/40 max-h-32 overflow-auto p-2">
-          <h4 className="text-[10px] uppercase tracking-wider text-ink-500 px-1 mb-1">
-            Recent
-          </h4>
-          <div className="flex flex-col">
-            {notes
-              .filter((n) => !active || n.workspace_id === active.id)
-              .slice(0, 8)
-              .map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => loadNote(n.id)}
-                  className={`text-left text-xs px-2 py-1 rounded-md hover:bg-ink-800/60 truncate ${
-                    n.id === currentId ? "text-ink-100" : "text-ink-300"
-                  }`}
-                >
-                  {n.title || "Untitled"}
-                </button>
-              ))}
-          </div>
+      {hits.length > 0 ? (
+        <div className="flex-1 overflow-auto p-2 flex flex-col gap-1 min-h-0">
+          {hits.map((h) => (
+            <button
+              key={h.id}
+              onClick={() => {
+                loadNote(h.id);
+                setSearch("");
+                setHits([]);
+              }}
+              className="text-left px-2 py-2 rounded-md hover:bg-ink-800/60"
+            >
+              <div className="text-xs font-medium text-ink-100 truncate">
+                {h.title || "Untitled"}
+              </div>
+              <div
+                className="text-[11px] text-ink-400 mt-0.5 line-clamp-2 leading-snug"
+                dangerouslySetInnerHTML={{ __html: h.snippet }}
+              />
+            </button>
+          ))}
         </div>
+      ) : (
+        <>
+          <input
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              scheduleSave(e.target.value, body);
+            }}
+            className="bg-transparent px-3 py-2 text-sm font-medium border-b border-ink-700/40 focus:outline-none"
+            placeholder="Title"
+          />
+
+          {mode === "edit" ? (
+            <textarea
+              value={body}
+              onChange={(e) => {
+                setBody(e.target.value);
+                scheduleSave(title, e.target.value);
+              }}
+              spellCheck={false}
+              className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none"
+              placeholder="Brain dump. Markdown welcome. Cursor and content survive reboot."
+            />
+          ) : (
+            <div
+              className="flex-1 overflow-auto px-3 py-3 text-sm leading-relaxed min-h-0 prose-nerva"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
+              onDoubleClick={() => setMode("edit")}
+            />
+          )}
+
+          {notes.length > 0 && (
+            <div className="border-t border-ink-700/40 max-h-32 overflow-auto p-2">
+              <h4 className="text-[10px] uppercase tracking-wider text-ink-500 px-1 mb-1">
+                Recent
+              </h4>
+              <div className="flex flex-col">
+                {notes
+                  .filter((n) => !active || n.workspace_id === active.id)
+                  .slice(0, 8)
+                  .map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => loadNote(n.id)}
+                      className={`text-left text-xs px-2 py-1 rounded-md hover:bg-ink-800/60 truncate ${
+                        n.id === currentId ? "text-ink-100" : "text-ink-300"
+                      }`}
+                    >
+                      {n.title || "Untitled"}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </aside>
   );

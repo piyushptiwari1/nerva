@@ -11,6 +11,7 @@ interface AppStore {
   refreshTimers: () => Promise<void>;
   refreshNotes: () => Promise<void>;
   activateWorkspace: (id: string) => Promise<void>;
+  lastNoteFor: (workspaceId: string) => Promise<string | null>;
 }
 
 export const useApp = create<AppStore>((set, get) => ({
@@ -41,5 +42,8 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ active });
     await get().refreshTimers();
     await get().refreshNotes();
+  },
+  async lastNoteFor(workspaceId) {
+    return ipc.lastNoteForWorkspace(workspaceId);
   },
 }));

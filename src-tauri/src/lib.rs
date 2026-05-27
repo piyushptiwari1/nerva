@@ -63,6 +63,8 @@ pub fn run() {
             ipc::note_get,
             ipc::note_save,
             ipc::note_list,
+            ipc::note_search,
+            ipc::last_note_for_workspace,
             // workspaces
             ipc::workspace_list,
             ipc::workspace_create,
@@ -70,6 +72,8 @@ pub fn run() {
             ipc::workspace_active,
             // events (timeline)
             ipc::events_recent,
+            // sticky
+            ipc::open_sticky,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

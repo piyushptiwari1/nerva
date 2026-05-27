@@ -58,6 +58,14 @@ export interface TickReport {
   timers: Timer[];
 }
 
+export interface NoteSearchHit {
+  id: string;
+  workspace_id: string;
+  title: string;
+  snippet: string;
+  rank: number;
+}
+
 // ---- commands ----
 export const ipc = {
   ping: () => invoke<string>("ping"),
@@ -77,6 +85,11 @@ export const ipc = {
   noteSave: (args: { id?: string; title: string; body: string; workspace_id?: string }) =>
     invoke<Note>("note_save", { args }),
   noteList: () => invoke<NoteMeta[]>("note_list"),
+  noteSearch: (query: string, limit?: number) =>
+    invoke<NoteSearchHit[]>("note_search", { query, limit }),
+  lastNoteForWorkspace: (workspaceId: string) =>
+    invoke<string | null>("last_note_for_workspace", { workspaceId }),
+  openSticky: (noteId: string) => invoke<void>("open_sticky", { noteId }),
   // workspaces
   workspaceList: () => invoke<Workspace[]>("workspace_list"),
   workspaceCreate: (args: { name: string; color?: string }) =>
