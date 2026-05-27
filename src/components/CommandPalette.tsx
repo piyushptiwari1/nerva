@@ -27,6 +27,7 @@ const PRESETS = [
 export function CommandPalette() {
   const open = usePalette((s) => s.open);
   const setOpen = usePalette((s) => s.set);
+  const askNerva = usePalette((s) => s.ask);
   const { workspaces, active, timers, notes, tasks, focus } = useApp();
   const refreshTimers = useApp((s) => s.refreshTimers);
   const refreshTasks = useApp((s) => s.refreshTasks);
@@ -166,6 +167,45 @@ export function CommandPalette() {
         },
       });
     }
+
+    // --- Ask Nerva (local LLM) ---
+    // `?`-prefix lifts the typed text into a ready-to-send prompt; the bare
+    // action opens the pane empty for free-form prompting.
+    const askDraft = draft.startsWith("?") ? draft.slice(1).trim() : "";
+    if (askDraft) {
+      out.push({
+        id: `ai.ask.draft`,
+        group: "Create",
+        glyph: "✦",
+        title: `Ask Nerva: "${askDraft}"`,
+        subtitle: "stream a reply from your local LLM",
+        keywords: `ask nerva ai ${askDraft}`.toLowerCase(),
+        run: () => askNerva(askDraft),
+      });
+    }
+    out.push({
+      id: "ai.ask",
+      group: "System",
+      glyph: "✦",
+      title: "Ask Nerva…",
+      subtitle: "open the local-LLM pane",
+      keywords: "ask nerva ai llm chat question".toLowerCase(),
+      run: () => askNerva(""),
+    });
+    out.push({
+      id: "ai.recap",
+      group: "System",
+      glyph: "✦",
+      title: "Recap today",
+      subtitle: "summarize today's events, timers, and tasks",
+      keywords: "recap summary today summarize day".toLowerCase(),
+      run: () =>
+        askNerva(
+          "Give me a brief recap of what I did today. Highlight completed " +
+            "timers, tasks I finished, and one suggestion for what to do next " +
+            "based on what's open.",
+        ),
+    });
 
     // --- System ---
     if (focus?.supported) {

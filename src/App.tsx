@@ -7,6 +7,7 @@ import { NotesPanel } from "@/components/NotesPanel";
 import { TimelineBar } from "@/components/TimelineBar";
 import { CommandBar } from "@/components/CommandBar";
 import { CommandPalette } from "@/components/CommandPalette";
+import { AskNerva } from "@/components/AskNerva";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
@@ -47,6 +48,7 @@ export default function App() {
       </div>
       <TimelineBar />
       <CommandPalette />
+      <AskNerva />
     </div>
   );
 }

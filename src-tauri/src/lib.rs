@@ -7,6 +7,7 @@
 //!   - Tauri commands + events for IPC with the React frontend.
 
 pub mod error;
+pub mod intelligence;
 pub mod ipc;
 pub mod notes;
 pub mod state;
@@ -94,6 +95,10 @@ pub fn run() {
             // focus / DND
             ipc::focus_state,
             ipc::focus_set_dnd,
+            // intelligence (local LLM)
+            ipc::ai_health,
+            ipc::ai_ask,
+            ipc::ai_settings_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

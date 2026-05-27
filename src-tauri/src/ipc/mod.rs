@@ -1,6 +1,7 @@
 //! Tauri command surface (frontend ↔ backend IPC).
 
 use crate::error::{NervaError, Result};
+use crate::intelligence::{AiHealth, ChatMessage};
 use crate::notes::NoteMeta;
 use crate::state::AppState;
 use crate::store::StoredEvent;
@@ -606,4 +607,146 @@ pub fn focus_set_dnd(state: State, enabled: bool) -> Result<FocusState> {
             .meta_set("focus.dnd", if enabled { "true" } else { "false" })?;
     }
     focus_state()
+}
+
+// ---------- intelligence (local LLM) ----------
+
+#[derive(Debug, Deserialize)]
+pub struct AskArgs {
+    /// Frontend-supplied request id — echoed in every `ai.chunk` event so the
+    /// UI can multiplex concurrent asks against a single window event channel.
+    pub request_id: String,
+    pub prompt: String,
+    /// Whether to inject workspace + recent-events context into the system msg.
+    #[serde(default)]
+    pub include_context: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct AiChunk {
+    pub request_id: String,
+    pub delta: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct AiResult {
+    pub request_id: String,
+    pub text: String,
+}
+
+#[tauri::command]
+pub async fn ai_health(state: tauri::State<'_, Arc<AppState>>) -> Result<AiHealth> {
+    Ok(state.ai.health().await)
+}
+
+#[tauri::command]
+pub async fn ai_ask(
+    window: tauri::Window,
+    state: tauri::State<'_, Arc<AppState>>,
+    args: AskArgs,
+) -> Result<AiResult> {
+    use tauri::Emitter;
+    if args.prompt.trim().is_empty() {
+        return Err(NervaError::Invalid("prompt required".into()));
+    }
+    let messages = build_messages(&state, &args)?;
+    let req_id = args.request_id.clone();
+    let win = window.clone();
+    let final_text = state
+        .ai
+        .chat_stream(messages, |delta| {
+            // Best-effort emit; if the listener has dropped, swallow the error
+            // rather than aborting the stream.
+            let _ = win.emit(
+                "ai.chunk",
+                AiChunk { request_id: req_id.clone(), delta: delta.to_string() },
+            );
+        })
+        .await?;
+    // Tell the frontend the stream ended cleanly even if no tokens arrived.
+    let _ = window.emit(
+        "ai.done",
+        AiResult { request_id: args.request_id.clone(), text: final_text.clone() },
+    );
+    Ok(AiResult { request_id: args.request_id, text: final_text })
+}
+
+#[derive(Debug, Serialize)]
+pub struct AiSettings {
+    pub endpoint: String,
+    pub model: String,
+}
+
+#[tauri::command]
+pub fn ai_settings_get(state: State) -> Result<AiSettings> {
+    let cfg = state.ai.config();
+    Ok(AiSettings { endpoint: cfg.endpoint.clone(), model: cfg.model.clone() })
+}
+
+/// Build the Ollama message list. The system prompt is short, opinionated, and
+/// pins the assistant's role; optional context appends today's workspace name,
+/// completed/active timers, open tasks, and the last 30 events.
+fn build_messages(state: &State, args: &AskArgs) -> Result<Vec<ChatMessage>> {
+    let mut system = String::from(
+        "You are Nerva, a calm, terse copilot living inside a personal focus \
+         workspace. Answer concisely. Prefer bullet points. Never invent \
+         calendar events, files, or facts that aren't in the supplied context. \
+         If asked to plan, propose 1–3 short steps.",
+    );
+    if args.include_context {
+        let ws = state.workspaces.lock().active().map(|w| w.name.clone());
+        let timers = state.timers.lock().list();
+        let active_timers: Vec<String> = timers
+            .iter()
+            .filter(|t| matches!(t.status, crate::timers::TimerStatus::Running | crate::timers::TimerStatus::Paused))
+            .map(|t| format!("- {} ({}m, {:?})", t.name, t.duration_ms / 60_000, t.status))
+            .collect();
+        let tasks = state.tasks.lock().list();
+        let open_tasks: Vec<String> = tasks
+            .iter()
+            .filter(|t| matches!(t.status, crate::tasks::TaskStatus::Todo))
+            .take(10)
+            .map(|t| format!("- {}", t.title))
+            .collect();
+        let recent = state.store.recent_events(30)?;
+        let recent_lines: Vec<String> = recent
+            .iter()
+            .rev()
+            .map(|ev| format!("- {} {}", ev.kind, short_payload(&ev.payload)))
+            .collect();
+
+        system.push_str("\n\n# Current session\n");
+        if let Some(w) = ws { system.push_str(&format!("Workspace: {w}\n")); }
+        if !active_timers.is_empty() {
+            system.push_str("Active timers:\n");
+            system.push_str(&active_timers.join("\n"));
+            system.push('\n');
+        }
+        if !open_tasks.is_empty() {
+            system.push_str("Open tasks:\n");
+            system.push_str(&open_tasks.join("\n"));
+            system.push('\n');
+        }
+        if !recent_lines.is_empty() {
+            system.push_str("Recent events (oldest→newest):\n");
+            system.push_str(&recent_lines.join("\n"));
+            system.push('\n');
+        }
+    }
+    Ok(vec![
+        ChatMessage { role: "system".into(), content: system },
+        ChatMessage { role: "user".into(), content: args.prompt.clone() },
+    ])
+}
+
+fn short_payload(v: &serde_json::Value) -> String {
+    // Pick a couple of common keys so context stays compact.
+    let mut parts = vec![];
+    for k in ["name", "title", "id"] {
+        if let Some(s) = v.get(k).and_then(|x| x.as_str()) {
+            parts.push(format!("{k}={s}"));
+            if parts.len() >= 2 { break; }
+        }
+    }
+    parts.join(" ")
 }

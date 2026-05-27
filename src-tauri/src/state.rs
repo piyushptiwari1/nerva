@@ -2,6 +2,7 @@
 
 use crate::audio::{AudioEngine, AudioSettings};
 use crate::error::{NervaError, Result};
+use crate::intelligence::{OllamaClient, OllamaConfig};
 use crate::notes::NotesProjection;
 use crate::store::Store;
 use crate::tasks::TasksProjection;
@@ -19,6 +20,7 @@ pub struct AppState {
     pub workspaces: Arc<Mutex<WorkspacesProjection>>,
     pub tasks: Arc<Mutex<TasksProjection>>,
     pub audio: Arc<AudioEngine>,
+    pub ai: Arc<OllamaClient>,
     pub data_dir: PathBuf,
 }
 
@@ -69,6 +71,12 @@ impl AppState {
         }
         let audio = Arc::new(AudioEngine::spawn(audio_settings));
 
+        // Resolve LLM config: meta-table override, then env vars, then defaults.
+        let mut cfg = OllamaConfig::from_env();
+        if let Ok(Some(url)) = store.meta_get("ai.endpoint") { cfg.endpoint = url; }
+        if let Ok(Some(m)) = store.meta_get("ai.model") { cfg.model = m; }
+        let ai = Arc::new(OllamaClient::new(cfg));
+
         Ok(Self {
             store,
             timers: Arc::new(Mutex::new(timers)),
@@ -76,6 +84,7 @@ impl AppState {
             workspaces: Arc::new(Mutex::new(workspaces)),
             tasks: Arc::new(Mutex::new(tasks)),
             audio,
+            ai,
             data_dir,
         })
     }
