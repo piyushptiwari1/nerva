@@ -38,10 +38,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "rpm", "nsis", "msi"],
+    "targets": [
+      "deb",
+      "appimage",
+      "rpm",
+      "nsis",
+      "msi"
+    ],
     "publisher": "Bytical Solutions Private Limited",
     "homepage": "https://nerva.bytical.ai",
-    "copyright": "© 2026 Bytical Solutions Private Limited",
+    "copyright": "\u00a9 2026 Bytical Solutions Private Limited",
     "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",
@@ -64,7 +70,11 @@
         "priority": "optional"
       },
       "rpm": {
-        "depends": ["webkit2gtk4.1", "gtk3", "libayatana-appindicator-gtk3"]
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "libayatana-appindicator-gtk3"
+        ]
       },
       "appimage": {
         "bundleMediaFramework": false
@@ -84,7 +94,9 @@
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "installMode": "perMachine",
-        "languages": ["English"],
+        "languages": [
+          "English"
+        ],
         "template": null,
         "headerImage": null,
         "sidebarImage": null
@@ -108,7 +120,7 @@
         "https://github.com/piyushptiwari1/nerva/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "REPLACE_WITH_GENERATED_PUBKEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwQjUxN0NEMjIxNTZDNjQKUldSa2JCVWl6UmUxUUF5dHdxcFdMUm03OGc5MzhIZjVCc1pqZHdORzgxbWFOcjdvQTNnMUFzLzEK"
     }
   }
 }
