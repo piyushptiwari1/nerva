@@ -12,9 +12,15 @@ import { useHabitsUi } from "@/store/habits";
 /**
  * HabitsPane — daily habit tracker.
  *
- * Visual language matches the rest of Nerva: matte ink shell, `glass` panels,
- * accent-blue glow for affirmative state, deliberately soft red for misses.
- * Charts are hand-drawn SVG to avoid pulling a chart library.
+ * Row design (revised after user feedback):
+ *  - Collapsed by default: stripe · name · today control · streak · 30-d %
+ *    so a dozen habits fit on one screen.
+ *  - Click the row header to expand into the analytics: 12-week heatmap,
+ *    sparkline, weekday distribution, and an all-time per-year history.
+ *
+ * The new-habit form intentionally exposes only "Yes / No" and "Amount"
+ * because numeric Count and free-form Amount overlap. Existing `count`
+ * habits keep working (the backend enum is unchanged).
  */
 export function HabitsPane() {
   const open = useHabitsUi((s) => s.open);
@@ -22,6 +28,7 @@ export function HabitsPane() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -63,7 +70,7 @@ export function HabitsPane() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 32, opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="w-[min(960px,96vw)] h-full bg-ink-900/95 border-l border-ink-700/60 backdrop-blur-md shadow-2xl flex flex-col"
+            className="w-[min(820px,96vw)] h-full bg-ink-900/95 border-l border-ink-700/60 backdrop-blur-md shadow-2xl flex flex-col"
           >
             <header className="px-5 py-3 border-b border-ink-700/50 flex items-center justify-between bg-gradient-to-b from-ink-800/40 to-transparent">
               <div className="flex items-center gap-3">
@@ -75,7 +82,7 @@ export function HabitsPane() {
                     Habits
                   </h2>
                   <p className="text-[10.5px] text-ink-400 mt-0.5">
-                    Daily tracker · skip-day honored · local-first
+                    Click a habit to see its full history.
                   </p>
                 </div>
               </div>
@@ -124,7 +131,7 @@ export function HabitsPane() {
               )}
             </AnimatePresence>
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-2">
               {loading && habits.length === 0 && (
                 <div className="text-xs text-ink-400 px-2">Loading…</div>
               )}
@@ -134,7 +141,15 @@ export function HabitsPane() {
               {habits
                 .filter((h) => !h.archived)
                 .map((h) => (
-                  <HabitRow key={h.id} habit={h} onChanged={refresh} />
+                  <HabitRow
+                    key={h.id}
+                    habit={h}
+                    expanded={expanded === h.id}
+                    onToggle={() =>
+                      setExpanded((e) => (e === h.id ? null : h.id))
+                    }
+                    onChanged={refresh}
+                  />
                 ))}
             </div>
           </motion.div>
@@ -145,26 +160,38 @@ export function HabitsPane() {
 }
 
 // ── palette ────────────────────────────────────────────────────────────────
-// Picked for the matte ink theme: cool blue (default), warm amber, rest-green,
-// magenta, teal, sand, lime, coral, lavender. All sit comfortably against
-// ink-900 with the alpha-ramp heatmap.
 const PALETTE = [
-  "#7c9cff", // accent blue
-  "#e8b86d", // focus amber
-  "#7dd6a8", // rest green
-  "#d27dff", // magenta
-  "#7de8e0", // teal
-  "#ffd07d", // sand
-  "#9ce87d", // lime
-  "#ff9a8b", // coral
-  "#b3a8ff", // lavender
+  "#7c9cff", "#e8b86d", "#7dd6a8", "#d27dff", "#7de8e0",
+  "#ffd07d", "#9ce87d", "#ff9a8b", "#b3a8ff",
 ];
+
+// ── date utils ─────────────────────────────────────────────────────────────
+
+function todayIso(): string {
+  const d = new Date();
+  return iso(d);
+}
+function iso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+function isoMinusDays(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return iso(d);
+}
+function daysInYear(year: number): number {
+  return ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 
 function NewHabitForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<HabitKind>("bool");
+  // Only two kinds exposed in the form; `count` is treated as a special case
+  // of amount and not offered separately.
+  const [kind, setKind] = useState<Exclude<HabitKind, "count">>("bool");
   const [target, setTarget] = useState<string>("");
   const [unit, setUnit] = useState("");
   const [color, setColor] = useState(PALETTE[0]);
@@ -202,7 +229,7 @@ function NewHabitForm({ onCreated }: { onCreated: () => void }) {
           className="flex-1 bg-ink-900/80 hairline rounded-md px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-accent/40"
         />
         <div className="flex rounded-md overflow-hidden hairline">
-          {(["bool", "count", "amount"] as HabitKind[]).map((k) => (
+          {(["bool", "amount"] as const).map((k) => (
             <button
               key={k}
               onClick={() => setKind(k)}
@@ -212,31 +239,27 @@ function NewHabitForm({ onCreated }: { onCreated: () => void }) {
                   : "bg-ink-900/60 text-ink-300 hover:text-ink-100"
               }`}
             >
-              {k === "bool" ? "Yes / No" : k === "count" ? "Count" : "Amount"}
+              {k === "bool" ? "Yes / No" : "Amount"}
             </button>
           ))}
         </div>
       </div>
-      {kind !== "bool" && (
+      {kind === "amount" && (
         <div className="flex gap-2">
           <input
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            placeholder={
-              kind === "count"
-                ? "Daily target (e.g. 20)"
-                : "Daily target (e.g. 30)"
-            }
+            placeholder="Daily target (optional, e.g. 30)"
             type="number"
             min={0}
-            step={kind === "count" ? 1 : 0.1}
+            step={0.1}
             className="flex-1 bg-ink-900/80 hairline rounded-md px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-accent/40"
           />
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
-            placeholder={kind === "count" ? "reps" : "min, ml, km…"}
-            className="w-36 bg-ink-900/80 hairline rounded-md px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-accent/40"
+            placeholder="reps, min, ml, km…"
+            className="w-40 bg-ink-900/80 hairline rounded-md px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-accent/40"
           />
         </div>
       )}
@@ -270,53 +293,40 @@ function NewHabitForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-// ── date utils ─────────────────────────────────────────────────────────────
-
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-function isoMinusDays(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 
 function HabitRow({
   habit,
+  expanded,
+  onToggle,
   onChanged,
 }: {
   habit: Habit;
+  expanded: boolean;
+  onToggle: () => void;
   onChanged: () => void;
 }) {
-  const [entries, setEntries] = useState<HabitEntry[]>([]);
+  const today = useMemo(() => todayIso(), []);
+  const from = useMemo(() => isoMinusDays(83), []); // 12 weeks for the always-on hint
+
+  // Today's entry only (cheap call so the collapsed row renders fast).
+  const [todayEntry, setTodayEntry] = useState<HabitEntry | null>(null);
   const [stats, setStats] = useState<HabitStats | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const today = useMemo(() => todayIso(), []);
-  const from = useMemo(() => isoMinusDays(83), []); // 84 days = 12 weeks
-
   const refresh = useCallback(async () => {
-    const [e, s] = await Promise.all([
-      ipc.habitEntries({ habit_id: habit.id, from_day: from, to_day: today }),
+    const [entries, s] = await Promise.all([
+      ipc.habitEntries({ habit_id: habit.id, from_day: today, to_day: today }),
       ipc.habitStats({ habit_id: habit.id, today }),
     ]);
-    setEntries(e);
+    setTodayEntry(entries[0] ?? null);
     setStats(s);
-  }, [habit.id, from, today]);
+  }, [habit.id, today]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const todayEntry = entries.find((e) => e.day === today) ?? null;
   const target = habit.target ?? (habit.kind === "bool" ? 1 : 0.0001);
   const todayComplete =
     !!todayEntry && !todayEntry.skipped && todayEntry.value >= target;
@@ -344,7 +354,8 @@ function HabitRow({
     }
   }
 
-  async function remove() {
+  async function remove(e: React.MouseEvent) {
+    e.stopPropagation();
     if (!confirm(`Delete habit "${habit.name}" and all its history?`)) return;
     await ipc.habitDelete(habit.id);
     onChanged();
@@ -353,47 +364,85 @@ function HabitRow({
   return (
     <motion.section
       layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={false}
       transition={{ duration: 0.18 }}
-      className={`relative rounded-xl border bg-ink-900/60 p-4 transition-colors ${
+      className={`relative rounded-xl border bg-ink-900/60 overflow-hidden transition-colors ${
         todayComplete
-          ? "border-accent/30 shadow-[0_0_24px_-12px_rgba(124,156,255,0.5)]"
-          : todaySkipped
-            ? "border-ink-700/60"
-            : "border-ink-700/50 hover:border-ink-600/60"
+          ? "border-accent/30 shadow-[0_0_22px_-14px_rgba(124,156,255,0.6)]"
+          : "border-ink-700/50 hover:border-ink-600/60"
       }`}
     >
-      {/* Color stripe on left edge keeps habits visually distinct at a glance. */}
       <span
-        className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
-        style={{ background: habit.color, opacity: 0.85 }}
+        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+        style={{ background: habit.color, opacity: todayComplete ? 0.95 : 0.7 }}
       />
 
-      <div className="flex items-start justify-between gap-4 mb-3 pl-2">
-        <div className="min-w-0">
+      {/* ── compact header (always visible, click to expand) ──────────────── */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-4 py-2.5 pl-5 flex items-center gap-3 cursor-pointer"
+      >
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-ink-100 truncate flex items-center gap-2">
             {habit.name}
             {todayComplete && (
-              <span className="text-[10px] font-medium text-accent-glow bg-accent/20 px-1.5 py-0.5 rounded">
-                done today
+              <span className="text-[9.5px] font-medium text-accent-glow bg-accent/20 px-1.5 py-0.5 rounded">
+                done
               </span>
             )}
             {todaySkipped && (
-              <span className="text-[10px] font-medium text-ink-300 bg-ink-700/60 px-1.5 py-0.5 rounded">
+              <span className="text-[9.5px] font-medium text-ink-300 bg-ink-700/60 px-1.5 py-0.5 rounded">
                 skipped
               </span>
             )}
           </div>
-          <div className="text-[11px] text-ink-400 mt-0.5">
+          <div className="text-[10.5px] text-ink-400 mt-0.5">
             {habit.kind === "bool"
               ? "Yes / No daily"
               : habit.target != null
                 ? `Target ${habit.target}${habit.unit ? " " + habit.unit : ""}/day`
-                : `Any ${habit.unit ?? "amount"} counts`}
+                : `Track ${habit.unit ?? "amount"}`}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+
+        {/* mini stats: streak + 30d */}
+        {stats && (
+          <div className="hidden sm:flex items-center gap-3 text-right">
+            <div>
+              <div
+                className="text-sm font-semibold tnum leading-none"
+                style={{
+                  color: stats.current_streak > 0 ? habit.color : "#a7afbe",
+                }}
+              >
+                {stats.current_streak}
+                <span className="text-[10px] text-ink-400 font-normal ml-0.5">
+                  d
+                </span>
+              </div>
+              <div className="text-[9px] uppercase tracking-wider text-ink-500 mt-0.5">
+                streak
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-semibold tnum text-ink-100 leading-none">
+                {Math.round(stats.completion_30d * 100)}
+                <span className="text-[10px] text-ink-400 font-normal ml-0.5">
+                  %
+                </span>
+              </div>
+              <div className="text-[9px] uppercase tracking-wider text-ink-500 mt-0.5">
+                30-day
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* today controls — stopPropagation so clicks don't toggle expansion */}
+        <div
+          className="flex items-center gap-1.5 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <TodayControls
             habit={habit}
             todayEntry={todayEntry}
@@ -406,35 +455,84 @@ function HabitRow({
             className="text-ink-500 hover:text-danger w-7 h-7 grid place-items-center rounded-md hover:bg-ink-800 transition-colors"
             title="Delete habit"
           >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 6h18" />
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            </svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
           </button>
+          <span
+            className={`text-ink-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
         </div>
-      </div>
+      </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5 items-start pl-2">
-        <Heatmap
-          entries={entries}
-          fromDay={from}
-          toDay={today}
-          target={target}
-          color={habit.color}
-        />
-        {stats && <StatsBlock stats={stats} color={habit.color} habit={habit} />}
-      </div>
+      {/* ── expanded analytics ────────────────────────────────────────────── */}
+      <AnimatePresence initial={false}>
+        {expanded && stats && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <Analytics habit={habit} stats={stats} from={from} today={today} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
+function Analytics({
+  habit,
+  stats,
+  from,
+  today,
+}: {
+  habit: Habit;
+  stats: HabitStats;
+  from: string;
+  today: string;
+}) {
+  const [entries12w, setEntries12w] = useState<HabitEntry[]>([]);
+  const [allEntries, setAllEntries] = useState<HabitEntry[]>([]);
+
+  useEffect(() => {
+    // 12-week window for the inline heatmap
+    ipc
+      .habitEntries({ habit_id: habit.id, from_day: from, to_day: today })
+      .then(setEntries12w);
+    // All-time range: from habit creation day to today, for the per-year history
+    const createdIso = iso(new Date(habit.created_ms));
+    ipc
+      .habitEntries({ habit_id: habit.id, from_day: createdIso, to_day: today })
+      .then(setAllEntries);
+  }, [habit.id, habit.created_ms, from, today]);
+
+  const target = habit.target ?? (habit.kind === "bool" ? 1 : 0.0001);
+
+  return (
+    <div className="px-5 pl-6 pb-5 pt-1 border-t border-ink-700/40 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5 items-start">
+      <Heatmap
+        entries={entries12w}
+        fromDay={from}
+        toDay={today}
+        target={target}
+        color={habit.color}
+      />
+      <StatsBlock stats={stats} color={habit.color} target={target} />
+      <div className="lg:col-span-2 mt-1">
+        <YearHistory
+          entries={allEntries}
+          habit={habit}
+          today={today}
+          target={target}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -457,8 +555,8 @@ function TodayControls({
     <button
       onClick={() => onLog(0, true)}
       disabled={busy}
-      title="Skip today — your streak is preserved"
-      className="text-[10.5px] px-2 py-1.5 rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700/60 transition-colors disabled:opacity-40"
+      title="Skip today — preserves your streak"
+      className="text-[10px] px-2 py-1 rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700/60 transition-colors disabled:opacity-40"
     >
       Skip
     </button>
@@ -468,34 +566,22 @@ function TodayControls({
       onClick={onClear}
       disabled={busy}
       title="Clear today's entry"
-      className="w-7 h-7 grid place-items-center rounded-md text-ink-500 hover:text-ink-100 hover:bg-ink-800 transition-colors disabled:opacity-40"
+      className="w-6 h-6 grid place-items-center rounded-md text-ink-500 hover:text-ink-100 hover:bg-ink-800 transition-colors disabled:opacity-40"
     >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M3 12a9 9 0 1 0 3-6.7" />
-        <path d="M3 4v5h5" />
-      </svg>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
     </button>
   ) : null;
 
   if (habit.kind === "bool") {
     const done = !!todayEntry && !todayEntry.skipped && todayEntry.value >= 1;
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => onLog(done ? 0 : 1)}
           disabled={busy}
-          className={`text-[11px] px-3 py-1.5 rounded-md font-medium border transition-all disabled:opacity-50 ${
+          className={`text-[11px] px-3 py-1 rounded-md font-medium border transition-all disabled:opacity-50 ${
             done
-              ? "bg-accent/30 text-accent-glow border-accent/40 shadow-[0_0_18px_-8px_rgba(124,156,255,0.7)]"
+              ? "bg-accent/30 text-accent-glow border-accent/40 shadow-[0_0_14px_-6px_rgba(124,156,255,0.7)]"
               : "bg-ink-800/80 text-ink-100 hover:bg-ink-700 border-ink-700"
           }`}
         >
@@ -507,71 +593,41 @@ function TodayControls({
     );
   }
 
-  if (habit.kind === "count") {
-    const v = todayEntry && !todayEntry.skipped ? todayEntry.value : 0;
-    const met = habit.target != null && v >= habit.target;
-    return (
-      <div className="flex items-center gap-1.5">
-        <div
-          className={`flex items-center rounded-md overflow-hidden border ${
-            met ? "border-accent/40" : "border-ink-700"
-          }`}
-        >
-          <button
-            onClick={() => onLog(Math.max(0, v - 1))}
-            disabled={busy || v <= 0}
-            className="px-2 py-1.5 text-ink-300 hover:bg-ink-700 hover:text-ink-100 disabled:opacity-30 transition-colors"
-          >
-            −
-          </button>
-          <span
-            className={`text-sm font-mono tnum min-w-[3.5rem] text-center px-1 ${
-              met ? "text-accent-glow" : "text-ink-100"
-            }`}
-          >
-            {v}
-            {habit.target != null && (
-              <span className="text-ink-500 text-[10px]"> /{habit.target}</span>
-            )}
-          </span>
-          <button
-            onClick={() => onLog(v + 1)}
-            disabled={busy}
-            className="px-2 py-1.5 bg-accent/15 text-accent-glow hover:bg-accent/30 transition-colors disabled:opacity-50"
-          >
-            +
-          </button>
-        </div>
-        {skipBtn}
-        {clearBtn}
-      </div>
-    );
-  }
-
-  // amount
+  // count + amount share the same stepper UI (count is legacy, amount preferred)
   const v = todayEntry && !todayEntry.skipped ? todayEntry.value : 0;
   const met = habit.target != null && v >= habit.target;
+  const step = habit.kind === "count" ? 1 : 1;
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       <div
-        className={`flex items-center gap-1 bg-ink-900 rounded-md border px-1 ${
+        className={`flex items-center rounded-md overflow-hidden border ${
           met ? "border-accent/40" : "border-ink-700"
         }`}
       >
-        <input
-          type="number"
-          min={0}
-          step={0.1}
-          value={v}
-          onChange={(e) => onLog(Number(e.target.value) || 0)}
-          disabled={busy}
-          className={`w-20 bg-transparent px-2 py-1.5 text-sm tnum text-right focus:outline-none ${
+        <button
+          onClick={() => onLog(Math.max(0, v - step))}
+          disabled={busy || v <= 0}
+          className="px-2 py-1 text-ink-300 hover:bg-ink-700 hover:text-ink-100 disabled:opacity-30 transition-colors"
+        >
+          −
+        </button>
+        <span
+          className={`text-xs font-mono tnum min-w-[3.25rem] text-center px-1 ${
             met ? "text-accent-glow" : "text-ink-100"
           }`}
-        />
-        {habit.unit && (
-          <span className="text-[10px] text-ink-400 pr-1.5">{habit.unit}</span>
-        )}
+        >
+          {v}
+          {habit.target != null && (
+            <span className="text-ink-500 text-[9.5px]"> /{habit.target}</span>
+          )}
+        </span>
+        <button
+          onClick={() => onLog(v + step)}
+          disabled={busy}
+          className="px-2 py-1 bg-accent/15 text-accent-glow hover:bg-accent/30 transition-colors disabled:opacity-50"
+        >
+          +
+        </button>
       </div>
       {skipBtn}
       {clearBtn}
@@ -579,7 +635,7 @@ function TodayControls({
   );
 }
 
-// ── analytics: heatmap, sparkline, weekday bars ────────────────────────────
+// ── 12-week heatmap ────────────────────────────────────────────────────────
 
 function Heatmap({
   entries,
@@ -605,20 +661,13 @@ function Heatmap({
     const cur = new Date(fromDay + "T00:00:00");
     const end = new Date(toDay + "T00:00:00");
     while (cur <= end) {
-      out.push(
-        `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(
-          cur.getDate(),
-        ).padStart(2, "0")}`,
-      );
+      out.push(iso(cur));
       cur.setDate(cur.getDate() + 1);
     }
     return out;
   }, [fromDay, toDay]);
 
-  const monIndex = (iso: string) => {
-    const d = new Date(iso + "T00:00:00").getDay();
-    return (d + 6) % 7;
-  };
+  const monIndex = (d: string) => (new Date(d + "T00:00:00").getDay() + 6) % 7;
 
   const cols: Array<Array<string | null>> = [];
   let col: Array<string | null> = [];
@@ -641,8 +690,8 @@ function Heatmap({
   function cellFill(day: string | null): string {
     if (!day) return "transparent";
     const e = byDay.get(day);
-    if (!e) return "rgba(255,255,255,0.035)"; // no entry
-    if (e.skipped) return "rgba(167,175,190,0.18)"; // soft neutral
+    if (!e) return "rgba(255,255,255,0.035)";
+    if (e.skipped) return "rgba(167,175,190,0.18)";
     const ratio = Math.max(0, Math.min(1, e.value / target));
     if (ratio <= 0) return "rgba(232,125,125,0.14)";
     const alpha = 0.22 + 0.68 * ratio;
@@ -682,18 +731,6 @@ function Heatmap({
             );
           }),
         )}
-        <text x={0} y={height + 13} fontSize={9} fill="#7a8494">
-          {fromDay}
-        </text>
-        <text
-          x={width}
-          y={height + 13}
-          fontSize={9}
-          textAnchor="end"
-          fill="#7a8494"
-        >
-          today
-        </text>
       </svg>
     </div>
   );
@@ -706,16 +743,17 @@ function describeEntry(e: HabitEntry | undefined, target: number): string {
   return ` · ${e.value} / ${target}`;
 }
 
+// ── stats summary ──────────────────────────────────────────────────────────
+
 function StatsBlock({
   stats,
   color,
-  habit,
+  target,
 }: {
   stats: HabitStats;
   color: string;
-  habit: Habit;
+  target: number;
 }) {
-  const target = habit.target ?? (habit.kind === "bool" ? 1 : 0.0001);
   return (
     <div className="flex flex-col gap-3 min-w-[268px]">
       <div className="grid grid-cols-4 gap-1.5">
@@ -731,7 +769,10 @@ function StatsBlock({
           value={`${Math.round(stats.completion_30d * 100)}`}
           suffix="%"
         />
-        <Stat label="Total" value={`${stats.total_completions}`} />
+        <Stat
+          label="Total"
+          value={`${stats.total_completions}`}
+        />
       </div>
       <Sparkline data={stats.sparkline_30d} target={target} color={color} />
       <WeekdayBars rates={stats.weekday_rate} color={color} />
@@ -862,6 +903,171 @@ function WeekdayBars({ rates, color }: { rates: number[]; color: string }) {
     </div>
   );
 }
+
+// ── per-year history ───────────────────────────────────────────────────────
+
+function YearHistory({
+  entries,
+  habit,
+  today,
+  target,
+}: {
+  entries: HabitEntry[];
+  habit: Habit;
+  today: string;
+  target: number;
+}) {
+  // Bucket entries by year, compute completions and possible-days (capped
+  // at today and at the habit's creation day so the % is honest).
+  const byYear = useMemo(() => {
+    const m = new Map<number, HabitEntry[]>();
+    for (const e of entries) {
+      const y = parseInt(e.day.slice(0, 4), 10);
+      if (!m.has(y)) m.set(y, []);
+      m.get(y)!.push(e);
+    }
+    return m;
+  }, [entries]);
+
+  const createdYear = new Date(habit.created_ms).getFullYear();
+  const todayYear = parseInt(today.slice(0, 4), 10);
+  const years: number[] = [];
+  for (let y = todayYear; y >= createdYear; y--) years.push(y);
+
+  if (years.length === 0) return null;
+
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-400 mb-2">
+        All-time history
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {years.map((y) => {
+          const yEntries = byYear.get(y) ?? [];
+          const completions = yEntries.filter(
+            (e) => !e.skipped && e.value >= target,
+          ).length;
+          // Possible days in this year, clamped to creation and today
+          let firstDay = 1;
+          let lastDay = daysInYear(y);
+          if (y === createdYear) {
+            const c = new Date(habit.created_ms);
+            firstDay = dayOfYear(c);
+          }
+          if (y === todayYear) {
+            lastDay = dayOfYear(new Date(today + "T00:00:00"));
+          }
+          const possible = Math.max(1, lastDay - firstDay + 1);
+          const pct = Math.round((completions / possible) * 100);
+          return (
+            <YearRow
+              key={y}
+              year={y}
+              entries={yEntries}
+              firstDay={firstDay}
+              lastDay={lastDay}
+              target={target}
+              color={habit.color}
+              completions={completions}
+              pct={pct}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function dayOfYear(d: Date): number {
+  const start = new Date(d.getFullYear(), 0, 0);
+  const diff = d.getTime() - start.getTime();
+  return Math.floor(diff / 86_400_000);
+}
+
+function YearRow({
+  year,
+  entries,
+  firstDay,
+  lastDay,
+  target,
+  color,
+  completions,
+  pct,
+}: {
+  year: number;
+  entries: HabitEntry[];
+  firstDay: number;
+  lastDay: number;
+  target: number;
+  color: string;
+  completions: number;
+  pct: number;
+}) {
+  // 53 weeks × 7 days. We render every day in the year as a small cell.
+  const byDay = useMemo(() => {
+    const m = new Map<string, HabitEntry>();
+    for (const e of entries) m.set(e.day, e);
+    return m;
+  }, [entries]);
+
+  const cellSize = 7;
+  const gap = 2;
+  const total = daysInYear(year);
+  const weeks = Math.ceil(total / 7);
+  const width = weeks * (cellSize + gap);
+  const height = 7 * (cellSize + gap);
+
+  function fillForDay(doy: number): string {
+    if (doy < firstDay || doy > lastDay) return "transparent";
+    const d = new Date(year, 0, doy);
+    const key = iso(d);
+    const e = byDay.get(key);
+    if (!e) return "rgba(255,255,255,0.04)";
+    if (e.skipped) return "rgba(167,175,190,0.18)";
+    const ratio = Math.max(0, Math.min(1, e.value / target));
+    if (ratio <= 0) return "rgba(232,125,125,0.14)";
+    return hexWithAlpha(color, 0.25 + 0.65 * ratio);
+  }
+
+  return (
+    <div className="bg-ink-800/40 hairline rounded-md p-2.5">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <div className="text-xs font-semibold text-ink-100 tnum">{year}</div>
+        <div className="text-[10.5px] text-ink-300">
+          <span className="font-semibold tnum" style={{ color }}>
+            {pct}%
+          </span>
+          <span className="text-ink-500"> · {completions} done</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg width={width} height={height} className="block">
+          {Array.from({ length: weeks }).map((_, wi) =>
+            Array.from({ length: 7 }).map((__, ri) => {
+              // day-of-year is approximate w.r.t. ISO weeks but the visual
+              // is close enough for a year glance.
+              const doy = wi * 7 + ri + 1;
+              if (doy > total) return null;
+              return (
+                <rect
+                  key={`${wi}-${ri}`}
+                  x={wi * (cellSize + gap)}
+                  y={ri * (cellSize + gap)}
+                  width={cellSize}
+                  height={cellSize}
+                  rx={1.5}
+                  fill={fillForDay(doy)}
+                />
+              );
+            }),
+          )}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ── empty state ────────────────────────────────────────────────────────────
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (

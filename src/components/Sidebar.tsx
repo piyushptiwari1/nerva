@@ -2,6 +2,7 @@ import { useApp } from "@/store/app";
 import { ipc } from "@/lib/ipc";
 import { useState } from "react";
 import { TasksPanel } from "@/components/TasksPanel";
+import { HabitsRail } from "@/components/HabitsRail";
 
 export function Sidebar() {
   const { workspaces, active, activateWorkspace } = useApp();
@@ -76,6 +77,10 @@ export function Sidebar() {
 
       <div className="border-t border-ink-700/40 pt-3">
         <TasksPanel />
+      </div>
+
+      <div className="border-t border-ink-700/40 pt-3">
+        <HabitsRail />
       </div>
 
       <div className="border-t border-ink-700/40 pt-3">
