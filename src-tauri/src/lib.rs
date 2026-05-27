@@ -103,6 +103,10 @@ pub fn run() {
             ipc::ai_history,
             ipc::ai_settings_get,
             ipc::ai_set_model,
+            ipc::ai_set_endpoint,
+            // settings
+            ipc::settings_get,
+            ipc::timer_presets_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

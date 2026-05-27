@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
+import { useSettingsUi } from "@/store/settings";
 import { ipc } from "@/lib/ipc";
 
 interface Action {
@@ -35,6 +36,7 @@ export function CommandPalette() {
   const refreshNotes = useApp((s) => s.refreshNotes);
   const refreshMomentum = useApp((s) => s.refreshMomentum);
   const setDnd = useApp((s) => s.setDnd);
+  const openSettings = useSettingsUi((s) => s.setOpen);
   const testAudio = useApp((s) => s.testAudio);
   const activateWorkspace = useApp((s) => s.activateWorkspace);
   const createTask = useApp((s) => s.createTask);
@@ -228,6 +230,15 @@ export function CommandPalette() {
         run: async () => setDnd(!focus.dnd),
       });
     }
+    out.push({
+      id: "system.settings",
+      group: "System",
+      glyph: "⚙",
+      title: "Settings",
+      subtitle: "AI · timers · audio · focus  ·  Ctrl+,",
+      keywords: "settings preferences config ollama endpoint model audio focus dnd".toLowerCase(),
+      run: () => openSettings(true),
+    });
     out.push({
       id: "system.timer-widget",
       group: "System",

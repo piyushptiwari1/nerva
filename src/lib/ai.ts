@@ -78,6 +78,7 @@ export const ai = {
   health: () => invoke<AiHealth>("ai_health"),
   settings: () => invoke<AiSettings>("ai_settings_get"),
   setModel: (model: string) => invoke<AiSettings>("ai_set_model", { model }),
+  setEndpoint: (endpoint: string) => invoke<AiSettings>("ai_set_endpoint", { endpoint }),
   history: (limit = 20) => invoke<AiExchange[]>("ai_history", { limit }),
   cancel: (requestId: string) => invoke<boolean>("ai_cancel", { requestId }),
   ask: aiAsk,

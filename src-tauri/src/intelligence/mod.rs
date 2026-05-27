@@ -84,6 +84,13 @@ impl OllamaClient {
         self.cfg.write().model = model.to_string();
     }
 
+    /// Update the Ollama endpoint (base URL). Trailing slashes are tolerated;
+    /// `chat_stream` and `health` strip them at call-time. Persistence is the
+    /// caller's job (meta-table).
+    pub fn set_endpoint(&self, endpoint: &str) {
+        self.cfg.write().endpoint = endpoint.to_string();
+    }
+
     /// Probe `/api/tags` to confirm the sidecar is reachable and report the
     /// list of locally-installed models.
     pub async fn health(&self) -> AiHealth {

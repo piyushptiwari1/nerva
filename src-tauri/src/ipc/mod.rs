@@ -821,6 +821,99 @@ pub fn ai_set_model(state: State, model: String) -> Result<AiSettings> {
     Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
 }
 
+#[tauri::command]
+pub fn ai_set_endpoint(state: State, endpoint: String) -> Result<AiSettings> {
+    let e = endpoint.trim().trim_end_matches('/').to_string();
+    if e.is_empty() {
+        return Err(NervaError::Invalid("endpoint required".into()));
+    }
+    if !(e.starts_with("http://") || e.starts_with("https://")) {
+        return Err(NervaError::Invalid("endpoint must be http(s)://…".into()));
+    }
+    state.ai.set_endpoint(&e);
+    state.store.meta_set("ai.endpoint", &e)?;
+    let cfg = state.ai.snapshot();
+    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
+}
+
+// ---------- settings (unified bundle) ----------
+
+#[derive(Debug, Serialize)]
+pub struct SettingsBundle {
+    pub ai_endpoint: String,
+    pub ai_model: String,
+    pub installed_models: Vec<String>,
+    pub timer_presets_min: Vec<u32>,
+    pub audio_volume: f32,
+    pub audio_muted: bool,
+    pub focus_dnd: Option<bool>,
+    pub focus_dnd_supported: bool,
+}
+
+/// Read defaults for the 'new timer' duration dropdown. Stored as a
+/// comma-separated minute list under meta key `timer.presets_min`. Falls back
+/// to a sensible Pomodoro-ish ladder.
+fn read_timer_presets(state: &State) -> Vec<u32> {
+    if let Ok(Some(raw)) = state.store.meta_get("timer.presets_min") {
+        let parsed: Vec<u32> = raw
+            .split(',')
+            .filter_map(|s| s.trim().parse::<u32>().ok())
+            .filter(|m| *m > 0 && *m <= 24 * 60)
+            .collect();
+        if !parsed.is_empty() {
+            return parsed;
+        }
+    }
+    vec![5, 15, 25, 45, 60]
+}
+
+#[tauri::command]
+pub async fn settings_get(state: State<'_>) -> Result<SettingsBundle> {
+    let cfg = state.ai.snapshot();
+    // Health probe is best-effort; if Ollama isn't reachable we still return
+    // the rest of the bundle so the pane can render.
+    let installed = state.ai.health().await.installed_models;
+    let audio = state.audio.snapshot();
+    let dnd = crate::focus::get_dnd().ok().flatten();
+    let supported = crate::focus::get_dnd().ok().flatten().is_some();
+    Ok(SettingsBundle {
+        ai_endpoint: cfg.endpoint,
+        ai_model: cfg.model,
+        installed_models: installed,
+        timer_presets_min: read_timer_presets(&state),
+        audio_volume: audio.volume,
+        audio_muted: audio.muted,
+        focus_dnd: dnd,
+        focus_dnd_supported: supported,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TimerPresetsArgs {
+    pub presets_min: Vec<u32>,
+}
+
+#[tauri::command]
+pub fn timer_presets_set(state: State, args: TimerPresetsArgs) -> Result<Vec<u32>> {
+    let mut cleaned: Vec<u32> = args
+        .presets_min
+        .into_iter()
+        .filter(|m| *m > 0 && *m <= 24 * 60)
+        .collect();
+    cleaned.sort_unstable();
+    cleaned.dedup();
+    if cleaned.is_empty() {
+        return Err(NervaError::Invalid("at least one preset required".into()));
+    }
+    let joined = cleaned
+        .iter()
+        .map(|m| m.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    state.store.meta_set("timer.presets_min", &joined)?;
+    Ok(cleaned)
+}
+
 /// Build the Ollama message list. The system prompt is short, opinionated, and
 /// pins the assistant's role; optional context appends today's workspace name,
 /// completed/active timers, open tasks, and the last 30 events.
