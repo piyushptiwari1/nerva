@@ -25,8 +25,10 @@ git clone git@github.com:piyushptiwari1/nerva.git
 cd nerva
 npm install
 rustup default stable
-sudo apt install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config
+sudo apt-get install -y \
+  build-essential pkg-config libssl-dev \
+  libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev librsvg2-dev libxdo-dev
 npm run tauri:dev
 ```
 

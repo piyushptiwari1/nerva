@@ -48,12 +48,14 @@ correctly across sleep, suspend, and power loss.
 ## Development
 
 ```bash
-# one-time
+# one-time – install system libraries (Ubuntu 22.04 / 24.04)
+sudo apt-get install -y \
+  build-essential pkg-config libssl-dev \
+  libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+
 npm install
 rustup default stable
-# Linux build deps already installed in this environment:
-#   libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
-#   libayatana-appindicator3-dev librsvg2-dev pkg-config
 
 # dev (hot reload, frontend + backend)
 npm run tauri:dev
