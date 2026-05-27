@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One Linux build (ubuntu-22.04) — its glibc is forward-compatible
+          # to Ubuntu 22.04 AND 24.04 users (the AppImage / .deb / .rpm
+          # produced here install cleanly on both).
+          - os: ubuntu-22.04
+            rust-target: x86_64-unknown-linux-gnu
+            tauri-args: ''
+          # One Windows build (Server 2022) — covers Windows 10 (1809+) and 11.
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            tauri-args: ''
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf \
+            file \
+            rpm \
+            osslsigncode
+
+      - name: Install npm deps
+        run: npm ci
+
+      # ---------- Windows signing prep (self-signed PFX from secret) ----------
+      - name: Decode Windows signing cert
+        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        run: |
+          $pfxBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          [System.IO.File]::WriteAllBytes("$env:RUNNER_TEMP\codesign.pfx", $pfxBytes)
+          echo "PFX_PATH=$env:RUNNER_TEMP\codesign.pfx" >> $env:GITHUB_ENV
+
+      # ---------- Build + sign + bundle ----------
+      - name: Tauri build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Windows-only signing env (read by tauri.conf.json windows block via signtool):
+          TAURI_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          # NSIS / signtool need these only on Windows runner:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Nerva ${{ github.ref_name }}'
+          releaseBody: |
+            ## Nerva ${{ github.ref_name }}
+
+            ### Downloads
+            - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm`
+            - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS)
+
+            ### Verifying the Windows build
+            Installers are signed with the Bytical self-signed certificate.
+            Windows SmartScreen will show "Unrecognized app" on first install —
+            click **More info → Run anyway**. To remove the warning forever,
+            import [`bytical-codesign.crt`](https://nerva.bytical.ai/cert) into
+            Trusted Root Certification Authorities.
+
+            See full release notes in CHANGELOG.md.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.tauri-args }}
+
+      # Linux-side osslsigncode for AppImage (optional, GPG-equivalent flow comes later)
+      # Windows signing is handled by tauri-action via TAURI_WINDOWS_CERTIFICATE_THUMBPRINT.
+
+      - name: Upload artifacts (for non-release runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nerva-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/**/*
+          if-no-files-found: warn
+          retention-days: 14
+
+  # After all builds finish, submit a winget manifest PR (Windows only)
+  winget-publish:
+    name: Publish to winget
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    steps:
+      - name: Submit winget package update
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: Bytical.Nerva
+          installers-regex: '(-setup\.exe|\.msi)$'
+          token: ${{ secrets.WINGET_TOKEN }}
+        continue-on-error: true   # don't block the release if PR submission fails

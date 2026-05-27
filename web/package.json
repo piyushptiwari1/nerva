@@ -1,0 +1,10 @@
+{
+  "name": "nerva-landing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Landing page for Nerva — nerva.bytical.ai",
+  "scripts": {
+    "build": "mkdir -p dist && cp -r public/* dist/",
+    "dev": "npx --yes serve public"
+  }
+}

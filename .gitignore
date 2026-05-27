@@ -30,3 +30,11 @@ src-tauri/gen/
 *.tsbuildinfo
 dist/
 
+
+# Secrets — NEVER commit
+secrets/
+*.pfx
+*.pfx.b64
+*.key
+tauri-updater.key*
+bytical-codesign.*

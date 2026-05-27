@@ -1,0 +1,40 @@
+# winget package manifest template for Nerva.
+#
+# This is consumed by winget-releaser (.github/workflows/release.yml) on every
+# tagged release. The action substitutes VERSION + InstallerSha256 + InstallerUrl
+# automatically and opens a PR against microsoft/winget-pkgs.
+#
+# After your FIRST signed release lands on GitHub, manually verify the PR is
+# correct and submit. Subsequent releases auto-PR.
+
+PackageIdentifier: Bytical.Nerva
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: Bytical Solutions Private Limited
+PublisherUrl: https://bytical.ai
+PublisherSupportUrl: https://github.com/bytical-ai/nerva/issues
+PrivacyUrl: https://nerva.bytical.ai/privacy
+Author: Bytical Solutions Private Limited
+PackageName: Nerva
+PackageUrl: https://nerva.bytical.ai
+License: Apache-2.0
+LicenseUrl: https://github.com/bytical-ai/nerva/blob/main/LICENSE
+Copyright: © 2026 Bytical Solutions Private Limited
+ShortDescription: Persistent focus workspace for deep work
+Description: |-
+  Nerva is a persistent focus workspace for deep work. Multi-timer engine,
+  smart notes, habit tracking, task management, and cognitive-state
+  continuity across reboots and crashes. Offline-first, no telemetry.
+Moniker: nerva
+Tags:
+  - productivity
+  - focus
+  - timer
+  - notes
+  - habits
+  - pomodoro
+  - deep-work
+  - offline
+ReleaseNotesUrl: https://github.com/bytical-ai/nerva/releases
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

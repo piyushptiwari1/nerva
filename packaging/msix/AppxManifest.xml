@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppxManifest.xml for Microsoft Store submission.
+
+  THREE placeholders below MUST be replaced after you reserve the name
+  "Nerva" in Partner Center (see dist/msix/README.md step 1):
+
+    __REPLACE_PACKAGE_IDENTITY_NAME__  e.g. 12345BytialSolutionsPrivateLimited.Nerva
+    __REPLACE_PUBLISHER_CN__            e.g. CN=A1B2C3D4-E5F6-7890-ABCD-EF1234567890
+    __REPLACE_PUBLISHER_DISPLAY_NAME__  = Bytical Solutions Private Limited
+
+  Bytical Partner Center identity (already known, embed where applicable):
+    Seller ID:      90032360
+    Publisher ID:   byticalsolutionsprivatelimited1736190787784
+    Partner ID:     6941092
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="__REPLACE_PACKAGE_IDENTITY_NAME__"
+    Publisher="__REPLACE_PUBLISHER_CN__"
+    Version="0.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Nerva</DisplayName>
+    <PublisherDisplayName>__REPLACE_PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Persistent focus workspace for deep work. Multi-timer engine, smart notes, habit tracking, task management, and cognitive-state continuity across reboots.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Nerva" Executable="nerva.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Nerva"
+        Description="Persistent focus workspace for deep work."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png"
+          ShortName="Nerva" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

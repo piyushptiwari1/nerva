@@ -1,0 +1,74 @@
+name: nerva
+base: core22
+version: '0.1.0'
+summary: Persistent focus workspace for deep work
+description: |
+  Nerva is a persistent focus workspace built for deep work.
+  Multi-timer engine, smart notes, habit tracking, task management,
+  and cognitive-state continuity across reboots and crashes.
+
+  Native-first, GPU-light, offline-first. No telemetry, no account required.
+
+  Features:
+   - Parallel focus timers with wall-clock math
+   - Markdown notes with always-on-top sticky pop-outs
+   - Habit tracker with streaks + per-year heatmap
+   - Task management with priority and due times
+   - Global keyboard shortcuts (Ctrl+Space command palette)
+   - Light + dark themes
+   - SQLite-backed, fully offline
+
+grade: stable
+confinement: strict
+license: Apache-2.0
+icon: src-tauri/icons/128x128@2x.png
+website: https://nerva.bytical.ai
+contact: piyush@bytical.ai
+issues: https://github.com/bytical-ai/nerva/issues
+source-code: https://github.com/bytical-ai/nerva
+
+architectures:
+  - build-on: amd64
+    build-for: amd64
+
+apps:
+  nerva:
+    command: usr/bin/nerva
+    desktop: usr/share/applications/nerva.desktop
+    extensions:
+      - gnome
+    plugs:
+      - home
+      - network
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - audio-playback
+      - browser-support
+      - removable-media
+    environment:
+      WEBKIT_DISABLE_DMABUF_RENDERER: 1
+      WEBKIT_DISABLE_COMPOSITING_MODE: 1
+
+parts:
+  nerva:
+    plugin: dump
+    source: src-tauri/target/release/bundle/deb/
+    source-type: local
+    override-build: |
+      set -eux
+      # The release CI drops a single .deb into bundle/deb/ — unpack it
+      DEB_FILE=$(ls *.deb | head -n1)
+      dpkg-deb -x "$DEB_FILE" "$SNAPCRAFT_PART_INSTALL"
+      # Snapcraft expects $SNAPCRAFT_PART_INSTALL as the staged root.
+    build-packages:
+      - dpkg
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - libnotify4
+      - libsqlite3-0
+      - libssl3

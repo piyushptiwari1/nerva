@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "name": "nerva-landing",
+  "public": true,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/download/linux/deb",      "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/Nerva_0.1.0_amd64.deb" },
+    { "source": "/download/linux/appimage", "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/Nerva_0.1.0_amd64.AppImage" },
+    { "source": "/download/linux/rpm",      "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/Nerva-0.1.0-1.x86_64.rpm" },
+    { "source": "/download/windows/msi",    "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/Nerva_0.1.0_x64_en-US.msi" },
+    { "source": "/download/windows/exe",    "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/Nerva_0.1.0_x64-setup.exe" },
+    { "source": "/cert",                    "destination": "https://github.com/bytical-ai/nerva/releases/latest/download/bytical-codesign.crt" }
+  ]
+}

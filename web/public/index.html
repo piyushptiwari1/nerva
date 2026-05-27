@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nerva — persistent focus workspace for deep work</title>
+  <meta name="description" content="Nerva is a persistent focus workspace. Multi-timer engine, smart notes, habit tracking, task management. Offline-first. No telemetry." />
+  <meta name="theme-color" content="#0a0b0d" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta property="og:title" content="Nerva — focus workspace" />
+  <meta property="og:description" content="Persistent multi-timer, notes, habits, tasks. Offline-first. No account." />
+  <meta property="og:image" content="https://nerva.bytical.ai/og.png" />
+  <meta property="og:url" content="https://nerva.bytical.ai" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0a0b0d;--surface:#15171c;--ink:#ecf0f6;--ink-dim:#8a93a6;--accent:#7c9cff;--accent-glow:#a8bdff;--border:rgba(255,255,255,0.08)}
+    html,body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{color:var(--accent-glow)}
+    .wrap{max-width:920px;margin:0 auto;padding:64px 24px}
+    nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:80px}
+    nav .brand{font-weight:700;font-size:18px;letter-spacing:-0.01em}
+    nav .links{display:flex;gap:24px;font-size:14px;color:var(--ink-dim)}
+    h1{font-size:clamp(40px,7vw,72px);font-weight:800;letter-spacing:-0.03em;line-height:1.05;margin-bottom:24px;background:linear-gradient(180deg,#fff 0%,#9aa3b8 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .tag{font-size:20px;color:var(--ink-dim);max-width:600px;margin-bottom:48px}
+    .downloads{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:64px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;transition:transform 0.15s,border-color 0.15s}
+    .card:hover{transform:translateY(-2px);border-color:rgba(124,156,255,0.35)}
+    .card h3{font-size:14px;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-dim);margin-bottom:14px}
+    .card .primary{display:inline-block;background:var(--accent);color:#0a0b0d;font-weight:600;padding:10px 18px;border-radius:8px;margin-bottom:10px;font-size:14px}
+    .card .primary:hover{background:var(--accent-glow);color:#0a0b0d}
+    .card .alts{font-size:13px;color:var(--ink-dim)}
+    .card .alts a{margin-right:14px}
+    section{margin-bottom:64px}
+    section h2{font-size:24px;margin-bottom:20px;font-weight:700;letter-spacing:-0.01em}
+    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;color:var(--ink-dim);font-size:15px}
+    .features div strong{display:block;color:var(--ink);font-weight:600;margin-bottom:6px}
+    .note{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink-dim)}
+    .note code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-size:13px}
+    footer{margin-top:80px;padding-top:32px;border-top:1px solid var(--border);font-size:13px;color:var(--ink-dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="brand">Nerva</div>
+      <div class="links">
+        <a href="https://github.com/bytical-ai/nerva">GitHub</a>
+        <a href="#downloads">Download</a>
+        <a href="https://github.com/bytical-ai/nerva/releases">Releases</a>
+      </div>
+    </nav>
+
+    <h1>The focus workspace that never forgets.</h1>
+    <p class="tag">Multi-timer engine, smart notes, habit tracking, task management. Offline-first. No telemetry. No account.</p>
+
+    <section id="downloads">
+      <h2>Download Nerva</h2>
+      <div class="downloads">
+        <div class="card">
+          <h3>Linux</h3>
+          <a class="primary" href="/download/linux/appimage">AppImage (portable)</a>
+          <div class="alts">
+            <a href="/download/linux/deb">.deb (Ubuntu 22.04 / 24.04)</a>
+            <a href="/download/linux/rpm">.rpm (Fedora)</a>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Windows 10 / 11</h3>
+          <a class="primary" href="/download/windows/exe">Download installer</a>
+          <div class="alts">
+            <a href="/download/windows/msi">MSI (for IT)</a>
+            <a href="/cert">Trust certificate</a>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Package managers</h3>
+          <a class="primary" href="https://snapcraft.io/nerva">Snap Store</a>
+          <div class="alts">
+            <a href="https://aur.archlinux.org/packages/nerva-bin">AUR</a>
+            <a href="#winget">winget</a>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        Windows installers are signed with the Bytical self-signed certificate. On
+        first install you may see <strong>SmartScreen "Unrecognized app"</strong> —
+        click <code>More info → Run anyway</code>. To remove the warning forever,
+        download <a href="/cert">bytical-codesign.crt</a> and import it into
+        <em>Trusted Root Certification Authorities</em>.
+      </div>
+    </section>
+
+    <section>
+      <h2>What you get</h2>
+      <div class="features">
+        <div><strong>Parallel focus timers</strong>Run multiple sessions side by side with wall-clock math.</div>
+        <div><strong>Persistent state</strong>Cursor, content, and window positions survive every reboot.</div>
+        <div><strong>Sticky note pop-outs</strong>Markdown notes that float above other windows.</div>
+        <div><strong>Habit tracker</strong>4-state toggle, streaks, per-year heatmap.</div>
+        <div><strong>Task management</strong>Priority + due-time, with floating pop-out.</div>
+        <div><strong>Global shortcuts</strong>Ctrl+Space palette. Ctrl+H habits. Ctrl+T tasks.</div>
+        <div><strong>Offline-first</strong>Local SQLite. Your data never leaves your machine.</div>
+        <div><strong>Light + dark themes</strong>Press <code>☼</code> in the top bar to toggle.</div>
+      </div>
+    </section>
+
+    <footer>
+      <span>© 2026 Bytical Solutions Private Limited. Apache-2.0 licensed.</span>
+      <span><a href="https://github.com/bytical-ai/nerva">github.com/bytical-ai/nerva</a></span>
+    </footer>
+  </div>
+</body>
+</html>
