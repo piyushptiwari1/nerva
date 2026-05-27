@@ -40,7 +40,7 @@ Then update [`src-tauri/tauri.conf.json`](../src-tauri/tauri.conf.json):
 
 ### B. Add GitHub repo secrets
 
-Push the repo to `github.com/bytical-ai/nerva` first, then:
+Push the repo to `github.com/piyushptiwari1/nerva` first, then:
 
 Repo → **Settings → Secrets and variables → Actions → New repository secret**:
 
@@ -55,7 +55,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 
 ### C. Vercel — deploy nerva.bytical.ai
 
-1. https://vercel.com/new → import the `bytical-ai/nerva` repo.
+1. https://vercel.com/new → import the `piyushptiwari1/nerva` repo.
 2. **Root directory**: `web`.
 3. **Build command**: `npm run build`.
 4. **Output directory**: `dist`.

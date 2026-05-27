@@ -105,7 +105,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/bytical-ai/nerva/releases/latest/download/latest.json"
+        "https://github.com/piyushptiwari1/nerva/releases/latest/download/latest.json"
       ],
       "dialog": true,
       "pubkey": "REPLACE_WITH_GENERATED_PUBKEY"

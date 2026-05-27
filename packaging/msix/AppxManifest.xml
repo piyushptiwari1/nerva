@@ -30,7 +30,7 @@
     <DisplayName>Nerva</DisplayName>
     <PublisherDisplayName>__REPLACE_PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>Persistent focus workspace for deep work. Multi-timer engine, smart notes, habit tracking, task management, and cognitive-state continuity across reboots.</Description>
+    <Description>The focus workspace that never forgets. Parallel timers that survive sleep and reboot, sticky markdown notes that float above any window, a year-long habit heatmap, and tasks with priority and due times. Offline-first. No telemetry.</Description>
   </Properties>
 
   <Dependencies>

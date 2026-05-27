@@ -1,10 +1,25 @@
 # Nerva
 
-> A persistent focus workspace for deep work.
+> **The focus workspace that never forgets.**
 
-Native-first Ubuntu desktop app. Multi-timer engine, persistent notes,
-workspace memory, and cognitive-state continuity that survives reboots
-and crashes. GPU-light, offline-first, no Electron bloat.
+A native desktop focus workspace built for deep work. Parallel timers that
+survive sleep and reboot, sticky markdown notes that float above any window,
+a year-long habit heatmap, and tasks with priority and due times.
+Offline-first. No telemetry. No account.
+
+**Six things, done properly:**
+
+1. **Parallel focus timers** — wall-clock math. Survives sleep, suspend, reboot.
+2. **Sticky markdown notes** — pop out a note; it floats above any window. Autosaves every 250 ms.
+3. **Habit heatmap** — 4-state daily toggle, streaks, full-year contribution grid.
+4. **Tasks with pop-out** — priority + due time, dockable side panel or floating widget.
+5. **Command palette** — `Ctrl+Space` to jump anywhere. Global shortcuts for habits, tasks, timer.
+6. **Crash-safe local store** — event-sourced SQLite. Append-only log. Replay-on-launch recovery.
+
+Native Rust core, ~80 MB RAM idle. Not Electron. Apache-2.0.
+
+→ **Download:** https://nerva.bytical.ai
+→ **Canonical product story:** [`docs/STORY.md`](docs/STORY.md)
 
 ## Status
 
