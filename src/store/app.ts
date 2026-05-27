@@ -30,6 +30,8 @@ interface AppStore {
   setVolume: (v: number) => Promise<void>;
   setMuted: (m: boolean) => Promise<void>;
   testAudio: () => Promise<void>;
+  setAmbient: (kind: "white" | "pink" | "brown" | null) => Promise<void>;
+  setAmbientVolume: (v: number) => Promise<void>;
   setDnd: (on: boolean) => Promise<void>;
   createTask: (title: string) => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
@@ -94,6 +96,12 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   async testAudio() {
     await ipc.audioTest();
+  },
+  async setAmbient(kind) {
+    set({ audio: await ipc.ambientSet(kind) });
+  },
+  async setAmbientVolume(v) {
+    set({ audio: await ipc.ambientSetVolume(v) });
   },
   async setDnd(on) {
     set({ focus: await ipc.focusSetDnd(on) });

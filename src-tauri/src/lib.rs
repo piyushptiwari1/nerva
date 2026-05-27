@@ -127,6 +127,8 @@ pub fn run() {
             ipc::audio_set_volume,
             ipc::audio_set_muted,
             ipc::audio_test,
+            ipc::ambient_set,
+            ipc::ambient_set_volume,
             // focus / DND
             ipc::focus_state,
             ipc::focus_set_dnd,

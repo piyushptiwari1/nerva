@@ -37,6 +37,8 @@ export function CommandPalette() {
   const refreshMomentum = useApp((s) => s.refreshMomentum);
   const setDnd = useApp((s) => s.setDnd);
   const openSettings = useSettingsUi((s) => s.setOpen);
+  const audio = useApp((s) => s.audio);
+  const setAmbient = useApp((s) => s.setAmbient);
   const testAudio = useApp((s) => s.testAudio);
   const activateWorkspace = useApp((s) => s.activateWorkspace);
   const createTask = useApp((s) => s.createTask);
@@ -239,6 +241,37 @@ export function CommandPalette() {
       keywords: "settings preferences config ollama endpoint model audio focus dnd".toLowerCase(),
       run: () => openSettings(true),
     });
+    // Ambient noise quick toggles — surface only as palette actions since the
+    // Settings pane already has the full picker; here we want one-keystroke
+    // start/stop without leaving flow.
+    if (audio?.available) {
+      const kinds: Array<{ id: "pink" | "brown" | "white"; label: string }> = [
+        { id: "pink", label: "Pink" },
+        { id: "brown", label: "Brown" },
+        { id: "white", label: "White" },
+      ];
+      for (const k of kinds) {
+        out.push({
+          id: `ambient.${k.id}`,
+          group: "System",
+          glyph: "♒",
+          title: `Play ${k.label} noise`,
+          subtitle: audio.ambient === k.id ? "currently playing" : undefined,
+          keywords: `ambient noise ${k.id} background focus`.toLowerCase(),
+          run: () => setAmbient(k.id),
+        });
+      }
+      if (audio.ambient !== null) {
+        out.push({
+          id: "ambient.off",
+          group: "System",
+          glyph: "♒",
+          title: "Stop ambient noise",
+          keywords: "ambient noise off stop silence".toLowerCase(),
+          run: () => setAmbient(null),
+        });
+      }
+    }
     out.push({
       id: "system.timer-widget",
       group: "System",

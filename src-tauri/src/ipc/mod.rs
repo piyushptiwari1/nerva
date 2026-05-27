@@ -711,12 +711,20 @@ pub struct AudioState {
     pub volume: f32,
     pub muted: bool,
     pub available: bool,
+    pub ambient: Option<crate::audio::AmbientKind>,
+    pub ambient_volume: f32,
 }
 
 #[tauri::command]
 pub fn audio_state(state: State) -> Result<AudioState> {
     let s = state.audio.snapshot();
-    Ok(AudioState { volume: s.volume, muted: s.muted, available: s.available })
+    Ok(AudioState {
+        volume: s.volume,
+        muted: s.muted,
+        available: s.available,
+        ambient: s.ambient,
+        ambient_volume: s.ambient_volume,
+    })
 }
 
 #[tauri::command]
@@ -738,6 +746,40 @@ pub fn audio_set_muted(state: State, muted: bool) -> Result<AudioState> {
 pub fn audio_test(state: State) -> Result<()> {
     state.audio.play_completion();
     Ok(())
+}
+
+// ---------- ambient noise ----------
+
+#[derive(Debug, Deserialize)]
+pub struct AmbientArgs {
+    /// `None` (or omitted) stops playback; otherwise starts the chosen kind.
+    pub kind: Option<crate::audio::AmbientKind>,
+}
+
+#[tauri::command]
+pub fn ambient_set(state: State, args: AmbientArgs) -> Result<AudioState> {
+    match args.kind {
+        Some(k) => state.audio.start_ambient(k),
+        None => state.audio.stop_ambient(),
+    }
+    // Remember the last selection so the Focus menu can pre-highlight it
+    // even though we don't auto-resume on boot.
+    let label = match args.kind {
+        Some(crate::audio::AmbientKind::White) => "white",
+        Some(crate::audio::AmbientKind::Pink) => "pink",
+        Some(crate::audio::AmbientKind::Brown) => "brown",
+        None => "",
+    };
+    let _ = state.store.meta_set("audio.ambient_last", label);
+    audio_state(state)
+}
+
+#[tauri::command]
+pub fn ambient_set_volume(state: State, volume: f32) -> Result<AudioState> {
+    let v = volume.clamp(0.0, 1.0);
+    state.audio.set_ambient_volume(v);
+    state.store.meta_set("audio.ambient_volume", &v.to_string())?;
+    audio_state(state)
 }
 
 // ---------- focus / DND ----------

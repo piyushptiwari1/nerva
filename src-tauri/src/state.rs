@@ -69,6 +69,14 @@ impl AppState {
         if let Ok(Some(v)) = store.meta_get("audio.muted") {
             audio_settings.muted = v == "true";
         }
+        if let Ok(Some(v)) = store.meta_get("audio.ambient_volume") {
+            if let Ok(f) = v.parse::<f32>() {
+                audio_settings.ambient_volume = f.clamp(0.0, 1.0);
+            }
+        }
+        // Note: we don't auto-resume the ambient track on boot — explicit
+        // user intent feels less surprising than waking up to noise. The
+        // ipc layer can read the last-selected kind on demand.
         let audio = Arc::new(AudioEngine::spawn(audio_settings));
 
         // Resolve LLM config: meta-table override, then env vars, then defaults.

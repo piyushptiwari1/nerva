@@ -269,8 +269,17 @@ function AudioTab() {
   const setVolume = useApp((s) => s.setVolume);
   const setMuted = useApp((s) => s.setMuted);
   const testAudio = useApp((s) => s.testAudio);
+  const setAmbient = useApp((s) => s.setAmbient);
+  const setAmbientVolume = useApp((s) => s.setAmbientVolume);
 
   if (!audio) return <div className="text-xs text-ink-500">audio engine unavailable</div>;
+
+  const kinds: { id: "white" | "pink" | "brown"; label: string; hint: string }[] = [
+    { id: "pink", label: "Pink", hint: "balanced, warm — best for focus" },
+    { id: "brown", label: "Brown", hint: "deeper, rumbling — masks low freq noise" },
+    { id: "white", label: "White", hint: "flat spectrum — harsher, calibration only" },
+  ];
+
   return (
     <section className="flex flex-col gap-4 text-sm">
       <Field label="Completion ding volume" help="Plays when a timer reaches zero.">
@@ -291,11 +300,7 @@ function AudioTab() {
         </div>
       </Field>
       <div className="flex items-center gap-3">
-        <Toggle
-          label="Muted"
-          on={audio.muted}
-          onChange={(v) => void setMuted(v)}
-        />
+        <Toggle label="Muted" on={audio.muted} onChange={(v) => void setMuted(v)} />
         <button
           onClick={() => void testAudio()}
           className="text-[11px] px-2 py-0.5 rounded bg-accent/20 hover:bg-accent/30 text-accent-glow"
@@ -303,9 +308,55 @@ function AudioTab() {
           Play test ding
         </button>
       </div>
+      <Field
+        label="Ambient noise"
+        help="Procedurally generated background hiss. Survives app restart only if you press Play again — Nerva doesn't auto-resume on boot."
+      >
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => void setAmbient(null)}
+            className={`text-[11px] px-2 py-1 rounded border ${
+              audio.ambient === null
+                ? "bg-accent/20 border-accent text-accent-glow"
+                : "border-ink-700 hover:bg-ink-800 text-ink-200"
+            }`}
+          >
+            Off
+          </button>
+          {kinds.map((k) => (
+            <button
+              key={k.id}
+              onClick={() => void setAmbient(k.id)}
+              title={k.hint}
+              className={`text-[11px] px-2 py-1 rounded border ${
+                audio.ambient === k.id
+                  ? "bg-accent/20 border-accent text-accent-glow"
+                  : "border-ink-700 hover:bg-ink-800 text-ink-200"
+              }`}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-[10px] text-ink-500 w-16">volume</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={audio.ambient_volume}
+            onChange={(e) => void setAmbientVolume(Number(e.target.value))}
+            className="flex-1 accent-accent h-1"
+          />
+          <span className="text-[10px] text-ink-400 w-8 text-right tnum">
+            {Math.round(audio.ambient_volume * 100)}%
+          </span>
+        </div>
+      </Field>
       {!audio.available && (
         <div className="text-[11px] text-amber-400">
-          Host audio device not detected. Ding will be a no-op until audio is available.
+          Host audio device not detected. Ambient + ding will be no-ops until audio is available.
         </div>
       )}
     </section>

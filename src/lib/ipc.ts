@@ -75,10 +75,14 @@ export interface SemanticHit {
   score: number;
 }
 
+export type AmbientKind = "white" | "pink" | "brown";
+
 export interface AudioState {
   volume: number;
   muted: boolean;
   available: boolean;
+  ambient: AmbientKind | null;
+  ambient_volume: number;
 }
 
 export interface FocusState {
@@ -136,6 +140,10 @@ export const ipc = {
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
   audioTest: () => invoke<void>("audio_test"),
+  ambientSet: (kind: AmbientKind | null) =>
+    invoke<AudioState>("ambient_set", { args: { kind } }),
+  ambientSetVolume: (volume: number) =>
+    invoke<AudioState>("ambient_set_volume", { volume }),
   focusState: () => invoke<FocusState>("focus_state"),
   focusSetDnd: (enabled: boolean) => invoke<FocusState>("focus_set_dnd", { enabled }),
   // workspaces
