@@ -89,8 +89,8 @@
     nav .links{display:flex;gap:22px;font-size:14px;color:var(--ink-dim);align-items:center}
     nav .links a{color:var(--ink-dim)}
     nav .links a:hover{color:var(--ink)}
-    nav .cta{background:var(--accent);color:#0a0b0d;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px}
-    nav .cta:hover{background:var(--accent-glow);color:#0a0b0d}
+    nav .links a.cta{background:var(--accent);color:#0a0b0d;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px}
+    nav .links a.cta:hover{background:var(--accent-glow);color:#0a0b0d}
 
     .hero{padding:96px 0 64px;text-align:center;position:relative;overflow:hidden}
     .hero::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:1100px;height:600px;background:radial-gradient(ellipse at center,rgba(124,156,255,0.18) 0%,transparent 60%);pointer-events:none}
@@ -753,35 +753,32 @@
     <div class="downloads">
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg> Linux</h3>
-        <a class="primary" href="/download/linux/appimage">AppImage (portable)</a>
+        <a class="primary" href="https://github.com/piyushptiwari1/nerva/releases">View releases</a>
         <div class="alts">
-          <a href="/download/linux/deb">.deb · Ubuntu 22 / 24</a>
-          <a href="/download/linux/rpm">.rpm · Fedora</a>
+          <a href="https://github.com/piyushptiwari1/nerva/releases">.deb · .AppImage · .rpm</a>
         </div>
       </div>
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg> Windows 10 / 11</h3>
-        <a class="primary" href="/download/windows/exe">Download installer</a>
+        <a class="primary" href="https://github.com/piyushptiwari1/nerva/releases">View releases</a>
         <div class="alts">
-          <a href="/download/windows/msi">MSI for IT</a>
-          <a href="/cert">Trust certificate</a>
+          <a href="https://github.com/piyushptiwari1/nerva/releases">.exe · .msi</a>
         </div>
       </div>
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Package managers</h3>
-        <a class="primary" href="https://snapcraft.io/nerva">Snap Store</a>
+        <a class="primary" href="https://github.com/piyushptiwari1/nerva">★ Star on GitHub</a>
         <div class="alts">
-          <a href="https://aur.archlinux.org/packages/nerva-bin">AUR</a>
-          <a href="#winget">winget</a>
+          <a href="https://github.com/piyushptiwari1/nerva">Snap · winget · AUR (soon)</a>
         </div>
       </div>
     </div>
     <div class="note">
-      Windows installers are signed with the Bytical self-signed certificate. On
-      first install you may see <strong>SmartScreen "Unrecognized app"</strong> —
-      click <code>More info → Run anyway</code>. To remove the warning, install
-      <a href="/cert">bytical-codesign.crt</a> into <em>Trusted Root Certification Authorities</em>.
-      The Microsoft Store build (in review) bypasses this.
+      <strong>v0.1.0 ships shortly.</strong> Star the GitHub repo to be notified the moment
+      installers go live. Once shipped, Windows installers carry the Bytical self-signed
+      certificate — first run shows <strong>SmartScreen "Unrecognized app"</strong>;
+      click <code>More info → Run anyway</code>, or install the Bytical trust certificate
+      once to silence the warning forever. The Microsoft Store build (in review) bypasses this.
     </div>
   </div>
 </section>
