@@ -33,7 +33,9 @@ interface AppStore {
   setDnd: (on: boolean) => Promise<void>;
   createTask: (title: string) => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
+  renameTask: (id: string, title: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  reorderTasks: (orderedIds: string[]) => Promise<void>;
 }
 
 export const useApp = create<AppStore>((set, get) => ({
@@ -109,5 +111,25 @@ export const useApp = create<AppStore>((set, get) => ({
   async deleteTask(id) {
     await ipc.taskDelete(id);
     await get().refreshTasks();
+  },
+  async renameTask(id, title) {
+    const v = title.trim();
+    if (!v) return;
+    await ipc.taskRename({ id, title: v });
+    await get().refreshTasks();
+  },
+  async reorderTasks(orderedIds) {
+    // Optimistic reorder so the drop animation doesn't snap back while we
+    // wait for the round-trip; the server response replaces the optimistic
+    // list with the authoritative one.
+    const current = get().tasks;
+    const indexed = new Map(current.map((t) => [t.id, t]));
+    const reordered = [
+      ...orderedIds.map((id) => indexed.get(id)).filter((t): t is NonNullable<typeof t> => !!t),
+      ...current.filter((t) => !orderedIds.includes(t.id)),
+    ];
+    set({ tasks: reordered });
+    const tasks = await ipc.taskReorder({ ordered_ids: orderedIds });
+    set({ tasks });
   },
 }));

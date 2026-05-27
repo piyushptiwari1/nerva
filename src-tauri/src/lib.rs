@@ -82,6 +82,7 @@ pub fn run() {
             ipc::task_toggle,
             ipc::task_rename,
             ipc::task_delete,
+            ipc::task_reorder,
             // momentum
             ipc::momentum_snapshot,
             // sticky / widgets

@@ -1,6 +1,11 @@
 //! Tasks projection. Lightweight todo list scoped per workspace, event-sourced
 //! like every other module. State is held in-memory and rebuilt by replaying
 //! `task.*` events; the IPC layer is responsible for emitting them.
+//!
+//! Ordering of open tasks follows a per-workspace `order` vector that is
+//! rewritten on every `task.reordered` event. Open tasks not present in the
+//! vector fall back to newest-first; this keeps newly-created tasks visible
+//! without forcing a reorder write for every create.
 
 use crate::store::StoredEvent;
 use serde::{Deserialize, Serialize};
@@ -26,6 +31,8 @@ pub struct Task {
 #[derive(Default)]
 pub struct TasksProjection {
     items: HashMap<String, Task>,
+    /// Ordered todo ids per workspace. `None` is the "no workspace" bucket.
+    order: HashMap<Option<String>, Vec<String>>,
 }
 
 impl TasksProjection {
@@ -75,22 +82,51 @@ impl TasksProjection {
             "task.deleted" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default();
                 self.items.remove(id);
+                for v in self.order.values_mut() {
+                    v.retain(|x| x != id);
+                }
+            }
+            "task.reordered" => {
+                let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
+                let ids: Vec<String> = ev.payload["ordered_ids"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                    .unwrap_or_default();
+                self.order.insert(ws, ids);
             }
             _ => {}
         }
     }
 
     pub fn list(&self) -> Vec<Task> {
-        let mut v: Vec<_> = self.items.values().cloned().collect();
-        // Open tasks first, newest open at top; then done by completion time desc.
-        v.sort_by(|a, b| match (a.status, b.status) {
-            (TaskStatus::Todo, TaskStatus::Done) => std::cmp::Ordering::Less,
-            (TaskStatus::Done, TaskStatus::Todo) => std::cmp::Ordering::Greater,
-            (TaskStatus::Todo, TaskStatus::Todo) => b.created_ms.cmp(&a.created_ms),
-            (TaskStatus::Done, TaskStatus::Done) => {
-                b.completed_ms.unwrap_or(0).cmp(&a.completed_ms.unwrap_or(0))
-            }
+        // Split open/done so we can apply distinct orderings.
+        let (mut todo, mut done): (Vec<Task>, Vec<Task>) = self
+            .items
+            .values()
+            .cloned()
+            .partition(|t| t.status == TaskStatus::Todo);
+
+        // Open tasks: honor per-workspace order vec, falling back to newest-first
+        // for ids that aren't in the order list (e.g. just-created tasks).
+        todo.sort_by(|a, b| {
+            let ra = self.rank(a);
+            let rb = self.rank(b);
+            ra.cmp(&rb).then_with(|| b.created_ms.cmp(&a.created_ms))
         });
-        v
+        // Done: newest-completion first.
+        done.sort_by(|a, b| b.completed_ms.unwrap_or(0).cmp(&a.completed_ms.unwrap_or(0)));
+        todo.extend(done);
+        todo
+    }
+
+    /// Sort key for an open task: its index in the workspace order vec, or
+    /// `i64::MAX` if absent (so unknown ids slot in after explicitly-ordered
+    /// ones and then fall back to newest-first via the secondary key).
+    fn rank(&self, t: &Task) -> i64 {
+        let order = match self.order.get(&t.workspace_id) {
+            Some(v) => v,
+            None => return i64::MAX,
+        };
+        order.iter().position(|x| *x == t.id).map(|i| i as i64).unwrap_or(i64::MAX)
     }
 }

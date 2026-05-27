@@ -8,6 +8,7 @@ import { TimelineBar } from "@/components/TimelineBar";
 import { CommandBar } from "@/components/CommandBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { AskNerva } from "@/components/AskNerva";
+import { KeyboardCheatsheet } from "@/components/KeyboardCheatsheet";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
@@ -49,6 +50,7 @@ export default function App() {
       <TimelineBar />
       <CommandPalette />
       <AskNerva />
+      <KeyboardCheatsheet />
     </div>
   );
 }

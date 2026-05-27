@@ -77,8 +77,15 @@ export function TimelineBar() {
             className="flex-1 accent-accent h-1 cursor-pointer"
             aria-label="Scrub timeline"
           />
-          <span className="text-[10px] text-ink-400 tnum w-[140px] text-right truncate">
-            {focused ? `${shortKind(focused.kind)} · ${formatStamp(focused.ts_ms)}` : "—"}
+          <span
+            className="text-[10px] text-ink-400 tnum w-[220px] text-right truncate"
+            title={focused ? eventTooltip(focused) : ""}
+          >
+            {focused
+              ? `${shortKind(focused.kind)} · ${formatStamp(focused.ts_ms)} · ${summarizePayload(
+                  focused.payload,
+                )}`
+              : "—"}
           </span>
           <button
             onClick={() => {
@@ -99,6 +106,30 @@ export function TimelineBar() {
       )}
     </footer>
   );
+}
+
+/** Multi-line tooltip used as the `title` attribute on the focused-event line.
+ *  Shows kind, full timestamp, and a pretty-printed view of the payload. */
+function eventTooltip(ev: StoredEvent): string {
+  const stamp = new Date(ev.ts_ms).toLocaleString();
+  const payload = ev.payload ? JSON.stringify(ev.payload, null, 2) : "";
+  return `${ev.kind}\n${stamp}\n${payload}`;
+}
+
+/** Pick a couple of common keys for an inline summary so the scrubbed-event
+ *  line is still legible at a glance without expanding the tooltip. */
+function summarizePayload(p: unknown): string {
+  if (!p || typeof p !== "object") return "";
+  const o = p as Record<string, unknown>;
+  for (const k of ["title", "name", "prompt"]) {
+    const v = o[k];
+    if (typeof v === "string" && v.length > 0) {
+      return v.length > 40 ? v.slice(0, 37) + "…" : v;
+    }
+  }
+  const id = o["id"];
+  if (typeof id === "string") return `id=${id.slice(0, 8)}…`;
+  return "";
 }
 
 function shortKind(k: string): string {

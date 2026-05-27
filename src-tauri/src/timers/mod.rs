@@ -34,6 +34,9 @@ pub struct Timer {
     pub workspace_id: Option<String>,
     pub parent_id: Option<String>,
     pub group_id: Option<String>,
+    /// Optional id of a task this timer is focusing on. When the timer
+    /// completes the IPC layer auto-toggles the task to `done`.
+    pub task_id: Option<String>,
     /// Computed at read time; not authoritative.
     pub remaining_ms: i64,
 }
@@ -52,6 +55,7 @@ impl Timer {
             workspace_id,
             parent_id: None,
             group_id: None,
+            task_id: None,
             remaining_ms: duration_ms,
         }
     }
@@ -91,7 +95,9 @@ impl TimerEngine {
                 let color = ev.payload["color"].as_str().unwrap_or("#7c9cff").to_string();
                 let duration = ev.payload["duration_ms"].as_i64().unwrap_or(25 * 60 * 1000);
                 let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
-                self.timers.insert(id.clone(), Timer::new(id, name, color, duration, ws));
+                let mut t = Timer::new(id.clone(), name, color, duration, ws);
+                t.task_id = ev.payload["task_id"].as_str().map(|s| s.to_string());
+                self.timers.insert(id, t);
             }
             "timer.started" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default();

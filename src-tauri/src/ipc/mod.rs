@@ -42,6 +42,8 @@ pub struct CreateTimerArgs {
     pub duration_ms: i64,
     pub color: Option<String>,
     pub workspace_id: Option<String>,
+    /// Optional task to bind: completing the timer marks the task done.
+    pub task_id: Option<String>,
 }
 
 #[tauri::command]
@@ -59,6 +61,7 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
         "duration_ms": args.duration_ms,
         "color": args.color.unwrap_or_else(|| "#7c9cff".into()),
         "workspace_id": workspace_id,
+        "task_id": args.task_id,
     });
     let evt_id = state.store.append_event("timer.created", &payload)?;
     let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(), kind: "timer.created".into(), payload };
@@ -114,6 +117,13 @@ pub fn timer_list(state: State) -> Result<Vec<Timer>> {
 pub fn timer_tick(state: State) -> Result<TickReport> {
     let mut engine = state.timers.lock();
     let completed = engine.tick();
+    // Resolve linked task ids up front while we hold the engine lock; we'll
+    // release the engine lock before touching the tasks projection to avoid
+    // any nested-lock pattern.
+    let linked_tasks: Vec<String> = completed
+        .iter()
+        .filter_map(|id| engine.get(id).and_then(|t| t.task_id.clone()))
+        .collect();
     // Persist completion events for any that crossed the line, then fire the
     // completion sound once per batch (a single "ding" even if N timers finish
     // in the same tick — avoids a cluster of overlapping tones).
@@ -123,7 +133,33 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
     if !completed.is_empty() {
         state.audio.play_completion();
     }
-    Ok(TickReport { completed, timers: engine.list() })
+    drop(engine);
+
+    // Auto-complete linked tasks (skip those already done).
+    if !linked_tasks.is_empty() {
+        let mut proj = state.tasks.lock();
+        for task_id in &linked_tasks {
+            let is_open = proj
+                .list()
+                .into_iter()
+                .find(|t| t.id == *task_id)
+                .map(|t| matches!(t.status, crate::tasks::TaskStatus::Todo))
+                .unwrap_or(false);
+            if !is_open { continue; }
+            let payload = serde_json::json!({ "id": task_id });
+            if let Ok(evt_id) = state.store.append_event("task.completed", &payload) {
+                let ev = StoredEvent {
+                    id: evt_id,
+                    ts_ms: crate::store::now_ms(),
+                    kind: "task.completed".into(),
+                    payload,
+                };
+                proj.apply(&ev);
+            }
+        }
+    }
+
+    Ok(TickReport { completed, timers: state.timers.lock().list() })
 }
 
 #[derive(Debug, Serialize)]
@@ -402,6 +438,34 @@ pub fn task_delete(state: State, id: String) -> Result<()> {
     };
     state.tasks.lock().apply(&ev);
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderTasksArgs {
+    pub ordered_ids: Vec<String>,
+    pub workspace_id: Option<String>,
+}
+
+/// Persist a new order for the open tasks in `workspace_id` (defaults to the
+/// active workspace). The vec is the full set of open task ids in the desired
+/// order; ids not present are appended via the projection's fallback ranking.
+#[tauri::command]
+pub fn task_reorder(state: State, args: ReorderTasksArgs) -> Result<Vec<Task>> {
+    let ws = args
+        .workspace_id
+        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let payload = serde_json::json!({
+        "workspace_id": ws,
+        "ordered_ids": args.ordered_ids,
+    });
+    let evt_id = state.store.append_event("task.reordered", &payload)?;
+    let ev = StoredEvent {
+        id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "task.reordered".into(), payload,
+    };
+    let mut proj = state.tasks.lock();
+    proj.apply(&ev);
+    Ok(proj.list())
 }
 
 // ---------- momentum ----------

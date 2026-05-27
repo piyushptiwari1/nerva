@@ -15,6 +15,7 @@ export interface Timer {
   workspace_id: string | null;
   parent_id: string | null;
   group_id: string | null;
+  task_id: string | null;
   remaining_ms: number;
 }
 
@@ -101,7 +102,7 @@ export const ipc = {
   ping: () => invoke<string>("ping"),
   runtime: () => invoke<RuntimeInfo>("get_runtime_info"),
   // timers
-  timerCreate: (args: { name: string; duration_ms: number; color?: string; workspace_id?: string }) =>
+  timerCreate: (args: { name: string; duration_ms: number; color?: string; workspace_id?: string; task_id?: string }) =>
     invoke<Timer>("timer_create", { args }),
   timerStart: (id: string) => invoke<Timer>("timer_start", { id }),
   timerPause: (id: string) => invoke<Timer>("timer_pause", { id }),
@@ -143,6 +144,8 @@ export const ipc = {
   taskRename: (args: { id: string; title: string }) =>
     invoke<Task>("task_rename", { args }),
   taskDelete: (id: string) => invoke<void>("task_delete", { id }),
+  taskReorder: (args: { ordered_ids: string[]; workspace_id?: string }) =>
+    invoke<Task[]>("task_reorder", { args }),
   // momentum
   momentumSnapshot: (days?: number) =>
     invoke<MomentumBucket[]>("momentum_snapshot", { days }),
