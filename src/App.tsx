@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
+import { useTutorial } from "@/store/tutorial";
 import { Sidebar } from "@/components/Sidebar";
 import { TimerStage } from "@/components/TimerStage";
 import { NotesPanel } from "@/components/NotesPanel";
@@ -11,15 +12,24 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { AskNerva } from "@/components/AskNerva";
 import { KeyboardCheatsheet } from "@/components/KeyboardCheatsheet";
 import { SettingsPane } from "@/components/SettingsPane";
+import { Tutorial, tutorialShouldAutoOpen } from "@/components/Tutorial";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
   const togglePalette = usePalette((s) => s.toggle);
   const toggleSettings = useSettingsUi((s) => s.toggle);
+  const tutorialOpen = useTutorial((s) => s.open);
+  const showTutorial = useTutorial((s) => s.show);
+  const hideTutorial = useTutorial((s) => s.hide);
 
   useEffect(() => {
     bootstrap().catch(console.error);
   }, [bootstrap]);
+
+  // First-launch tour. Gated by localStorage so it only fires once per install.
+  useEffect(() => {
+    if (ready && tutorialShouldAutoOpen()) showTutorial();
+  }, [ready, showTutorial]);
 
   // 250ms tick — wall-clock math means we just need UI refresh cadence.
   useEffect(() => {
@@ -59,6 +69,7 @@ export default function App() {
       <AskNerva />
       <KeyboardCheatsheet />
       <SettingsPane />
+      <Tutorial open={tutorialOpen} onClose={hideTutorial} />
     </div>
   );
 }

@@ -40,12 +40,23 @@ export function StickyNote({ noteId }: { noteId: string }) {
     }, 250);
   }
 
+  async function closeWin() {
+    try {
+      const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
+      await win.close();
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-amber-50 text-ink-950 font-sans">
       <header
         data-tauri-drag-region
-        className="px-3 py-2 flex items-center justify-between bg-amber-100 border-b border-amber-200 cursor-move select-none"
+        className="px-3 py-2 flex items-center justify-between bg-amber-200 border-b border-amber-300 cursor-grab active:cursor-grabbing select-none"
+        title="Drag to move"
       >
+        <span data-tauri-drag-region className="text-ink-700 text-sm leading-none pointer-events-none mr-2">⋮⋮</span>
         <input
           value={title}
           onChange={(e) => {
@@ -58,9 +69,16 @@ export function StickyNote({ noteId }: { noteId: string }) {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
-            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300"
+            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-ink-900"
           >
             {mode === "edit" ? "View" : "Edit"}
+          </button>
+          <button
+            onClick={closeWin}
+            className="text-base leading-none px-1 text-ink-700 hover:text-ink-950"
+            title="Close sticky"
+          >
+            ×
           </button>
         </div>
       </header>

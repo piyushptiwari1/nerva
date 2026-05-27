@@ -40,19 +40,41 @@ export function TimerWidget() {
     else if (active.status === "idle") await ipc.timerStart(active.id);
   }
 
+  async function close() {
+    try {
+      const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
+      await win.close();
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 select-none">
       <header
         data-tauri-drag-region
-        className="h-7 px-3 flex items-center justify-between cursor-move bg-ink-900/80 border-b border-ink-700/40"
+        className="h-9 px-3 flex items-center justify-between cursor-grab active:cursor-grabbing bg-ink-900 border-b border-ink-700"
+        title="Drag to move"
       >
-        <span className="text-[10px] uppercase tracking-widest text-ink-400">
-          Nerva
+        <span data-tauri-drag-region className="flex items-center gap-2 pointer-events-none">
+          <span className="text-ink-400 text-sm leading-none">⋮⋮</span>
+          <span className="text-[10px] uppercase tracking-widest text-ink-300">
+            Nerva timer
+          </span>
         </span>
-        <span
-          className="w-2 h-2 rounded-full"
-          style={{ background: active?.color ?? "#7c9cff" }}
-        />
+        <span className="flex items-center gap-2">
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ background: active?.color ?? "#7c9cff" }}
+          />
+          <button
+            onClick={close}
+            className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"
+            title="Close widget"
+          >
+            ×
+          </button>
+        </span>
       </header>
 
       <button

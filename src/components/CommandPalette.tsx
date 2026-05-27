@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
+import { useTutorial } from "@/store/tutorial";
 import { ipc } from "@/lib/ipc";
 
 interface Action {
@@ -37,6 +38,7 @@ export function CommandPalette() {
   const refreshMomentum = useApp((s) => s.refreshMomentum);
   const setDnd = useApp((s) => s.setDnd);
   const openSettings = useSettingsUi((s) => s.setOpen);
+  const showTutorial = useTutorial((s) => s.show);
   const audio = useApp((s) => s.audio);
   const setAmbient = useApp((s) => s.setAmbient);
   const testAudio = useApp((s) => s.testAudio);
@@ -298,12 +300,22 @@ export function CommandPalette() {
         await Promise.all([refreshTimers(), refreshTasks(), refreshNotes(), refreshMomentum()]);
       },
     });
+    out.push({
+      id: "system.help",
+      group: "System",
+      glyph: "?",
+      title: "Show quick tour",
+      subtitle: "first-run walkthrough — re-openable any time",
+      keywords: "help tour tutorial walkthrough onboarding intro guide".toLowerCase(),
+      run: () => showTutorial(),
+    });
 
     return out;
   }, [
     timers, tasks, notes, workspaces, active, focus, query,
     refreshTimers, refreshTasks, refreshNotes, refreshMomentum,
     setDnd, testAudio, activateWorkspace, createTask, toggleTask,
+    showTutorial,
   ]);
 
   const ranked = useMemo(() => rank(actions, query), [actions, query]);

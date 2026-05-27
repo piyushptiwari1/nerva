@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { ipc, type RuntimeInfo } from "@/lib/ipc";
 import { FocusMenu } from "@/components/FocusMenu";
 import { usePalette } from "@/store/palette";
+import { useTutorial } from "@/store/tutorial";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
   const [now, setNow] = useState(() => new Date());
   const openPalette = usePalette((s) => s.set);
+  const showTutorial = useTutorial((s) => s.show);
 
   useEffect(() => {
     ipc.runtime().then(setInfo).catch(() => void 0);
@@ -41,7 +43,16 @@ export function CommandBar() {
 
       <FocusMenu />
 
-      <div className="text-xs text-ink-400 tnum">
+      <button
+        onClick={showTutorial}
+        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        title="Show quick tour"
+        aria-label="Show quick tour"
+      >
+        ?
+      </button>
+
+      <div className="text-xs text-ink-300 tnum">
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
       </div>
     </div>
