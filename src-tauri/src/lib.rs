@@ -43,7 +43,7 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = AppState::initialize(&handle)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
-            app.manage(Arc::new(state));
+            handle.manage(Arc::new(state));
             tracing::info!("Nerva runtime ready");
             Ok(())
         })
