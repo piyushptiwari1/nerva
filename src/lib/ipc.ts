@@ -77,6 +77,25 @@ export interface FocusState {
   supported: boolean;
 }
 
+export type TaskStatus = "todo" | "done";
+
+export interface Task {
+  id: string;
+  workspace_id: string | null;
+  title: string;
+  status: TaskStatus;
+  created_ms: number;
+  completed_ms: number | null;
+}
+
+export interface MomentumBucket {
+  date: string;
+  start_ms: number;
+  completed_timers: number;
+  completed_tasks: number;
+  focus_ms: number;
+}
+
 // ---- commands ----
 export const ipc = {
   ping: () => invoke<string>("ping"),
@@ -116,6 +135,17 @@ export const ipc = {
   workspaceActive: () => invoke<Workspace | null>("workspace_active"),
   // timeline
   eventsRecent: (limit?: number) => invoke<StoredEvent[]>("events_recent", { limit }),
+  // tasks
+  taskList: () => invoke<Task[]>("task_list"),
+  taskCreate: (args: { title: string; workspace_id?: string }) =>
+    invoke<Task>("task_create", { args }),
+  taskToggle: (id: string) => invoke<Task>("task_toggle", { id }),
+  taskRename: (args: { id: string; title: string }) =>
+    invoke<Task>("task_rename", { args }),
+  taskDelete: (id: string) => invoke<void>("task_delete", { id }),
+  // momentum
+  momentumSnapshot: (days?: number) =>
+    invoke<MomentumBucket[]>("momentum_snapshot", { days }),
 };
 
 export function formatRemaining(ms: number): string {

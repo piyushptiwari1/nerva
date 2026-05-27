@@ -4,6 +4,7 @@ use crate::audio::{AudioEngine, AudioSettings};
 use crate::error::{NervaError, Result};
 use crate::notes::NotesProjection;
 use crate::store::Store;
+use crate::tasks::TasksProjection;
 use crate::timers::TimerEngine;
 use crate::workspaces::WorkspacesProjection;
 use parking_lot::Mutex;
@@ -16,6 +17,7 @@ pub struct AppState {
     pub timers: Arc<Mutex<TimerEngine>>,
     pub notes: Arc<Mutex<NotesProjection>>,
     pub workspaces: Arc<Mutex<WorkspacesProjection>>,
+    pub tasks: Arc<Mutex<TasksProjection>>,
     pub audio: Arc<AudioEngine>,
     pub data_dir: PathBuf,
 }
@@ -34,6 +36,7 @@ impl AppState {
         let mut timers = TimerEngine::new();
         let mut notes = NotesProjection::new();
         let mut workspaces = WorkspacesProjection::new();
+        let mut tasks = TasksProjection::new();
 
         let events = store.replay_all()?;
         tracing::info!(count = events.len(), "replaying events");
@@ -41,6 +44,7 @@ impl AppState {
             timers.apply(ev);
             notes.apply(ev);
             workspaces.apply(ev);
+            tasks.apply(ev);
         }
 
         // Ensure a default workspace exists.
@@ -70,6 +74,7 @@ impl AppState {
             timers: Arc::new(Mutex::new(timers)),
             notes: Arc::new(Mutex::new(notes)),
             workspaces: Arc::new(Mutex::new(workspaces)),
+            tasks: Arc::new(Mutex::new(tasks)),
             audio,
             data_dir,
         })

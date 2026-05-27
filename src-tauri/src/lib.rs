@@ -11,6 +11,7 @@ pub mod ipc;
 pub mod notes;
 pub mod state;
 pub mod store;
+pub mod tasks;
 pub mod timers;
 pub mod workspaces;
 pub mod audio;
@@ -74,6 +75,14 @@ pub fn run() {
             ipc::workspace_active,
             // events (timeline)
             ipc::events_recent,
+            // tasks
+            ipc::task_list,
+            ipc::task_create,
+            ipc::task_toggle,
+            ipc::task_rename,
+            ipc::task_delete,
+            // momentum
+            ipc::momentum_snapshot,
             // sticky / widgets
             ipc::open_sticky,
             ipc::open_timer_widget,
