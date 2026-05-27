@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ipc, type NoteSearchHit } from "@/lib/ipc";
+import { ipc, type NoteSearchHit, type SemanticHit } from "@/lib/ipc";
 import { useApp } from "@/store/app";
 import { renderMarkdown } from "@/lib/markdown";
 
@@ -19,6 +19,11 @@ export function NotesPanel() {
   const [mode, setMode] = useState<Mode>("edit");
   const [search, setSearch] = useState("");
   const [hits, setHits] = useState<NoteSearchHit[]>([]);
+  // Semantic neighbours computed in parallel with the FTS query. The Ollama
+  // call can be slow on first run, so we keep them in a separate list and
+  // render them under the FTS hits with a quiet header — users get keyword
+  // matches instantly and similarity matches when the embed call returns.
+  const [semHits, setSemHits] = useState<SemanticHit[]>([]);
   const saveTimer = useRef<number | null>(null);
   const searchTimer = useRef<number | null>(null);
 
@@ -86,14 +91,25 @@ export function NotesPanel() {
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
     if (!q.trim()) {
       setHits([]);
+      setSemHits([]);
       return;
     }
     searchTimer.current = window.setTimeout(async () => {
-      try {
-        setHits(await ipc.noteSearch(q, 10));
-      } catch {
-        setHits([]);
-      }
+      // Fire both lookups in parallel — FTS will almost always answer first
+      // (in-process SQLite), semantic depends on Ollama latency. Promise.all
+      // is fine because we don't want one to block the other's render.
+      const [fts, sem] = await Promise.allSettled([
+        ipc.noteSearch(q, 10),
+        ipc.noteSemanticSearch(q, 5),
+      ]);
+      setHits(fts.status === "fulfilled" ? fts.value : []);
+      // Filter out near-zero similarities + dedup against FTS to avoid
+      // showing the same note in both buckets.
+      const ftsIds = new Set(fts.status === "fulfilled" ? fts.value.map((h) => h.id) : []);
+      const semFiltered = sem.status === "fulfilled"
+        ? sem.value.filter((h) => h.score > 0.35 && !ftsIds.has(h.id))
+        : [];
+      setSemHits(semFiltered);
     }, 150);
   }
 
@@ -157,7 +173,7 @@ export function NotesPanel() {
         />
       </div>
 
-      {hits.length > 0 ? (
+      {hits.length > 0 || semHits.length > 0 ? (
         <div className="flex-1 overflow-auto p-2 flex flex-col gap-1 min-h-0">
           {hits.map((h) => (
             <button
@@ -166,6 +182,7 @@ export function NotesPanel() {
                 loadNote(h.id);
                 setSearch("");
                 setHits([]);
+                setSemHits([]);
               }}
               className="text-left px-2 py-2 rounded-md hover:bg-ink-800/60"
             >
@@ -178,6 +195,32 @@ export function NotesPanel() {
               />
             </button>
           ))}
+          {semHits.length > 0 && (
+            <>
+              <div className="text-[10px] uppercase tracking-wider text-ink-500 px-2 mt-2">
+                Similar by meaning
+              </div>
+              {semHits.map((h) => (
+                <button
+                  key={`sem-${h.id}`}
+                  onClick={() => {
+                    loadNote(h.id);
+                    setSearch("");
+                    setHits([]);
+                    setSemHits([]);
+                  }}
+                  className="text-left px-2 py-1.5 rounded-md hover:bg-ink-800/60"
+                >
+                  <div className="text-xs font-medium text-ink-100 truncate">
+                    {h.title || "Untitled"}
+                  </div>
+                  <div className="text-[10px] text-ink-500">
+                    similarity {(h.score * 100).toFixed(0)}%
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       ) : (
         <>

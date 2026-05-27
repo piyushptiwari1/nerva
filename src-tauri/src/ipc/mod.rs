@@ -221,6 +221,29 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
     let evt_id = state.store.append_event("note.saved", &payload)?;
     let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(), kind: "note.saved".into(), payload };
     state.notes.lock().apply(&ev);
+
+    // Fire-and-forget embedding. We deliberately don't await — saves stay
+    // fast even when Ollama is slow/offline, and a missing embedding just
+    // means this note won't surface in semantic search until the next save.
+    let store = state.store.clone();
+    let ai = state.ai.clone();
+    let id_for_embed = id.clone();
+    let text_for_embed = format!("{}\n\n{}", args.title, args.body);
+    tauri::async_runtime::spawn(async move {
+        let model = std::env::var("NERVA_EMBED_MODEL")
+            .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
+        match ai.embed(&text_for_embed, &model).await {
+            Ok(vec) => {
+                if let Err(e) = store.embedding_upsert(&id_for_embed, &model, &vec) {
+                    tracing::warn!(note = %id_for_embed, err = %e, "embedding persist failed");
+                }
+            }
+            Err(e) => {
+                tracing::debug!(note = %id_for_embed, err = %e, "embedding skipped");
+            }
+        }
+    });
+
     Ok(Note {
         id,
         workspace_id: ws.unwrap_or_default(),
@@ -276,6 +299,75 @@ pub fn note_search(state: State, query: String, limit: Option<i64>) -> Result<Ve
 #[tauri::command]
 pub fn last_note_for_workspace(state: State, workspace_id: String) -> Result<Option<String>> {
     state.store.meta_get(&format!("last_note:{workspace_id}"))
+}
+
+// ---------- semantic note search ----------
+
+#[derive(Debug, Serialize)]
+pub struct SemanticHit {
+    pub id: String,
+    pub title: String,
+    pub workspace_id: Option<String>,
+    pub score: f32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SemanticSearchArgs {
+    pub query: String,
+    pub limit: Option<i64>,
+}
+
+/// Semantic note search: embed the query with the same model as the stored
+/// notes, score every cached vector by cosine similarity, return top-N.
+///
+/// Falls back gracefully:
+/// - If Ollama is unavailable or the embed call fails, returns an empty list
+///   (the caller's UI is responsible for surfacing the BM25 results instead).
+/// - Vectors whose dimension doesn't match the live embedding model are
+///   silently skipped — re-saving the note will refresh them.
+#[tauri::command]
+pub async fn note_semantic_search(
+    state: State<'_>,
+    args: SemanticSearchArgs,
+) -> Result<Vec<SemanticHit>> {
+    let q = args.query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+    let model = std::env::var("NERVA_EMBED_MODEL")
+        .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
+    let qvec = match state.ai.embed(q, &model).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::debug!(err = %e, "semantic search: embed unavailable");
+            return Ok(vec![]);
+        }
+    };
+    let dim = qvec.len();
+    let qnorm = norm(&qvec);
+    if qnorm == 0.0 {
+        return Ok(vec![]);
+    }
+    let candidates = state.store.embeddings_all(dim)?;
+    let mut scored: Vec<SemanticHit> = candidates
+        .into_iter()
+        .filter_map(|(id, title, ws, v)| {
+            let n = norm(&v);
+            if n == 0.0 {
+                return None;
+            }
+            let dot: f32 = qvec.iter().zip(v.iter()).map(|(a, b)| a * b).sum();
+            let score = dot / (qnorm * n);
+            Some(SemanticHit { id, title, workspace_id: ws, score })
+        })
+        .collect();
+    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(args.limit.unwrap_or(10) as usize);
+    Ok(scored)
+}
+
+fn norm(v: &[f32]) -> f32 {
+    v.iter().map(|x| x * x).sum::<f32>().sqrt()
 }
 
 // ---------- workspaces ----------

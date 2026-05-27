@@ -67,6 +67,14 @@ export interface NoteSearchHit {
   rank: number;
 }
 
+export interface SemanticHit {
+  id: string;
+  title: string;
+  workspace_id: string | null;
+  /** cosine similarity in [-1, 1]; ~>0.5 is typically meaningful */
+  score: number;
+}
+
 export interface AudioState {
   volume: number;
   muted: boolean;
@@ -118,6 +126,8 @@ export const ipc = {
   noteList: () => invoke<NoteMeta[]>("note_list"),
   noteSearch: (query: string, limit?: number) =>
     invoke<NoteSearchHit[]>("note_search", { query, limit }),
+  noteSemanticSearch: (query: string, limit?: number) =>
+    invoke<SemanticHit[]>("note_semantic_search", { args: { query, limit } }),
   lastNoteForWorkspace: (workspaceId: string) =>
     invoke<string | null>("last_note_for_workspace", { workspaceId }),
   openSticky: (noteId: string) => invoke<void>("open_sticky", { noteId }),

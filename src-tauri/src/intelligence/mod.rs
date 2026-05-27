@@ -19,6 +19,12 @@ use std::sync::Arc;
 
 const DEFAULT_ENDPOINT: &str = "http://localhost:11434";
 const DEFAULT_MODEL: &str = "llama3.2:3b";
+/// Embedding model used for semantic note search. `nomic-embed-text` is the
+/// Ollama default — 768-dim, ~270 MB, multilingual, free. Users on other
+/// models can override via env (`NERVA_EMBED_MODEL`). Mismatched dimensions
+/// stored in the cache are silently skipped on read so switching models just
+/// triggers a lazy re-embed on next save.
+pub const DEFAULT_EMBED_MODEL: &str = "nomic-embed-text";
 
 #[derive(Debug, Clone)]
 pub struct OllamaConfig {
@@ -223,6 +229,41 @@ impl OllamaClient {
             }
         }
         Ok(ChatOutcome { text: out, cancelled: false, model: cfg.model })
+    }
+
+    /// Compute an embedding for arbitrary text via Ollama's `/api/embeddings`.
+    /// Returns the raw float vector. Errors propagate so callers can decide
+    /// whether to skip persistence vs. surface to the UI.
+    pub async fn embed(&self, text: &str, model: &str) -> Result<Vec<f32>> {
+        let cfg = self.snapshot();
+        let url = format!("{}/api/embeddings", cfg.endpoint.trim_end_matches('/'));
+        // Ollama accepts an empty `prompt` but returns a zero-norm vector,
+        // which would poison cosine similarity. Substitute a single space.
+        let prompt = if text.trim().is_empty() { " " } else { text };
+        let body = serde_json::json!({ "model": model, "prompt": prompt });
+        #[derive(Deserialize)]
+        struct EmbedResp { embedding: Vec<f32> }
+        let resp = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| NervaError::Invalid(format!("ollama embed: {}", simple_err(&e))))?;
+        if !resp.status().is_success() {
+            return Err(NervaError::Invalid(format!(
+                "ollama embed HTTP {}",
+                resp.status()
+            )));
+        }
+        let parsed: EmbedResp = resp
+            .json()
+            .await
+            .map_err(|e| NervaError::Invalid(format!("ollama embed parse: {}", simple_err(&e))))?;
+        if parsed.embedding.is_empty() {
+            return Err(NervaError::Invalid("empty embedding".into()));
+        }
+        Ok(parsed.embedding)
     }
 }
 

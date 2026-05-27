@@ -96,6 +96,18 @@ impl Store {
                 INSERT INTO notes_fts(id, workspace_id, title, body)
                 VALUES (new.id, new.workspace_id, new.title, new.body);
             END;
+
+            -- Per-note embedding cache for semantic search. `vec` is a raw
+            -- little-endian f32 sequence; len = vec.length / 4 floats. `model`
+            -- lets us invalidate stale embeddings if the user switches embed
+            -- models (we treat dim-mismatched rows as stale on read).
+            CREATE TABLE IF NOT EXISTS note_embeddings (
+                note_id TEXT PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+                model   TEXT NOT NULL,
+                dim     INTEGER NOT NULL,
+                vec     BLOB NOT NULL,
+                ts_ms   INTEGER NOT NULL
+            );
             "#,
         )?;
         // Backfill FTS if it's empty but notes exist (first migration after upgrade).
@@ -275,6 +287,84 @@ impl Store {
         for r in rows {
             out.push(r?);
         }
+        Ok(out)
+    }
+
+    // ---------- embeddings (semantic search cache) ----------
+
+    /// Upsert a note embedding. We serialise the f32 vector as a little-endian
+    /// byte sequence — same layout f32::from_le_bytes expects on read, so it
+    /// roundtrips identically across architectures.
+    pub fn embedding_upsert(&self, note_id: &str, model: &str, vec: &[f32]) -> Result<()> {
+        let conn = self.pool.get()?;
+        let mut bytes = Vec::with_capacity(vec.len() * 4);
+        for f in vec {
+            bytes.extend_from_slice(&f.to_le_bytes());
+        }
+        let ts = now_ms();
+        conn.execute(
+            "INSERT INTO note_embeddings (note_id, model, dim, vec, ts_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(note_id) DO UPDATE SET model=excluded.model,
+                                                dim=excluded.dim,
+                                                vec=excluded.vec,
+                                                ts_ms=excluded.ts_ms",
+            params![note_id, model, vec.len() as i64, bytes, ts],
+        )?;
+        Ok(())
+    }
+
+    /// Stream every stored note embedding alongside its title for semantic
+    /// search. `expected_dim` filters out stale rows from a previous model
+    /// (rather than mass-deleting them — the next `note.saved` will rebuild
+    /// them naturally).
+    pub fn embeddings_all(&self, expected_dim: usize) -> Result<Vec<(String, String, Option<String>, Vec<f32>)>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare(
+            "SELECT e.note_id, n.title, n.workspace_id, e.dim, e.vec
+             FROM note_embeddings e
+             JOIN notes n ON n.id = e.note_id",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let id: String = r.get(0)?;
+            let title: String = r.get(1)?;
+            let ws: Option<String> = r.get(2)?;
+            let dim: i64 = r.get(3)?;
+            let bytes: Vec<u8> = r.get(4)?;
+            Ok((id, title, ws, dim as usize, bytes))
+        })?;
+        let mut out = Vec::new();
+        for r in rows {
+            let (id, title, ws, dim, bytes) = r?;
+            if dim != expected_dim || bytes.len() != dim * 4 {
+                continue; // stale row; ignore until rewritten
+            }
+            let mut v = Vec::with_capacity(dim);
+            for chunk in bytes.chunks_exact(4) {
+                let arr = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                v.push(f32::from_le_bytes(arr));
+            }
+            out.push((id, title, ws, v));
+        }
+        Ok(out)
+    }
+
+    /// IDs of every note that does NOT currently have an embedding. Used by
+    /// the boot-time backfill so existing notes get indexed without forcing
+    /// the user to re-save each one.
+    pub fn notes_missing_embeddings(&self) -> Result<Vec<(String, String, String)>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare(
+            "SELECT n.id, n.title, n.body
+             FROM notes n
+             LEFT JOIN note_embeddings e ON e.note_id = n.id
+             WHERE e.note_id IS NULL",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
+        })?;
+        let mut out = Vec::new();
+        for r in rows { out.push(r?); }
         Ok(out)
     }
 }

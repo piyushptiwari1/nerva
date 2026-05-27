@@ -47,7 +47,40 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = AppState::initialize(&handle)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
-            app.manage(Arc::new(state));
+            let state = Arc::new(state);
+            app.manage(state.clone());
+
+            // Best-effort background backfill: embed any notes that don't
+            // have a cached vector yet. Runs once on boot; bounded by the
+            // number of notes — typical user has < a few hundred. Each embed
+            // is sequential to avoid hammering Ollama; failures are silent
+            // (the next note.saved will retry naturally).
+            let bg = state.clone();
+            tauri::async_runtime::spawn(async move {
+                let model = std::env::var("NERVA_EMBED_MODEL")
+                    .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
+                let pending = match bg.store.notes_missing_embeddings() {
+                    Ok(v) => v,
+                    Err(e) => { tracing::warn!(err = %e, "embed backfill query"); return; }
+                };
+                if pending.is_empty() { return; }
+                tracing::info!(count = pending.len(), "embedding backfill starting");
+                for (id, title, body) in pending {
+                    let text = format!("{title}\n\n{body}");
+                    match bg.ai.embed(&text, &model).await {
+                        Ok(v) => {
+                            let _ = bg.store.embedding_upsert(&id, &model, &v);
+                        }
+                        Err(e) => {
+                            tracing::debug!(note = %id, err = %e, "backfill embed skipped");
+                            // Don't keep hammering if the sidecar is offline.
+                            break;
+                        }
+                    }
+                }
+                tracing::info!("embedding backfill done");
+            });
+
             tracing::info!("Nerva runtime ready");
             Ok(())
         })
@@ -68,6 +101,7 @@ pub fn run() {
             ipc::note_save,
             ipc::note_list,
             ipc::note_search,
+            ipc::note_semantic_search,
             ipc::last_note_for_workspace,
             // workspaces
             ipc::workspace_list,
