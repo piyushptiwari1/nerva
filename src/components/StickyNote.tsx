@@ -63,20 +63,21 @@ export function StickyNote({ noteId }: { noteId: string }) {
             setTitle(e.target.value);
             scheduleSave(e.target.value, body);
           }}
-          className="bg-transparent text-sm font-semibold focus:outline-none flex-1 mr-2"
-          placeholder="Sticky"
+          className="bg-transparent text-sm font-semibold focus:outline-none flex-1 mr-2 placeholder:text-amber-700/50"
+          placeholder="Untitled note"
         />
         <div className="flex items-center gap-1">
           <button
             onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
-            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-ink-900"
+            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-ink-900 transition-colors"
+            title={mode === "edit" ? "Switch to preview" : "Switch to edit"}
           >
-            {mode === "edit" ? "View" : "Edit"}
+            {mode === "edit" ? "Preview" : "Edit"}
           </button>
           <button
             onClick={closeWin}
             className="text-base leading-none px-1 text-ink-700 hover:text-ink-950"
-            title="Close sticky"
+            title="Close"
           >
             ×
           </button>
@@ -91,14 +92,19 @@ export function StickyNote({ noteId }: { noteId: string }) {
             scheduleSave(title, e.target.value);
           }}
           spellCheck={false}
-          className="flex-1 bg-transparent p-3 text-sm font-mono leading-relaxed focus:outline-none resize-none"
-          placeholder="Markdown welcome."
+          className="flex-1 bg-transparent p-3 text-sm font-mono leading-relaxed focus:outline-none resize-none placeholder:text-amber-700/50"
+          placeholder="Start typing… Markdown supported, autosaves as you go."
         />
       ) : (
         <div
-          className="flex-1 p-3 text-sm leading-relaxed overflow-auto prose-sticky"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
+          className="flex-1 p-3 text-sm leading-relaxed overflow-auto prose-sticky cursor-text"
+          dangerouslySetInnerHTML={{
+            __html: body.trim()
+              ? renderMarkdown(body)
+              : `<p class="text-amber-700/60 italic">Empty note. Double-click to edit.</p>`,
+          }}
           onDoubleClick={() => setMode("edit")}
+          title="Double-click to edit"
         />
       )}
     </div>

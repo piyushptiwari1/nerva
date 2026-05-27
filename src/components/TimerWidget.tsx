@@ -84,8 +84,19 @@ export function TimerWidget() {
       >
         {active ? (
           <>
-            <div className="text-3xl font-semibold tnum" style={{ color: active.color }}>
-              {formatRemaining(active.remaining_ms)}
+            {/* The big digits use the theme's primary text colour so they
+                stay legible in both dark and light themes; the timer's
+                saved colour identity lives in the small dot in the header
+                and as the leading accent stripe below. */}
+            <div className="flex items-center gap-2">
+              <span
+                className="w-1 h-7 rounded-full"
+                style={{ background: active.color }}
+                aria-hidden
+              />
+              <div className="text-3xl font-semibold tnum text-ink-100">
+                {formatRemaining(active.remaining_ms)}
+              </div>
             </div>
             <div className="text-[11px] text-ink-400 mt-0.5 truncate max-w-full">
               {active.name} · {active.status}

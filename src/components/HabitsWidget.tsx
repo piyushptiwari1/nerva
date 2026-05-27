@@ -53,8 +53,27 @@ export function HabitsWidget() {
     try {
       const cur = todayMap[h.id];
       if (h.kind === "bool") {
-        const done = cur && !cur.skipped && cur.value >= 1;
-        await ipc.habitLog({ habit_id: h.id, day: today, value: done ? 0 : 1 });
+        // Four-state cycle on a single button:
+        //   empty  → done   → skipped → missed → empty
+        // skipped keeps the streak alive (life happens), missed breaks it.
+        const state = boolState(cur);
+        const next: BoolState =
+          state === "empty"
+            ? "done"
+            : state === "done"
+              ? "skipped"
+              : state === "skipped"
+                ? "missed"
+                : "empty";
+        if (next === "empty") {
+          await ipc.habitClear({ habit_id: h.id, day: today });
+        } else if (next === "done") {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 1, skipped: false });
+        } else if (next === "skipped") {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 0, skipped: true });
+        } else {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 0, skipped: false });
+        }
       } else {
         const next = Math.max(0, (cur && !cur.skipped ? cur.value : 0) + delta);
         await ipc.habitLog({ habit_id: h.id, day: today, value: next });
@@ -122,18 +141,11 @@ export function HabitsWidget() {
                     {h.name}
                   </span>
                   {h.kind === "bool" ? (
-                    <button
+                    <BoolCycleButton
+                      state={boolState(cur)}
                       onClick={() => quickLog(h, 0)}
                       disabled={busy === h.id}
-                      className={`w-6 h-6 grid place-items-center rounded-md text-[12px] transition-all disabled:opacity-50 ${
-                        done
-                          ? "bg-accent/40 text-accent-glow border border-accent/40"
-                          : "bg-ink-800 text-ink-400 hover:text-ink-100 border border-ink-700"
-                      }`}
-                      title={done ? "Unmark" : "Mark done"}
-                    >
-                      {done ? "✓" : ""}
-                    </button>
+                    />
                   ) : (
                     <span className="flex items-center gap-1">
                       <button
@@ -182,4 +194,70 @@ function todayIso(): string {
 function todayLabel(): string {
   const d = new Date();
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * Four logical states a bool habit can be in for a given day:
+ *  - `empty`   : no entry yet (pristine, neutral)
+ *  - `done`    : value ≥ 1 — counts toward the streak
+ *  - `skipped` : intentional rest day — streak preserved, not counted
+ *  - `missed`  : explicitly logged as not-done — breaks the streak
+ *
+ * Stored as `(value, skipped)` pairs so this is a derived view, not a new
+ * column. Backwards compatible with every existing habit entry.
+ */
+export type BoolState = "empty" | "done" | "skipped" | "missed";
+
+export function boolState(e: HabitEntry | null): BoolState {
+  if (!e) return "empty";
+  if (e.skipped) return "skipped";
+  return e.value >= 1 ? "done" : "missed";
+}
+
+interface BoolCycleProps {
+  state: BoolState;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * Single-button 4-state toggle for a bool habit. Each click advances:
+ * empty → done → skipped → missed → empty. The icon and tint communicate
+ * the current state at a glance — no separate "skip" or "miss" buttons.
+ */
+export function BoolCycleButton({ state, onClick, disabled }: BoolCycleProps) {
+  const variants: Record<BoolState, { glyph: string; cls: string; title: string }> = {
+    empty: {
+      glyph: "○",
+      cls: "bg-ink-800 text-ink-500 hover:text-ink-200 border-ink-700",
+      title: "Not logged — click to mark done",
+    },
+    done: {
+      glyph: "✓",
+      cls: "bg-accent/40 text-accent-glow border-accent/40",
+      title: "Done — click to mark skipped",
+    },
+    skipped: {
+      glyph: "⊘",
+      cls: "bg-ink-700/70 text-ink-300 border-ink-600",
+      title: "Skipped (streak kept) — click to mark missed",
+    },
+    missed: {
+      glyph: "✗",
+      cls: "bg-danger/20 text-danger border-danger/40",
+      title: "Missed — click to clear",
+    },
+  };
+  const v = variants[state];
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-6 h-6 grid place-items-center rounded-md text-[12px] border transition-all disabled:opacity-50 ${v.cls}`}
+      title={v.title}
+      aria-label={`Habit state: ${state}`}
+    >
+      {v.glyph}
+    </button>
+  );
 }

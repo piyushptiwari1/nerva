@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
+import { BoolCycleButton, boolState } from "@/components/HabitsWidget";
 
 /**
  * HabitsRail — compact habits list for the home sidebar.
@@ -55,16 +56,31 @@ export function HabitsRail() {
     setBusy(h.id);
     try {
       const cur = todayMap[h.id];
-      const target = h.target ?? (h.kind === "bool" ? 1 : 1);
       if (h.kind === "bool") {
-        const done = cur && !cur.skipped && cur.value >= 1;
-        await ipc.habitLog({
-          habit_id: h.id,
-          day: today,
-          value: done ? 0 : 1,
-        });
+        // Same four-state cycle as the pop-out habits widget:
+        //   empty → done → skipped → missed → empty.
+        // See `BoolCycleButton` for the visual semantics.
+        const state = boolState(cur ?? null);
+        const next =
+          state === "empty"
+            ? "done"
+            : state === "done"
+              ? "skipped"
+              : state === "skipped"
+                ? "missed"
+                : "empty";
+        if (next === "empty") {
+          await ipc.habitClear({ habit_id: h.id, day: today });
+        } else if (next === "done") {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 1, skipped: false });
+        } else if (next === "skipped") {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 0, skipped: true });
+        } else {
+          await ipc.habitLog({ habit_id: h.id, day: today, value: 0, skipped: false });
+        }
       } else {
-        // count/amount → increment by 1 (or by 0.5 of target if target < 1).
+        // count/amount → increment by 1 (or by ~target/4 for amount habits).
+        const target = h.target ?? 1;
         const step = h.kind === "count" ? 1 : Math.max(1, Math.round(target / 4));
         const next = (cur && !cur.skipped ? cur.value : 0) + step;
         await ipc.habitLog({ habit_id: h.id, day: today, value: next });
@@ -150,7 +166,6 @@ function HabitRailControl({
   h,
   cur,
   done,
-  skipped,
   busy,
   onClick,
 }: {
@@ -163,20 +178,11 @@ function HabitRailControl({
 }) {
   if (h.kind === "bool") {
     return (
-      <button
+      <BoolCycleButton
+        state={boolState(cur)}
         onClick={onClick}
         disabled={busy}
-        title={done ? "Mark not-done" : "Mark done"}
-        className={`w-5 h-5 grid place-items-center rounded-md text-[11px] transition-all disabled:opacity-50 ${
-          done
-            ? "bg-accent/40 text-accent-glow border border-accent/40 shadow-[0_0_10px_-4px_rgba(124,156,255,0.7)]"
-            : skipped
-              ? "bg-ink-700/60 text-ink-400 border border-ink-700"
-              : "bg-ink-800 text-ink-400 hover:text-ink-100 border border-ink-700"
-        }`}
-      >
-        {done ? "✓" : skipped ? "·" : ""}
-      </button>
+      />
     );
   }
   // count/amount → show current value tinted; tap = +1 quick log
