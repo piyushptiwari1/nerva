@@ -99,13 +99,22 @@ export function HabitsRail() {
         <h3 className="text-[11px] uppercase tracking-wider text-ink-400">
           Habits
         </h3>
-        <button
-          onClick={openHabits}
-          className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
-          title="Open habits tracker (Ctrl+H)"
-        >
-          all →
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => ipc.openHabitsWidget()}
+            className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
+            title="Open as floating always-on-top widget"
+          >
+            ↗ pop up
+          </button>
+          <button
+            onClick={openHabits}
+            className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
+            title="Open habits tracker (Ctrl+H)"
+          >
+            all →
+          </button>
+        </div>
       </div>
       {visible.length === 0 ? (
         <button

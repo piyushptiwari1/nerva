@@ -151,9 +151,9 @@ export function NotesPanel() {
             onClick={popSticky}
             disabled={!currentId}
             className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Pop out as always-on-top sticky"
+            title="Open this note as an always-on-top sticky window"
           >
-            Pop
+            Pop up
           </button>
           <button
             onClick={newNote}
@@ -243,7 +243,7 @@ export function NotesPanel() {
               }}
               spellCheck={false}
               className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none"
-              placeholder="Brain dump. Markdown welcome. Cursor and content survive reboot."
+              placeholder="Start writing… your words save themselves. Markdown works — # headings, **bold**, - lists, `code`."
             />
           ) : (
             <div

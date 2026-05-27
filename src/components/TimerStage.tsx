@@ -44,12 +44,21 @@ export function TimerStage() {
             Parallel timers, wall-clock math, survives reboot.
           </p>
         </div>
-        <button
-          onClick={() => setCreating((v) => !v)}
-          className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
-        >
-          {creating ? "Cancel" : "+ New timer"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => ipc.openTimerWidget()}
+            className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700 text-ink-300"
+            title="Open as floating always-on-top widget"
+          >
+            ↗ pop up
+          </button>
+          <button
+            onClick={() => setCreating((v) => !v)}
+            className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
+          >
+            {creating ? "Cancel" : "+ New timer"}
+          </button>
+        </div>
       </header>
 
       <AnimatePresence>
