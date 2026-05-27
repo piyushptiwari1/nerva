@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { ipc, type RuntimeInfo } from "@/lib/ipc";
 import { FocusMenu } from "@/components/FocusMenu";
+import { usePalette } from "@/store/palette";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const openPalette = usePalette((s) => s.set);
 
   useEffect(() => {
     ipc.runtime().then(setInfo).catch(() => void 0);
@@ -23,7 +25,10 @@ export function CommandBar() {
       </div>
 
       <div className="flex-1 mx-3">
-        <div className="glass rounded-lg px-3 py-1.5 flex items-center gap-2 text-ink-300 hover:text-ink-100 transition-colors cursor-text">
+        <button
+          onClick={() => openPalette(true)}
+          className="w-full glass rounded-lg px-3 py-1.5 flex items-center gap-2 text-ink-300 hover:text-ink-100 transition-colors cursor-text text-left"
+        >
           <kbd className="text-[10px] text-ink-400 border border-ink-600 rounded px-1.5 py-0.5">
             Ctrl
           </kbd>
@@ -31,7 +36,7 @@ export function CommandBar() {
             K
           </kbd>
           <span className="text-sm">Search, spawn timers, jump to notes…</span>
-        </div>
+        </button>
       </div>
 
       <FocusMenu />
