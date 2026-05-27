@@ -6,6 +6,7 @@ use crate::notes::NoteMeta;
 use crate::state::AppState;
 use crate::store::StoredEvent;
 use crate::tasks::Task;
+use crate::habits::{Habit, HabitEntry, HabitStats};
 use crate::timers::Timer;
 use crate::workspaces::Workspace;
 use serde::{Deserialize, Serialize};
@@ -1138,4 +1139,184 @@ pub fn diag_read_crash(args: CrashReadArgs) -> Result<String> {
 #[tauri::command]
 pub fn diag_clear_crashes() -> Result<usize> {
     crate::diag::clear_crashes()
+}
+
+// ---------- habits ----------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateHabitArgs {
+    pub name: String,
+    /// "bool" | "count" | "amount"
+    pub kind: String,
+    pub target: Option<f64>,
+    pub unit: Option<String>,
+    pub color: Option<String>,
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateHabitArgs {
+    pub id: String,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub target: Option<Option<f64>>,
+    pub unit: Option<Option<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogHabitArgs {
+    pub habit_id: String,
+    /// ISO YYYY-MM-DD local time (UI is the source of truth for "today").
+    pub day: String,
+    pub value: f64,
+    #[serde(default)]
+    pub skipped: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ClearHabitArgs {
+    pub habit_id: String,
+    pub day: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EntriesRangeArgs {
+    pub habit_id: String,
+    pub from_day: String,
+    pub to_day: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StatsArgs {
+    pub habit_id: String,
+    pub today: String,
+}
+
+#[tauri::command]
+pub fn habit_list(state: State) -> Result<Vec<Habit>> {
+    Ok(state.habits.lock().list())
+}
+
+#[tauri::command]
+pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
+    let name = args.name.trim();
+    if name.is_empty() {
+        return Err(NervaError::Invalid("habit name required".into()));
+    }
+    let kind = match args.kind.as_str() {
+        "bool" | "count" | "amount" => args.kind.clone(),
+        _ => return Err(NervaError::Invalid(format!("unknown habit kind: {}", args.kind))),
+    };
+    let id = Uuid::new_v4().to_string();
+    let ws = args
+        .workspace_id
+        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let payload = serde_json::json!({
+        "id": id,
+        "name": name,
+        "kind": kind,
+        "target": args.target,
+        "unit": args.unit,
+        "color": args.color.unwrap_or_else(|| "#7c9cff".to_string()),
+        "workspace_id": ws,
+    });
+    let evt_id = state.store.append_event("habit.created", &payload)?;
+    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "habit.created".into(), payload };
+    let mut proj = state.habits.lock();
+    proj.apply(&ev);
+    proj.get(&id).ok_or_else(|| NervaError::Invalid("habit create failed".into()))
+}
+
+#[tauri::command]
+pub fn habit_update(state: State, args: UpdateHabitArgs) -> Result<Habit> {
+    let mut payload = serde_json::Map::new();
+    payload.insert("id".into(), serde_json::Value::String(args.id.clone()));
+    if let Some(n) = args.name {
+        let n = n.trim().to_string();
+        if n.is_empty() {
+            return Err(NervaError::Invalid("habit name cannot be empty".into()));
+        }
+        payload.insert("name".into(), serde_json::Value::String(n));
+    }
+    if let Some(c) = args.color {
+        payload.insert("color".into(), serde_json::Value::String(c));
+    }
+    if let Some(t) = args.target {
+        payload.insert(
+            "target".into(),
+            match t {
+                Some(f) => serde_json::Value::from(f),
+                None => serde_json::Value::Null,
+            },
+        );
+    }
+    if let Some(u) = args.unit {
+        payload.insert(
+            "unit".into(),
+            match u {
+                Some(s) => serde_json::Value::String(s),
+                None => serde_json::Value::Null,
+            },
+        );
+    }
+    let payload = serde_json::Value::Object(payload);
+    let evt_id = state.store.append_event("habit.updated", &payload)?;
+    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "habit.updated".into(), payload };
+    let mut proj = state.habits.lock();
+    proj.apply(&ev);
+    proj.get(&args.id).ok_or_else(|| NervaError::NotFound(args.id))
+}
+
+#[tauri::command]
+pub fn habit_delete(state: State, id: String) -> Result<()> {
+    let payload = serde_json::json!({ "id": id });
+    let evt_id = state.store.append_event("habit.deleted", &payload)?;
+    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "habit.deleted".into(), payload };
+    state.habits.lock().apply(&ev);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn habit_log(state: State, args: LogHabitArgs) -> Result<HabitEntry> {
+    if args.day.len() != 10 {
+        return Err(NervaError::Invalid("day must be ISO YYYY-MM-DD".into()));
+    }
+    let payload = serde_json::json!({
+        "habit_id": args.habit_id,
+        "day": args.day,
+        "value": args.value,
+        "skipped": args.skipped,
+    });
+    let evt_id = state.store.append_event("habit.logged", &payload)?;
+    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "habit.logged".into(), payload };
+    let mut proj = state.habits.lock();
+    proj.apply(&ev);
+    let entries = proj.entries_range(&args.habit_id, &args.day, &args.day);
+    entries.into_iter().next()
+        .ok_or_else(|| NervaError::Invalid("habit log apply failed".into()))
+}
+
+#[tauri::command]
+pub fn habit_clear(state: State, args: ClearHabitArgs) -> Result<()> {
+    let payload = serde_json::json!({ "habit_id": args.habit_id, "day": args.day });
+    let evt_id = state.store.append_event("habit.cleared", &payload)?;
+    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "habit.cleared".into(), payload };
+    state.habits.lock().apply(&ev);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn habit_entries(state: State, args: EntriesRangeArgs) -> Result<Vec<HabitEntry>> {
+    Ok(state.habits.lock().entries_range(&args.habit_id, &args.from_day, &args.to_day))
+}
+
+#[tauri::command]
+pub fn habit_stats(state: State, args: StatsArgs) -> Result<HabitStats> {
+    state.habits.lock().stats(&args.habit_id, &args.today)
+        .ok_or_else(|| NervaError::NotFound(args.habit_id))
 }

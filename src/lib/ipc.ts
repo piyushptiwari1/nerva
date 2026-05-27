@@ -109,6 +109,39 @@ export interface MomentumBucket {
   focus_ms: number;
 }
 
+export type HabitKind = "bool" | "count" | "amount";
+
+export interface Habit {
+  id: string;
+  workspace_id: string | null;
+  name: string;
+  kind: HabitKind;
+  target: number | null;
+  unit: string | null;
+  color: string;
+  created_ms: number;
+  archived: boolean;
+}
+
+export interface HabitEntry {
+  habit_id: string;
+  day: string;       // ISO YYYY-MM-DD
+  value: number;
+  skipped: boolean;
+  updated_ms: number;
+}
+
+export interface HabitStats {
+  habit_id: string;
+  current_streak: number;
+  best_streak: number;
+  completion_30d: number;  // 0..1
+  completion_all: number;  // 0..1
+  total_completions: number;
+  weekday_rate: number[];  // length 7, Mon..Sun
+  sparkline_30d: number[]; // length 30, oldest→newest
+}
+
 // ---- commands ----
 export const ipc = {
   ping: () => invoke<string>("ping"),
@@ -167,6 +200,32 @@ export const ipc = {
   // momentum
   momentumSnapshot: (days?: number) =>
     invoke<MomentumBucket[]>("momentum_snapshot", { days }),
+  // habits
+  habitList: () => invoke<Habit[]>("habit_list"),
+  habitCreate: (args: {
+    name: string;
+    kind: HabitKind;
+    target?: number | null;
+    unit?: string | null;
+    color?: string;
+    workspace_id?: string;
+  }) => invoke<Habit>("habit_create", { args }),
+  habitUpdate: (args: {
+    id: string;
+    name?: string;
+    color?: string;
+    target?: number | null;
+    unit?: string | null;
+  }) => invoke<Habit>("habit_update", { args }),
+  habitDelete: (id: string) => invoke<void>("habit_delete", { id }),
+  habitLog: (args: { habit_id: string; day: string; value: number; skipped?: boolean }) =>
+    invoke<HabitEntry>("habit_log", { args }),
+  habitClear: (args: { habit_id: string; day: string }) =>
+    invoke<void>("habit_clear", { args }),
+  habitEntries: (args: { habit_id: string; from_day: string; to_day: string }) =>
+    invoke<HabitEntry[]>("habit_entries", { args }),
+  habitStats: (args: { habit_id: string; today: string }) =>
+    invoke<HabitStats>("habit_stats", { args }),
 };
 
 export function formatRemaining(ms: number): string {

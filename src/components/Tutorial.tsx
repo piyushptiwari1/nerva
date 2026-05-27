@@ -44,6 +44,12 @@ const STEPS: Step[] = [
       "Every keystroke autosaves. Toggle View / Edit for Markdown preview. Hit 'Pop' to break the current note out as an always-on-top sticky window — grab the amber header to drag it anywhere on screen.",
   },
   {
+    title: "Habits & streaks",
+    body:
+      "Track daily habits (yes/no, counts, or amounts) with a 12-week heatmap, weekday breakdown, and 30-day sparkline. Skip-days preserve your streak — no guilt-tripping when life happens.",
+    shortcut: "Ctrl + H",
+  },
+  {
     title: "Floating timer widget",
     body:
       "From the palette, run 'widget timer' to open a tiny always-on-top timer. Grab the dark header bar (⋮⋮) to position it on top of your code, browser or call window.",

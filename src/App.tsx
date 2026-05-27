@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
+import { useHabitsUi } from "@/store/habits";
 import { useTutorial } from "@/store/tutorial";
 import { Sidebar } from "@/components/Sidebar";
 import { TimerStage } from "@/components/TimerStage";
@@ -12,12 +13,14 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { AskNerva } from "@/components/AskNerva";
 import { KeyboardCheatsheet } from "@/components/KeyboardCheatsheet";
 import { SettingsPane } from "@/components/SettingsPane";
+import { HabitsPane } from "@/components/HabitsPane";
 import { Tutorial, tutorialShouldAutoOpen } from "@/components/Tutorial";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
   const togglePalette = usePalette((s) => s.toggle);
   const toggleSettings = useSettingsUi((s) => s.toggle);
+  const toggleHabits = useHabitsUi((s) => s.toggle);
   const tutorialOpen = useTutorial((s) => s.open);
   const showTutorial = useTutorial((s) => s.show);
   const hideTutorial = useTutorial((s) => s.hide);
@@ -50,11 +53,15 @@ export default function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ",") {
         e.preventDefault();
         toggleSettings();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+        // Ctrl/Cmd+H toggles the habits tracker overlay.
+        e.preventDefault();
+        toggleHabits();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePalette, toggleSettings]);
+  }, [togglePalette, toggleSettings, toggleHabits]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid">
@@ -69,6 +76,7 @@ export default function App() {
       <AskNerva />
       <KeyboardCheatsheet />
       <SettingsPane />
+      <HabitsPane />
       <Tutorial open={tutorialOpen} onClose={hideTutorial} />
     </div>
   );

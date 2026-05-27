@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
+import { useHabitsUi } from "@/store/habits";
 import { useTutorial } from "@/store/tutorial";
 import { ipc } from "@/lib/ipc";
 
@@ -38,6 +39,7 @@ export function CommandPalette() {
   const refreshMomentum = useApp((s) => s.refreshMomentum);
   const setDnd = useApp((s) => s.setDnd);
   const openSettings = useSettingsUi((s) => s.setOpen);
+  const openHabits = useHabitsUi((s) => s.show);
   const showTutorial = useTutorial((s) => s.show);
   const audio = useApp((s) => s.audio);
   const setAmbient = useApp((s) => s.setAmbient);
@@ -242,6 +244,15 @@ export function CommandPalette() {
       subtitle: "AI · timers · audio · focus  ·  Ctrl+,",
       keywords: "settings preferences config ollama endpoint model audio focus dnd".toLowerCase(),
       run: () => openSettings(true),
+    });
+    out.push({
+      id: "system.habits",
+      group: "System",
+      glyph: "✓",
+      title: "Open habits tracker",
+      subtitle: "daily check-ins · heatmap · streaks  ·  Ctrl+H",
+      keywords: "habits habit tracker streak daily routine checkin chart heatmap".toLowerCase(),
+      run: () => openHabits(),
     });
     // Ambient noise quick toggles — surface only as palette actions since the
     // Settings pane already has the full picker; here we want one-keystroke

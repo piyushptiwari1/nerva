@@ -2,6 +2,7 @@
 
 use crate::audio::{AudioEngine, AudioSettings};
 use crate::error::{NervaError, Result};
+use crate::habits::HabitsProjection;
 use crate::intelligence::{OllamaClient, OllamaConfig};
 use crate::notes::NotesProjection;
 use crate::store::Store;
@@ -19,6 +20,7 @@ pub struct AppState {
     pub notes: Arc<Mutex<NotesProjection>>,
     pub workspaces: Arc<Mutex<WorkspacesProjection>>,
     pub tasks: Arc<Mutex<TasksProjection>>,
+    pub habits: Arc<Mutex<HabitsProjection>>,
     pub audio: Arc<AudioEngine>,
     pub ai: Arc<OllamaClient>,
     pub data_dir: PathBuf,
@@ -39,6 +41,7 @@ impl AppState {
         let mut notes = NotesProjection::new();
         let mut workspaces = WorkspacesProjection::new();
         let mut tasks = TasksProjection::new();
+        let mut habits = HabitsProjection::new();
 
         let events = store.replay_all()?;
         tracing::info!(count = events.len(), "replaying events");
@@ -47,6 +50,7 @@ impl AppState {
             notes.apply(ev);
             workspaces.apply(ev);
             tasks.apply(ev);
+            habits.apply(ev);
         }
 
         // Ensure a default workspace exists.
@@ -91,6 +95,7 @@ impl AppState {
             notes: Arc::new(Mutex::new(notes)),
             workspaces: Arc::new(Mutex::new(workspaces)),
             tasks: Arc::new(Mutex::new(tasks)),
+            habits: Arc::new(Mutex::new(habits)),
             audio,
             ai,
             data_dir,

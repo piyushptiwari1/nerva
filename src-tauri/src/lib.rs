@@ -7,6 +7,7 @@
 //!   - Tauri commands + events for IPC with the React frontend.
 
 pub mod error;
+pub mod habits;
 pub mod intelligence;
 pub mod ipc;
 pub mod notes;
@@ -152,6 +153,15 @@ pub fn run() {
             ipc::diag_list_crashes,
             ipc::diag_read_crash,
             ipc::diag_clear_crashes,
+            // habits
+            ipc::habit_list,
+            ipc::habit_create,
+            ipc::habit_update,
+            ipc::habit_delete,
+            ipc::habit_log,
+            ipc::habit_clear,
+            ipc::habit_entries,
+            ipc::habit_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

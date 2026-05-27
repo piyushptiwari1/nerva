@@ -3,12 +3,14 @@ import { ipc, type RuntimeInfo } from "@/lib/ipc";
 import { FocusMenu } from "@/components/FocusMenu";
 import { usePalette } from "@/store/palette";
 import { useTutorial } from "@/store/tutorial";
+import { useHabitsUi } from "@/store/habits";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
   const [now, setNow] = useState(() => new Date());
   const openPalette = usePalette((s) => s.set);
   const showTutorial = useTutorial((s) => s.show);
+  const toggleHabits = useHabitsUi((s) => s.toggle);
 
   useEffect(() => {
     ipc.runtime().then(setInfo).catch(() => void 0);
@@ -42,6 +44,15 @@ export function CommandBar() {
       </div>
 
       <FocusMenu />
+
+      <button
+        onClick={toggleHabits}
+        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        title="Habits (Ctrl+H)"
+        aria-label="Open habits tracker"
+      >
+        ✓
+      </button>
 
       <button
         onClick={showTutorial}
