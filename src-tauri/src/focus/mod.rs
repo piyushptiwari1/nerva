@@ -1,64 +1,47 @@
 //! Focus / Do-Not-Disturb integration. Best-effort, OS-conditional.
 //!
-//! Linux (GNOME/KDE-via-gsettings): toggles `org.gnome.desktop.notifications
-//! show-banners`. If gsettings is missing (e.g. non-GNOME shells) the call
-//! returns Ok(false) — UI just shows the user that DND is not wired here.
+//! The actual backend lives in a per-OS module so each platform's surface
+//! can grow without a `#[cfg]` thicket inside one file:
+//!
+//!   - linux.rs   — GNOME / KDE-via-gsettings (real)
+//!   - macos.rs   — placeholder, ships as no-op until a Mac is available
+//!   - windows.rs — placeholder, ships as no-op
+//!
+//! `set_dnd` returns `Ok(true)` when a backend was actually toggled, `Ok(false)`
+//! when DND is not wired on the current platform. `get_dnd` returns `Some(bool)`
+//! when the current state is known, `None` otherwise.
 
-use crate::error::{NervaError, Result};
+use crate::error::Result;
 
-/// Returns true if a backend was actually toggled.
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux as backend;
+
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+use macos as backend;
+
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+use windows as backend;
+
+// Fallback for unsupported OSes (BSD, etc.) — keep the crate compiling.
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+mod fallback {
+    use crate::error::Result;
+    pub fn set_dnd(_enabled: bool) -> Result<bool> { Ok(false) }
+    pub fn get_dnd() -> Result<Option<bool>> { Ok(None) }
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+use fallback as backend;
+
 pub fn set_dnd(enabled: bool) -> Result<bool> {
-    #[cfg(target_os = "linux")]
-    {
-        // GNOME: `show-banners` = false means notifications won't pop banners.
-        let show = if enabled { "false" } else { "true" };
-        let out = std::process::Command::new("gsettings")
-            .args(["set", "org.gnome.desktop.notifications", "show-banners", show])
-            .output();
-        match out {
-            Ok(o) if o.status.success() => Ok(true),
-            Ok(o) => {
-                tracing::warn!(
-                    stderr = %String::from_utf8_lossy(&o.stderr),
-                    "gsettings dnd toggle failed"
-                );
-                Ok(false)
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "gsettings not available");
-                Ok(false)
-            }
-        }
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = enabled;
-        // macOS Focus / Windows Focus Assist will land in P6.
-        Ok(false)
-    }
+    backend::set_dnd(enabled)
 }
 
-/// Best-effort read of current DND state. None if unknown.
 pub fn get_dnd() -> Result<Option<bool>> {
-    #[cfg(target_os = "linux")]
-    {
-        let out = std::process::Command::new("gsettings")
-            .args(["get", "org.gnome.desktop.notifications", "show-banners"])
-            .output();
-        match out {
-            Ok(o) if o.status.success() => {
-                let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                // `true` means banners shown (DND off); `false` means DND on.
-                Ok(Some(s == "false"))
-            }
-            _ => Ok(None),
-        }
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        Ok(None)
-    }
+    backend::get_dnd()
 }
-
-#[allow(dead_code)]
-fn _unused(_e: NervaError) {}
