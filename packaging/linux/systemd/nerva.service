@@ -1,0 +1,21 @@
+[Unit]
+Description=Nerva — persistent focus workspace daemon
+Documentation=https://nerva.app
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# %h expands to the user's home directory.
+ExecStart=%h/.local/bin/nerva --daemon
+Restart=on-failure
+RestartSec=2
+# Survive logouts so timers keep ticking in the background.
+KillMode=process
+# Resource hygiene — Nerva should stay light.
+MemoryHigh=200M
+MemoryMax=400M
+CPUWeight=80
+
+[Install]
+WantedBy=graphical-session.target

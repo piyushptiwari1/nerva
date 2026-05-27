@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Nerva
+GenericName=Focus Workspace
+Comment=A persistent focus workspace for deep work
+Exec=nerva %U
+Icon=nerva
+Terminal=false
+Categories=Utility;Office;ProjectManagement;
+Keywords=focus;pomodoro;timer;notes;productivity;deepwork;
+StartupNotify=true
+StartupWMClass=Nerva
+X-GNOME-UsesNotifications=true
