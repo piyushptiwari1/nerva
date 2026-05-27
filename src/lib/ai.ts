@@ -14,13 +14,25 @@ export interface AiSettings {
   model: string;
 }
 
+export interface AiExchange {
+  id: string;
+  ts_ms: number;
+  prompt: string;
+  response: string;
+  model: string;
+}
+
 interface AiChunk { request_id: string; delta: string }
-interface AiDone { request_id: string; text: string }
+interface AiDone { request_id: string; text: string; cancelled: boolean; model: string }
 
 /**
  * Stream a chat completion. The promise resolves with the final assembled
- * text; `onChunk` fires for each delta. We bind two listeners scoped to the
+ * text; `onChunk` fires for each delta. We bind listeners scoped to the
  * given `request_id` so concurrent asks don't cross-contaminate.
+ *
+ * If `opts.signal` aborts mid-stream, we send `ai_cancel(request_id)` to the
+ * backend so Ollama generation is actually stopped server-side (not just
+ * hidden in the UI).
  */
 export async function aiAsk(
   prompt: string,
@@ -37,14 +49,12 @@ export async function aiAsk(
     unlistenChunk = await listen<AiChunk>("ai.chunk", (e) => {
       if (e.payload.request_id === request_id) opts.onChunk(e.payload.delta);
     });
-    // We don't strictly need ai.done (the invoke promise resolves with the
-    // full text), but a listener is handy for future telemetry.
     unlistenDone = await listen<AiDone>("ai.done", () => void 0);
 
-    // If the caller aborts, we can't kill Ollama mid-stream from JS, but we
-    // can stop showing tokens by detaching the listener early.
     if (opts.signal) {
       opts.signal.addEventListener("abort", () => {
+        // Tell the backend to actually stop generation.
+        void invoke("ai_cancel", { requestId: request_id }).catch(() => void 0);
         unlistenChunk?.();
         unlistenChunk = null;
       });
@@ -67,5 +77,8 @@ export async function aiAsk(
 export const ai = {
   health: () => invoke<AiHealth>("ai_health"),
   settings: () => invoke<AiSettings>("ai_settings_get"),
+  setModel: (model: string) => invoke<AiSettings>("ai_set_model", { model }),
+  history: (limit = 20) => invoke<AiExchange[]>("ai_history", { limit }),
+  cancel: (requestId: string) => invoke<boolean>("ai_cancel", { requestId }),
   ask: aiAsk,
 };

@@ -28,6 +28,7 @@ export function CommandPalette() {
   const open = usePalette((s) => s.open);
   const setOpen = usePalette((s) => s.set);
   const askNerva = usePalette((s) => s.ask);
+  const askHistory = usePalette((s) => s.askHistory);
   const { workspaces, active, timers, notes, tasks, focus } = useApp();
   const refreshTimers = useApp((s) => s.refreshTimers);
   const refreshTasks = useApp((s) => s.refreshTasks);
@@ -205,6 +206,15 @@ export function CommandPalette() {
             "timers, tasks I finished, and one suggestion for what to do next " +
             "based on what's open.",
         ),
+    });
+    out.push({
+      id: "ai.history",
+      group: "System",
+      glyph: "✦",
+      title: "Ask history",
+      subtitle: "browse recent exchanges with Nerva",
+      keywords: "ask history past previous conversations exchanges log".toLowerCase(),
+      run: () => askHistory(),
     });
 
     // --- System ---

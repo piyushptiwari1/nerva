@@ -639,6 +639,14 @@ pub async fn ai_health(state: tauri::State<'_, Arc<AppState>>) -> Result<AiHealt
     Ok(state.ai.health().await)
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct AiDone {
+    pub request_id: String,
+    pub text: String,
+    pub cancelled: bool,
+    pub model: String,
+}
+
 #[tauri::command]
 pub async fn ai_ask(
     window: tauri::Window,
@@ -652,9 +660,9 @@ pub async fn ai_ask(
     let messages = build_messages(&state, &args)?;
     let req_id = args.request_id.clone();
     let win = window.clone();
-    let final_text = state
+    let outcome = state
         .ai
-        .chat_stream(messages, |delta| {
+        .chat_stream(&req_id, messages, |delta| {
             // Best-effort emit; if the listener has dropped, swallow the error
             // rather than aborting the stream.
             let _ = win.emit(
@@ -663,12 +671,66 @@ pub async fn ai_ask(
             );
         })
         .await?;
-    // Tell the frontend the stream ended cleanly even if no tokens arrived.
+
+    // Tell the frontend the stream ended (cleanly or via cancel).
     let _ = window.emit(
         "ai.done",
-        AiResult { request_id: args.request_id.clone(), text: final_text.clone() },
+        AiDone {
+            request_id: req_id.clone(),
+            text: outcome.text.clone(),
+            cancelled: outcome.cancelled,
+            model: outcome.model.clone(),
+        },
     );
-    Ok(AiResult { request_id: args.request_id, text: final_text })
+
+    // Persist completed exchanges into the event log so we can replay history
+    // and build longer-running session memory later. Skip cancelled streams —
+    // they're likely incomplete and not worth surfacing.
+    if !outcome.cancelled && !outcome.text.trim().is_empty() {
+        let payload = serde_json::json!({
+            "id": req_id,
+            "prompt": args.prompt,
+            "response": outcome.text,
+            "model": outcome.model,
+            "include_context": args.include_context,
+        });
+        let _ = state.store.append_event("ai.exchange.recorded", &payload);
+    }
+
+    Ok(AiResult { request_id: req_id, text: outcome.text })
+}
+
+#[tauri::command]
+pub fn ai_cancel(state: State, request_id: String) -> Result<bool> {
+    Ok(state.ai.cancel(&request_id))
+}
+
+#[derive(Debug, Serialize)]
+pub struct AiExchange {
+    pub id: String,
+    pub ts_ms: i64,
+    pub prompt: String,
+    pub response: String,
+    pub model: String,
+}
+
+/// Return the most recent completed AI exchanges, newest first.
+#[tauri::command]
+pub fn ai_history(state: State, limit: Option<i64>) -> Result<Vec<AiExchange>> {
+    let limit = limit.unwrap_or(20).clamp(1, 200) as usize;
+    let mut out: Vec<AiExchange> = Vec::with_capacity(limit);
+    // Walk events newest→oldest so we can early-exit once we've collected enough.
+    let all = state.store.replay_all()?;
+    for ev in all.into_iter().rev() {
+        if ev.kind != "ai.exchange.recorded" { continue; }
+        let id = ev.payload.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let prompt = ev.payload.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let response = ev.payload.get("response").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let model = ev.payload.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        out.push(AiExchange { id, ts_ms: ev.ts_ms, prompt, response, model });
+        if out.len() >= limit { break; }
+    }
+    Ok(out)
 }
 
 #[derive(Debug, Serialize)]
@@ -679,8 +741,20 @@ pub struct AiSettings {
 
 #[tauri::command]
 pub fn ai_settings_get(state: State) -> Result<AiSettings> {
-    let cfg = state.ai.config();
-    Ok(AiSettings { endpoint: cfg.endpoint.clone(), model: cfg.model.clone() })
+    let cfg = state.ai.snapshot();
+    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
+}
+
+#[tauri::command]
+pub fn ai_set_model(state: State, model: String) -> Result<AiSettings> {
+    let m = model.trim();
+    if m.is_empty() {
+        return Err(NervaError::Invalid("model required".into()));
+    }
+    state.ai.set_model(m);
+    state.store.meta_set("ai.model", m)?;
+    let cfg = state.ai.snapshot();
+    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
 }
 
 /// Build the Ollama message list. The system prompt is short, opinionated, and

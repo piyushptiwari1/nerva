@@ -11,7 +11,11 @@
 
 use crate::error::{NervaError, Result};
 use futures_util::StreamExt;
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const DEFAULT_ENDPOINT: &str = "http://localhost:11434";
 const DEFAULT_MODEL: &str = "llama3.2:3b";
@@ -50,8 +54,12 @@ pub struct ChatMessage {
 }
 
 pub struct OllamaClient {
-    cfg: OllamaConfig,
+    cfg: RwLock<OllamaConfig>,
     http: reqwest::Client,
+    /// Active in-flight requests, keyed by frontend-supplied request_id. The
+    /// flag is flipped to `true` when the frontend invokes `ai_cancel`; the
+    /// streaming loop polls it after every chunk and bails out cleanly.
+    cancels: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl OllamaClient {
@@ -62,15 +70,25 @@ impl OllamaClient {
             .connect_timeout(std::time::Duration::from_secs(2))
             .build()
             .expect("reqwest client build");
-        Self { cfg, http }
+        Self {
+            cfg: RwLock::new(cfg),
+            http,
+            cancels: Mutex::new(HashMap::new()),
+        }
     }
 
-    pub fn config(&self) -> &OllamaConfig { &self.cfg }
+    pub fn snapshot(&self) -> OllamaConfig { self.cfg.read().clone() }
+
+    /// Update the active model. Persisted by the caller via the meta-table.
+    pub fn set_model(&self, model: &str) {
+        self.cfg.write().model = model.to_string();
+    }
 
     /// Probe `/api/tags` to confirm the sidecar is reachable and report the
     /// list of locally-installed models.
     pub async fn health(&self) -> AiHealth {
-        let url = format!("{}/api/tags", self.cfg.endpoint.trim_end_matches('/'));
+        let cfg = self.snapshot();
+        let url = format!("{}/api/tags", cfg.endpoint.trim_end_matches('/'));
         match self.http.get(&url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 #[derive(Deserialize)]
@@ -81,49 +99,73 @@ impl OllamaClient {
                 let installed: Vec<String> = body.models.into_iter().map(|m| m.name).collect();
                 AiHealth {
                     available: true,
-                    endpoint: self.cfg.endpoint.clone(),
-                    model: self.cfg.model.clone(),
+                    endpoint: cfg.endpoint,
+                    model: cfg.model,
                     installed_models: installed,
                     error: None,
                 }
             }
             Ok(resp) => AiHealth {
                 available: false,
-                endpoint: self.cfg.endpoint.clone(),
-                model: self.cfg.model.clone(),
+                endpoint: cfg.endpoint,
+                model: cfg.model,
                 installed_models: vec![],
                 error: Some(format!("HTTP {}", resp.status())),
             },
             Err(e) => AiHealth {
                 available: false,
-                endpoint: self.cfg.endpoint.clone(),
-                model: self.cfg.model.clone(),
+                endpoint: cfg.endpoint,
+                model: cfg.model,
                 installed_models: vec![],
                 error: Some(simple_err(&e)),
             },
         }
     }
 
+    /// Cancel an in-flight stream by request id. Returns whether a matching
+    /// in-flight request was found. Safe to call for unknown ids.
+    pub fn cancel(&self, request_id: &str) -> bool {
+        if let Some(flag) = self.cancels.lock().get(request_id) {
+            flag.store(true, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Stream a chat completion. `on_token` is called with each delta as it
-    /// arrives; the final assembled string is also returned. The closure runs
-    /// on the same task that drives the HTTP body, so it must be cheap (in
-    /// practice we just emit a Tauri event).
+    /// arrives; the assembled output, the model used, and a `cancelled` flag
+    /// are returned. The closure runs on the same task that drives the HTTP
+    /// body, so it must be cheap (in practice we just emit a Tauri event).
+    ///
+    /// `request_id` lets callers cancel the in-flight stream via
+    /// [`Self::cancel`]. The cancel flag is registered before the request is
+    /// fired and deregistered on every exit path (success, error, cancel) via
+    /// the RAII [`CancelGuard`].
     pub async fn chat_stream<F>(
         &self,
+        request_id: &str,
         messages: Vec<ChatMessage>,
         mut on_token: F,
-    ) -> Result<String>
+    ) -> Result<ChatOutcome>
     where
         F: FnMut(&str),
     {
-        let url = format!("{}/api/chat", self.cfg.endpoint.trim_end_matches('/'));
+        let cfg = self.snapshot();
+        let url = format!("{}/api/chat", cfg.endpoint.trim_end_matches('/'));
         let body = serde_json::json!({
-            "model": self.cfg.model,
+            "model": cfg.model,
             "messages": messages,
             "stream": true,
             // Sensible defaults; we can lift these into UI later.
             "options": { "temperature": 0.4, "num_ctx": 4096 },
         });
+
+        // Register cancel flag for this request.
+        let flag = Arc::new(AtomicBool::new(false));
+        self.cancels.lock().insert(request_id.to_string(), flag.clone());
+        let _guard = CancelGuard { client: self, id: request_id };
+
         let resp = self
             .http
             .post(&url)
@@ -144,6 +186,12 @@ impl OllamaClient {
         let mut out = String::new();
 
         while let Some(chunk) = stream.next().await {
+            if flag.load(Ordering::SeqCst) {
+                // Frontend requested cancel — stop reading; dropping the body
+                // here closes the TCP stream, which Ollama treats as a normal
+                // client disconnect and aborts generation server-side.
+                return Ok(ChatOutcome { text: out, cancelled: true, model: cfg.model });
+            }
             let chunk = chunk
                 .map_err(|e| NervaError::Invalid(format!("ollama stream: {}", simple_err(&e))))?;
             buf.extend_from_slice(&chunk);
@@ -162,12 +210,34 @@ impl OllamaClient {
                         }
                     }
                     if v.get("done").and_then(|b| b.as_bool()).unwrap_or(false) {
-                        return Ok(out);
+                        return Ok(ChatOutcome { text: out, cancelled: false, model: cfg.model });
                     }
                 }
             }
         }
-        Ok(out)
+        Ok(ChatOutcome { text: out, cancelled: false, model: cfg.model })
+    }
+}
+
+/// Final result of a streamed chat. `cancelled` lets the caller decide
+/// whether to persist an exchange event (we skip persistence on cancel).
+#[derive(Debug)]
+pub struct ChatOutcome {
+    pub text: String,
+    pub cancelled: bool,
+    pub model: String,
+}
+
+/// Ensures the cancel-flag entry is removed when the streaming function
+/// returns by any path (success, error, panic, early cancel).
+struct CancelGuard<'a> {
+    client: &'a OllamaClient,
+    id: &'a str,
+}
+
+impl Drop for CancelGuard<'_> {
+    fn drop(&mut self) {
+        self.client.cancels.lock().remove(self.id);
     }
 }
 

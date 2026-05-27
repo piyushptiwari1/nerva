@@ -98,7 +98,10 @@ pub fn run() {
             // intelligence (local LLM)
             ipc::ai_health,
             ipc::ai_ask,
+            ipc::ai_cancel,
+            ipc::ai_history,
             ipc::ai_settings_get,
+            ipc::ai_set_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");

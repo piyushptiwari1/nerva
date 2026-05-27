@@ -8,7 +8,10 @@ interface PaletteStore {
   toggle: () => void;
   /** When non-null, the AskNerva pane is open with this initial prompt. */
   askPrompt: string | null;
+  /** When true, the pane opens with the history drawer expanded. */
+  askShowHistory: boolean;
   ask: (prompt: string) => void;
+  askHistory: () => void;
   closeAsk: () => void;
 }
 
@@ -17,6 +20,8 @@ export const usePalette = create<PaletteStore>((set, get) => ({
   set: (v) => set({ open: v }),
   toggle: () => set({ open: !get().open }),
   askPrompt: null,
-  ask: (prompt) => set({ open: false, askPrompt: prompt }),
-  closeAsk: () => set({ askPrompt: null }),
+  askShowHistory: false,
+  ask: (prompt) => set({ open: false, askPrompt: prompt, askShowHistory: false }),
+  askHistory: () => set({ open: false, askPrompt: "", askShowHistory: true }),
+  closeAsk: () => set({ askPrompt: null, askShowHistory: false }),
 }));
