@@ -25,3 +25,7 @@ src-tauri/Cargo.lock
 *.db-wal
 *.db-shm
 .nerva/
+
+*.tsbuildinfo
+dist/
+
