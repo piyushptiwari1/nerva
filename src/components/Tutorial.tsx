@@ -34,9 +34,9 @@ const STEPS: Step[] = [
     shortcut: "Spawn from palette: type 't 25m focus'",
   },
   {
-    title: "Tasks",
+    title: "Tasks · priority & deadlines",
     body:
-      "Add a task in the left rail. Drag the ⋮⋮ handle to reorder, double-click the title to rename, click the box to mark done. The list is scoped to the active workspace.",
+      "Add a task in the left rail. Click the dot to cycle priority (red → amber → grey), click '+ due' to attach a date/time. The list auto-sorts by priority then deadline. Drag the ⋮⋮ handle to reorder within a priority, double-click to rename.",
   },
   {
     title: "Persistent notes",
@@ -50,9 +50,14 @@ const STEPS: Step[] = [
     shortcut: "Ctrl + H",
   },
   {
-    title: "Floating timer widget",
+    title: "Pop-out widgets",
     body:
-      "From the palette, run 'widget timer' to open a tiny always-on-top timer. Grab the dark header bar (⋮⋮) to position it on top of your code, browser or call window.",
+      "Run 'widget timer', 'widget habits' or 'widget tasks' from the palette to pop any of them into a tiny always-on-top floating window. Drag the dark ⋮⋮ header to position over your code, browser or call window — they stay live while you work.",
+  },
+  {
+    title: "Light or dark, your call",
+    body:
+      "Toggle the ☼ / ☾ button in the top bar (or run 'theme' in the palette) to flip between matte-dark and warm-paper light. Choice is remembered between sessions.",
   },
   {
     title: "Command palette",

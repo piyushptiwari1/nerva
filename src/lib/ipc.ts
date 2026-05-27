@@ -91,6 +91,7 @@ export interface FocusState {
 }
 
 export type TaskStatus = "todo" | "done";
+export type TaskPriority = "high" | "med" | "low";
 
 export interface Task {
   id: string;
@@ -99,6 +100,8 @@ export interface Task {
   status: TaskStatus;
   created_ms: number;
   completed_ms: number | null;
+  priority: TaskPriority;
+  due_ms: number | null;
 }
 
 export interface MomentumBucket {
@@ -169,6 +172,8 @@ export const ipc = {
     invoke<string | null>("last_note_for_workspace", { workspaceId }),
   openSticky: (noteId: string) => invoke<void>("open_sticky", { noteId }),
   openTimerWidget: () => invoke<void>("open_timer_widget"),
+  openHabitsWidget: () => invoke<void>("open_habits_widget"),
+  openTasksWidget: () => invoke<void>("open_tasks_widget"),
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
@@ -197,6 +202,10 @@ export const ipc = {
   taskDelete: (id: string) => invoke<void>("task_delete", { id }),
   taskReorder: (args: { ordered_ids: string[]; workspace_id?: string }) =>
     invoke<Task[]>("task_reorder", { args }),
+  taskSetPriority: (args: { id: string; priority: TaskPriority }) =>
+    invoke<Task>("task_set_priority", { args }),
+  taskSetDue: (args: { id: string; due_ms: number | null }) =>
+    invoke<Task>("task_set_due", { args }),
   // momentum
   momentumSnapshot: (days?: number) =>
     invoke<MomentumBucket[]>("momentum_snapshot", { days }),

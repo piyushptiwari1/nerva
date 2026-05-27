@@ -534,6 +534,58 @@ pub fn task_delete(state: State, id: String) -> Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SetTaskPriorityArgs {
+    pub id: String,
+    pub priority: crate::tasks::TaskPriority,
+}
+
+/// Update a task's priority. Emits `task.priority_set` and returns the new task.
+#[tauri::command]
+pub fn task_set_priority(state: State, args: SetTaskPriorityArgs) -> Result<Task> {
+    let priority_str = match args.priority {
+        crate::tasks::TaskPriority::High => "high",
+        crate::tasks::TaskPriority::Med => "med",
+        crate::tasks::TaskPriority::Low => "low",
+    };
+    let payload = serde_json::json!({ "id": args.id, "priority": priority_str });
+    let evt_id = state.store.append_event("task.priority_set", &payload)?;
+    let ev = StoredEvent {
+        id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "task.priority_set".into(), payload,
+    };
+    let mut proj = state.tasks.lock();
+    proj.apply(&ev);
+    proj.list()
+        .into_iter()
+        .find(|t| t.id == args.id)
+        .ok_or_else(|| NervaError::NotFound(args.id))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetTaskDueArgs {
+    pub id: String,
+    /// `None` clears the deadline; `Some(ms)` sets it.
+    pub due_ms: Option<i64>,
+}
+
+/// Set or clear a task's due-by timestamp. Emits `task.due_set`.
+#[tauri::command]
+pub fn task_set_due(state: State, args: SetTaskDueArgs) -> Result<Task> {
+    let payload = serde_json::json!({ "id": args.id, "due_ms": args.due_ms });
+    let evt_id = state.store.append_event("task.due_set", &payload)?;
+    let ev = StoredEvent {
+        id: evt_id, ts_ms: crate::store::now_ms(),
+        kind: "task.due_set".into(), payload,
+    };
+    let mut proj = state.tasks.lock();
+    proj.apply(&ev);
+    proj.list()
+        .into_iter()
+        .find(|t| t.id == args.id)
+        .ok_or_else(|| NervaError::NotFound(args.id))
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ReorderTasksArgs {
     pub ordered_ids: Vec<String>,
     pub workspace_id: Option<String>,
@@ -702,6 +754,52 @@ pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
         .resizable(true)
         .build()
         .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))?;
+    Ok(())
+}
+
+/// Spawn (or focus) the always-on-top floating habits widget. Single instance.
+#[tauri::command]
+pub fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    let label = "habits-widget";
+    if let Some(win) = app.get_webview_window(label) {
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=habits".into()))
+        .title("Nerva Habits")
+        .inner_size(320.0, 420.0)
+        .min_inner_size(260.0, 280.0)
+        .always_on_top(true)
+        .decorations(false)
+        .transparent(false)
+        .resizable(true)
+        .build()
+        .map_err(|e| NervaError::Invalid(format!("open habits widget: {e}")))?;
+    Ok(())
+}
+
+/// Spawn (or focus) the always-on-top floating tasks widget. Single instance.
+#[tauri::command]
+pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    let label = "tasks-widget";
+    if let Some(win) = app.get_webview_window(label) {
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=tasks".into()))
+        .title("Nerva Tasks")
+        .inner_size(320.0, 460.0)
+        .min_inner_size(260.0, 300.0)
+        .always_on_top(true)
+        .decorations(false)
+        .transparent(false)
+        .resizable(true)
+        .build()
+        .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))?;
     Ok(())
 }
 

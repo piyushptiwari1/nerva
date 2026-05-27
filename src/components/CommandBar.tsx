@@ -4,6 +4,7 @@ import { FocusMenu } from "@/components/FocusMenu";
 import { usePalette } from "@/store/palette";
 import { useTutorial } from "@/store/tutorial";
 import { useHabitsUi } from "@/store/habits";
+import { useTheme } from "@/store/theme";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
@@ -11,6 +12,8 @@ export function CommandBar() {
   const openPalette = usePalette((s) => s.set);
   const showTutorial = useTutorial((s) => s.show);
   const toggleHabits = useHabitsUi((s) => s.toggle);
+  const theme = useTheme((s) => s.theme);
+  const toggleTheme = useTheme((s) => s.toggleTheme);
 
   useEffect(() => {
     ipc.runtime().then(setInfo).catch(() => void 0);
@@ -52,6 +55,15 @@ export function CommandBar() {
         aria-label="Open habits tracker"
       >
         ✓
+      </button>
+
+      <button
+        onClick={toggleTheme}
+        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+        aria-label="Toggle theme"
+      >
+        {theme === "dark" ? "☼" : "☾"}
       </button>
 
       <button

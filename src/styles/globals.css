@@ -2,8 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ── theme tokens ──────────────────────────────────────────────────────────
+ * Every colour Tailwind class resolves to one of these custom properties,
+ * so flipping `data-theme` on <html> repaints the entire app in one paint.
+ *
+ * Dark (default) is a deep matte; Light is a warm-paper palette tuned so
+ * the same `ink-100 / ink-400` text contrast reads correctly inverted.
+ */
+:root,
+:root[data-theme="dark"] {
+  --ink-950: 10 11 13;
+  --ink-900: 15 17 21;
+  --ink-800: 22 26 33;
+  --ink-700: 31 36 46;
+  --ink-600: 44 50 61;
+  --ink-500: 74 82 96;
+  --ink-400: 122 132 148;
+  --ink-300: 167 175 190;
+  --ink-200: 203 209 220;
+  --ink-100: 236 240 246;
+  --accent: 124 156 255;
+  --accent-deep: 90 124 224;
+  --accent-glow: 168 189 255;
+  --focus: 232 184 109;
+  --rest: 125 214 168;
+  --danger: 232 125 125;
+
+  /* glass + grid surfaces */
+  --glass-tint: 21 24 30;
+  --glass-alpha: 0.65;
+  --hairline: rgba(255, 255, 255, 0.06);
+  --grid-dot: rgba(255, 255, 255, 0.025);
+  --scrollbar: rgba(255, 255, 255, 0.08);
+  --scrollbar-hover: rgba(255, 255, 255, 0.14);
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --ink-950: 245 246 250;  /* canvas (was deep black) */
+  --ink-900: 252 252 254;  /* surface */
+  --ink-800: 240 242 247;  /* panel hover */
+  --ink-700: 222 226 234;  /* borders */
+  --ink-600: 196 202 214;  /* dividers */
+  --ink-500: 156 164 178;  /* faint text */
+  --ink-400: 110 118 132;  /* mute text */
+  --ink-300: 76 84 100;    /* secondary text */
+  --ink-200: 46 54 70;     /* strong secondary */
+  --ink-100: 22 26 38;     /* primary text */
+  --accent: 70 100 220;
+  --accent-deep: 50 78 190;
+  --accent-glow: 40 80 195;
+  --focus: 198 138 30;
+  --rest: 50 152 110;
+  --danger: 200 60 60;
+
+  --glass-tint: 252 252 254;
+  --glass-alpha: 0.80;
+  --hairline: rgba(20, 30, 60, 0.10);
+  --grid-dot: rgba(20, 30, 60, 0.045);
+  --scrollbar: rgba(20, 30, 60, 0.14);
+  --scrollbar-hover: rgba(20, 30, 60, 0.24);
+  color-scheme: light;
 }
 
 html, body, #root { height: 100%; }
@@ -15,31 +74,36 @@ body {
 /* Subtle background grid for spatial layering */
 .bg-grid {
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0);
   background-size: 28px 28px;
 }
 
 .glass {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) ,
-              rgba(21, 24, 30, 0.65);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0)),
+    rgb(var(--glass-tint) / var(--glass-alpha));
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--hairline);
 }
 
-.hairline { border: 1px solid rgba(255,255,255,0.06); }
+.hairline { border: 1px solid var(--hairline); }
 
 /* Numeric mono for timers */
 .tnum { font-variant-numeric: tabular-nums; }
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Focus ring */
-:focus-visible { outline: 2px solid #7c9cff; outline-offset: 2px; border-radius: 6px; }
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
 /* Input reset */
 input, textarea, button { font: inherit; color: inherit; }

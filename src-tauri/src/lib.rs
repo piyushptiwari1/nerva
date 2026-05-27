@@ -123,11 +123,15 @@ pub fn run() {
             ipc::task_rename,
             ipc::task_delete,
             ipc::task_reorder,
+            ipc::task_set_priority,
+            ipc::task_set_due,
             // momentum
             ipc::momentum_snapshot,
             // sticky / widgets
             ipc::open_sticky,
             ipc::open_timer_widget,
+            ipc::open_habits_widget,
+            ipc::open_tasks_widget,
             // audio
             ipc::audio_state,
             ipc::audio_set_volume,

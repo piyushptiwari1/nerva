@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/store/app";
-import type { Task } from "@/lib/ipc";
+import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
 
 /**
  * Compact tasks list. Workspace-scoped; the backend defaults new tasks to the
@@ -34,6 +34,8 @@ export function TasksPanel() {
   const deleteTask = useApp((s) => s.deleteTask);
   const renameTask = useApp((s) => s.renameTask);
   const reorderTasks = useApp((s) => s.reorderTasks);
+  const setTaskPriority = useApp((s) => s.setTaskPriority);
+  const setTaskDue = useApp((s) => s.setTaskDue);
 
   const [draft, setDraft] = useState("");
   const [showDone, setShowDone] = useState(false);
@@ -74,13 +76,22 @@ export function TasksPanel() {
         <h3 className="text-[11px] uppercase tracking-wider text-ink-300">
           Tasks {todo.length > 0 && <span className="text-ink-500">· {todo.length}</span>}
         </h3>
-        <button
-          onClick={() => setShowDone((v) => !v)}
-          className="text-[10px] text-ink-300 hover:text-ink-100"
-          title="Toggle completed"
-        >
-          {showDone ? "hide done" : `${done.length} done`}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => ipc.openTasksWidget()}
+            className="text-[10px] text-ink-400 hover:text-ink-100"
+            title="Pop out as floating widget"
+          >
+            pop out ↗
+          </button>
+          <button
+            onClick={() => setShowDone((v) => !v)}
+            className="text-[10px] text-ink-300 hover:text-ink-100"
+            title="Toggle completed"
+          >
+            {showDone ? "hide done" : `${done.length} done`}
+          </button>
+        </div>
       </div>
       <div className="flex flex-col gap-1 max-h-[280px] overflow-y-auto pr-1 mb-2">
         {todo.length === 0 && !showDone && (
@@ -97,6 +108,8 @@ export function TasksPanel() {
                 onToggle={() => toggleTask(t.id)}
                 onDelete={() => deleteTask(t.id)}
                 onRename={(title) => renameTask(t.id, title)}
+                onCyclePriority={() => setTaskPriority(t.id, nextPriority(t.priority))}
+                onSetDue={(ms) => setTaskDue(t.id, ms)}
               />
             ))}
           </SortableContext>
@@ -109,6 +122,8 @@ export function TasksPanel() {
               onToggle={() => toggleTask(t.id)}
               onDelete={() => deleteTask(t.id)}
               onRename={(title) => renameTask(t.id, title)}
+              onCyclePriority={() => setTaskPriority(t.id, nextPriority(t.priority))}
+              onSetDue={(ms) => setTaskDue(t.id, ms)}
               staticRow
             />
           ))}
@@ -138,11 +153,17 @@ interface TaskRowProps {
   onToggle: () => void;
   onDelete: () => void;
   onRename: (title: string) => void;
+  onCyclePriority: () => void;
+  onSetDue: (ms: number | null) => void;
   /** Skip the sortable wiring (for done tasks, which aren't reorderable). */
   staticRow?: boolean;
 }
 
-function TaskRow({ task, onToggle, onDelete, onRename, staticRow }: TaskRowProps) {
+function nextPriority(p: TaskPriority): TaskPriority {
+  return p === "high" ? "med" : p === "med" ? "low" : "high";
+}
+
+function TaskRow({ task, onToggle, onDelete, onRename, onCyclePriority, onSetDue, staticRow }: TaskRowProps) {
   const sortable = useSortable({ id: task.id, disabled: staticRow });
   const style = staticRow
     ? undefined
@@ -188,6 +209,22 @@ function TaskRow({ task, onToggle, onDelete, onRename, staticRow }: TaskRowProps
         </span>
       )}
       <button
+        onClick={onCyclePriority}
+        className="shrink-0"
+        title={`Priority: ${task.priority} · click to cycle`}
+        aria-label={`priority ${task.priority}`}
+      >
+        <span
+          className={`block w-2 h-2 rounded-full ${
+            task.priority === "high"
+              ? "bg-danger"
+              : task.priority === "med"
+                ? "bg-focus"
+                : "bg-ink-500"
+          }`}
+        />
+      </button>
+      <button
         onClick={onToggle}
         className={`shrink-0 w-3.5 h-3.5 rounded border ${
           isDone ? "bg-accent/60 border-accent" : "border-ink-500 hover:border-ink-300"
@@ -217,6 +254,7 @@ function TaskRow({ task, onToggle, onDelete, onRename, staticRow }: TaskRowProps
           {task.title}
         </span>
       )}
+      <DueChip task={task} onSetDue={onSetDue} />
       <button
         onClick={onDelete}
         className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-ink-200 text-xs leading-none"
@@ -226,4 +264,93 @@ function TaskRow({ task, onToggle, onDelete, onRename, staticRow }: TaskRowProps
       </button>
     </div>
   );
+}
+
+/**
+ * Compact due-by chip. Click to open a hidden native datetime-local input
+ * positioned in-place; clearing the chip removes the deadline. Hides itself
+ * on completed tasks (no point showing a deadline on something done).
+ */
+function DueChip({ task, onSetDue }: { task: Task; onSetDue: (ms: number | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  if (task.status === "done") return null;
+
+  function open() {
+    const el = inputRef.current;
+    if (!el) return;
+    // Some browsers ignore showPicker() for hidden inputs; clicking is safer.
+    try {
+      // showPicker is widely available in Chromium/Tauri webviews; cast to access.
+      (el as unknown as { showPicker?: () => void }).showPicker?.();
+    } catch { /* ignore */ }
+    el.focus();
+    el.click();
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    if (!v) onSetDue(null);
+    else onSetDue(new Date(v).getTime());
+  }
+
+  const label = task.due_ms ? formatDueShort(task.due_ms) : "";
+  const overdue = task.due_ms != null && task.due_ms < Date.now();
+  const soon =
+    task.due_ms != null && task.due_ms >= Date.now() && task.due_ms < Date.now() + 86_400_000;
+
+  return (
+    <span className="relative shrink-0">
+      <button
+        onClick={open}
+        className={`text-[10px] px-1.5 py-0.5 rounded border tnum transition-colors ${
+          task.due_ms
+            ? overdue
+              ? "border-danger/40 text-danger bg-danger/10"
+              : soon
+                ? "border-focus/40 text-focus bg-focus/10"
+                : "border-ink-700 text-ink-300 bg-ink-800"
+            : "border-transparent text-ink-500 hover:text-ink-200 opacity-0 group-hover:opacity-100"
+        }`}
+        title={task.due_ms ? `Due ${new Date(task.due_ms).toLocaleString()}` : "Set deadline"}
+      >
+        {label || "+ due"}
+      </button>
+      {task.due_ms != null && (
+        <button
+          onClick={() => onSetDue(null)}
+          className="ml-0.5 text-ink-500 hover:text-danger text-[10px] opacity-0 group-hover:opacity-100"
+          title="Clear deadline"
+        >
+          ×
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="datetime-local"
+        defaultValue={task.due_ms ? toLocalInput(task.due_ms) : ""}
+        onChange={onChange}
+        className="absolute left-0 top-full mt-0.5 w-0 h-0 opacity-0 pointer-events-none"
+        tabIndex={-1}
+      />
+    </span>
+  );
+}
+
+function toLocalInput(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDueShort(ms: number): string {
+  const d = new Date(ms);
+  const diff = ms - Date.now();
+  const dayMs = 86_400_000;
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (diff < -dayMs) return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (diff < 0) return `overdue ${time}`;
+  if (diff < dayMs) return `today ${time}`;
+  if (diff < 2 * dayMs) return `tmrw ${time}`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

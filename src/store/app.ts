@@ -38,6 +38,8 @@ interface AppStore {
   renameTask: (id: string, title: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
+  setTaskPriority: (id: string, priority: import("@/lib/ipc").TaskPriority) => Promise<void>;
+  setTaskDue: (id: string, dueMs: number | null) => Promise<void>;
 }
 
 export const useApp = create<AppStore>((set, get) => ({
@@ -139,5 +141,13 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ tasks: reordered });
     const tasks = await ipc.taskReorder({ ordered_ids: orderedIds });
     set({ tasks });
+  },
+  async setTaskPriority(id, priority) {
+    await ipc.taskSetPriority({ id, priority });
+    await get().refreshTasks();
+  },
+  async setTaskDue(id, dueMs) {
+    await ipc.taskSetDue({ id, due_ms: dueMs });
+    await get().refreshTasks();
   },
 }));

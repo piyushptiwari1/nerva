@@ -88,6 +88,13 @@ export function HabitsPane() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => ipc.openHabitsWidget()}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-ink-800 hover:bg-ink-700 text-ink-200 border border-ink-700 transition-colors"
+                  title="Open as floating widget"
+                >
+                  ↗ pop out
+                </button>
+                <button
                   onClick={() => setShowNew((v) => !v)}
                   className={`text-[11px] px-3 py-1.5 rounded-md transition-colors border ${
                     showNew

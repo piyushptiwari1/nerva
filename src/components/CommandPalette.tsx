@@ -5,6 +5,7 @@ import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
 import { useHabitsUi } from "@/store/habits";
 import { useTutorial } from "@/store/tutorial";
+import { useTheme } from "@/store/theme";
 import { ipc } from "@/lib/ipc";
 
 interface Action {
@@ -41,6 +42,8 @@ export function CommandPalette() {
   const openSettings = useSettingsUi((s) => s.setOpen);
   const openHabits = useHabitsUi((s) => s.show);
   const showTutorial = useTutorial((s) => s.show);
+  const theme = useTheme((s) => s.theme);
+  const toggleTheme = useTheme((s) => s.toggleTheme);
   const audio = useApp((s) => s.audio);
   const setAmbient = useApp((s) => s.setAmbient);
   const testAudio = useApp((s) => s.testAudio);
@@ -254,6 +257,33 @@ export function CommandPalette() {
       keywords: "habits habit tracker streak daily routine checkin chart heatmap".toLowerCase(),
       run: () => openHabits(),
     });
+    out.push({
+      id: "system.theme",
+      group: "System",
+      glyph: theme === "dark" ? "☼" : "☾",
+      title: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+      subtitle: "palette flips instantly · persisted",
+      keywords: "theme dark light mode appearance contrast".toLowerCase(),
+      run: () => toggleTheme(),
+    });
+    out.push({
+      id: "widget.habits",
+      group: "System",
+      glyph: "❑",
+      title: "Pop out habits widget",
+      subtitle: "floating always-on-top mini tracker",
+      keywords: "widget habits popout floating tracker".toLowerCase(),
+      run: () => ipc.openHabitsWidget(),
+    });
+    out.push({
+      id: "widget.tasks",
+      group: "System",
+      glyph: "❑",
+      title: "Pop out tasks widget",
+      subtitle: "floating always-on-top mini task list",
+      keywords: "widget tasks popout floating todo".toLowerCase(),
+      run: () => ipc.openTasksWidget(),
+    });
     // Ambient noise quick toggles — surface only as palette actions since the
     // Settings pane already has the full picker; here we want one-keystroke
     // start/stop without leaving flow.
@@ -326,7 +356,7 @@ export function CommandPalette() {
     timers, tasks, notes, workspaces, active, focus, query,
     refreshTimers, refreshTasks, refreshNotes, refreshMomentum,
     setDnd, testAudio, activateWorkspace, createTask, toggleTask,
-    showTutorial,
+    showTutorial, theme, toggleTheme,
   ]);
 
   const ranked = useMemo(() => rank(actions, query), [actions, query]);

@@ -18,6 +18,33 @@ pub enum TaskStatus {
     Done,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskPriority {
+    High,
+    Med,
+    Low,
+}
+
+impl TaskPriority {
+    /// Sort weight where lower = higher priority (so default `sort` ascends).
+    pub fn rank(self) -> i32 {
+        match self {
+            TaskPriority::High => 0,
+            TaskPriority::Med => 1,
+            TaskPriority::Low => 2,
+        }
+    }
+
+    fn from_str(s: &str) -> Self {
+        match s {
+            "high" => TaskPriority::High,
+            "low" => TaskPriority::Low,
+            _ => TaskPriority::Med,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
@@ -26,7 +53,16 @@ pub struct Task {
     pub status: TaskStatus,
     pub created_ms: i64,
     pub completed_ms: Option<i64>,
+    /// Importance level. Defaults to `Med` for tasks created before this field
+    /// existed; replay applies it via the `task.priority_set` event.
+    #[serde(default = "default_priority")]
+    pub priority: TaskPriority,
+    /// Optional due-by Unix ms in local time. `None` = no deadline.
+    #[serde(default)]
+    pub due_ms: Option<i64>,
 }
+
+fn default_priority() -> TaskPriority { TaskPriority::Med }
 
 #[derive(Default)]
 pub struct TasksProjection {
@@ -45,6 +81,10 @@ impl TasksProjection {
                 if id.is_empty() { return; }
                 let title = ev.payload["title"].as_str().unwrap_or("").to_string();
                 let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
+                let priority = ev.payload["priority"].as_str()
+                    .map(TaskPriority::from_str)
+                    .unwrap_or(TaskPriority::Med);
+                let due_ms = ev.payload["due_ms"].as_i64();
                 self.items.insert(
                     id.clone(),
                     Task {
@@ -54,6 +94,8 @@ impl TasksProjection {
                         status: TaskStatus::Todo,
                         created_ms: ev.ts_ms,
                         completed_ms: None,
+                        priority,
+                        due_ms,
                     },
                 );
             }
@@ -94,6 +136,23 @@ impl TasksProjection {
                     .unwrap_or_default();
                 self.order.insert(ws, ids);
             }
+            "task.priority_set" => {
+                let id = ev.payload["id"].as_str().unwrap_or_default();
+                if let Some(t) = self.items.get_mut(id) {
+                    if let Some(p) = ev.payload["priority"].as_str() {
+                        t.priority = TaskPriority::from_str(p);
+                    }
+                }
+            }
+            "task.due_set" => {
+                let id = ev.payload["id"].as_str().unwrap_or_default();
+                if let Some(t) = self.items.get_mut(id) {
+                    // `null` clears the due-by; missing key leaves it untouched.
+                    if ev.payload.get("due_ms").is_some() {
+                        t.due_ms = ev.payload["due_ms"].as_i64();
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -106,12 +165,16 @@ impl TasksProjection {
             .cloned()
             .partition(|t| t.status == TaskStatus::Todo);
 
-        // Open tasks: honor per-workspace order vec, falling back to newest-first
-        // for ids that aren't in the order list (e.g. just-created tasks).
+        // Open tasks: priority first (High → Low), then per-workspace explicit
+        // order vec for ties, then newest-first. This means a freshly-flagged
+        // high-priority task automatically rises to the top without forcing a
+        // reorder write, while explicit reorders still control intra-bucket order.
         todo.sort_by(|a, b| {
-            let ra = self.rank(a);
-            let rb = self.rank(b);
-            ra.cmp(&rb).then_with(|| b.created_ms.cmp(&a.created_ms))
+            a.priority
+                .rank()
+                .cmp(&b.priority.rank())
+                .then_with(|| self.rank(a).cmp(&self.rank(b)))
+                .then_with(|| b.created_ms.cmp(&a.created_ms))
         });
         // Done: newest-completion first.
         done.sort_by(|a, b| b.completed_ms.unwrap_or(0).cmp(&a.completed_ms.unwrap_or(0)));
