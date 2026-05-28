@@ -178,6 +178,10 @@ export const ipc = {
   windowSetAlwaysOnTop: (label: string, on: boolean) =>
     invoke<void>("window_set_always_on_top", { label, on }),
   windowClose: (label: string) => invoke<void>("window_close", { label }),
+  /** Reveal Nerva's on-disk data directory in the OS file manager. */
+  revealDataDir: () => invoke<void>("reveal_data_dir"),
+  /** Backup + wipe Nerva's SQLite database and auto-relaunch. */
+  resetAllData: () => invoke<void>("reset_all_data"),
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),

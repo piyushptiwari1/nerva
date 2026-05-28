@@ -208,9 +208,22 @@ impl Store {
                 payload: serde_json::from_str(&payload_text).unwrap_or(serde_json::Value::Null),
             })
         })?;
+        // Per-row tolerance: a single corrupted row (e.g. unreadable column
+        // due to disk error) must not abort the whole replay, otherwise one
+        // bad event can wedge every future launch. We log and skip.
         let mut out = Vec::new();
+        let mut skipped = 0u32;
         for r in rows {
-            out.push(r?);
+            match r {
+                Ok(ev) => out.push(ev),
+                Err(e) => {
+                    skipped += 1;
+                    tracing::warn!(err = %e, "replay_all: skipping malformed row");
+                }
+            }
+        }
+        if skipped > 0 {
+            tracing::warn!(skipped, "replay_all: completed with skipped rows");
         }
         Ok(out)
     }

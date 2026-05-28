@@ -55,11 +55,22 @@ export function NotesPanel() {
   }, [active?.id]);
 
   async function loadNote(id: string) {
-    const n = await ipc.noteGet(id);
-    if (n) {
-      setCurrentId(n.id);
-      setTitle(n.title || "Untitled");
-      setBody(n.body);
+    try {
+      const n = await ipc.noteGet(id);
+      if (n) {
+        setCurrentId(n.id);
+        setTitle(n.title || "Untitled");
+        setBody(n.body);
+      } else {
+        // Note was deleted (e.g. on another device, or by reset). Drop the
+        // stale pointer and fall back to a blank scratchpad rather than
+        // displaying a half-loaded ghost note.
+        setCurrentId(null);
+        setTitle("Untitled");
+        setBody("");
+      }
+    } catch (e) {
+      console.warn("[NotesPanel] loadNote failed:", e);
     }
   }
 

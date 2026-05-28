@@ -24,6 +24,38 @@ use state::AppState;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
+/// Best-effort wipe of the on-disk SQLite store for `nerva --reset`.
+/// Matches the directory Tauri's `app_data_dir()` returns for our
+/// identifier on Linux/macOS/Windows. We don't delete the directory
+/// itself — that would race with another concurrent instance — only
+/// the `nerva.db` family of files. WAL/SHM are removed too because a
+/// stale WAL replayed against a fresh DB is exactly the corruption
+/// pattern we're recovering from.
+fn wipe_data_dir_for_cli_reset() -> std::io::Result<()> {
+    const ID: &str = "ai.bytical.nerva";
+    let base = dirs::data_dir().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "no platform data dir")
+    })?;
+    let dir = base.join(ID);
+    if !dir.exists() {
+        return Ok(());
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let backup = dir.join(format!("backup-{stamp}"));
+    std::fs::create_dir_all(&backup)?;
+    for name in ["nerva.db", "nerva.db-wal", "nerva.db-shm"] {
+        let from = dir.join(name);
+        if from.exists() {
+            let _ = std::fs::rename(&from, backup.join(name));
+        }
+    }
+    eprintln!("[nerva --reset] data backed up to {}", backup.display());
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Install the crash hook BEFORE tracing/Tauri so a panic during setup is
@@ -35,6 +67,18 @@ pub fn run() {
         .with_target(false)
         .compact()
         .init();
+
+    // CLI: `nerva --reset` wipes the on-disk state before any projection
+    // is loaded. Last-ditch recovery path when the in-app "Reset all data"
+    // button is unreachable (rare — only if the React shell itself is broken).
+    // Honoured here, BEFORE `tauri::Builder::default()`, so AppState boots
+    // fresh on this same launch.
+    let reset_requested = std::env::args().any(|a| a == "--reset");
+    if reset_requested {
+        if let Err(e) = wipe_data_dir_for_cli_reset() {
+            eprintln!("[nerva --reset] wipe failed: {e}");
+        }
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -104,8 +148,13 @@ pub fn run() {
             // number of notes — typical user has < a few hundred. Each embed
             // is sequential to avoid hammering Ollama; failures are silent
             // (the next note.saved will retry naturally).
+            //
+            // Hard cap of 200 notes per boot to keep CPU/network bounded for
+            // heavy users; remaining notes get embedded on next save or on
+            // the following launch. Per-call timeout via `ai.embed` itself.
             let bg = state.clone();
             tauri::async_runtime::spawn(async move {
+                const MAX_PER_BOOT: usize = 200;
                 let model = std::env::var("NERVA_EMBED_MODEL")
                     .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
                 let pending = match bg.store.notes_missing_embeddings() {
@@ -118,8 +167,9 @@ pub fn run() {
                 if pending.is_empty() {
                     return;
                 }
-                tracing::info!(count = pending.len(), "embedding backfill starting");
-                for (id, title, body) in pending {
+                let total = pending.len();
+                tracing::info!(total, cap = MAX_PER_BOOT, "embedding backfill starting");
+                for (id, title, body) in pending.into_iter().take(MAX_PER_BOOT) {
                     let text = format!("{title}\n\n{body}");
                     match bg.ai.embed(&text, &model).await {
                         Ok(v) => {
@@ -182,6 +232,8 @@ pub fn run() {
             ipc::open_tasks_widget,
             ipc::window_set_always_on_top,
             ipc::window_close,
+            ipc::reveal_data_dir,
+            ipc::reset_all_data,
             // audio
             ipc::audio_state,
             ipc::audio_set_volume,

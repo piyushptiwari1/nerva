@@ -15,6 +15,7 @@ import { KeyboardCheatsheet } from "@/components/KeyboardCheatsheet";
 import { SettingsPane } from "@/components/SettingsPane";
 import { HabitsPane } from "@/components/HabitsPane";
 import { Tutorial, tutorialShouldAutoOpen } from "@/components/Tutorial";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
@@ -65,19 +66,21 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid">
-      <CommandBar />
+      <ErrorBoundary scope="CommandBar"><CommandBar /></ErrorBoundary>
       <div className="flex-1 min-h-0 grid grid-cols-[240px_minmax(0,1fr)_360px] gap-3 px-3 pt-2">
-        <Sidebar />
-        <TimerStage />
-        <NotesPanel />
+        <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
+        <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
+        <ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary>
       </div>
-      <TimelineBar />
-      <CommandPalette />
-      <AskNerva />
-      <KeyboardCheatsheet />
-      <SettingsPane />
-      <HabitsPane />
-      <Tutorial open={tutorialOpen} onClose={hideTutorial} />
+      <ErrorBoundary scope="TimelineBar"><TimelineBar /></ErrorBoundary>
+      <ErrorBoundary scope="CommandPalette"><CommandPalette /></ErrorBoundary>
+      <ErrorBoundary scope="AskNerva"><AskNerva /></ErrorBoundary>
+      <ErrorBoundary scope="KeyboardCheatsheet"><KeyboardCheatsheet /></ErrorBoundary>
+      <ErrorBoundary scope="SettingsPane"><SettingsPane /></ErrorBoundary>
+      <ErrorBoundary scope="HabitsPane"><HabitsPane /></ErrorBoundary>
+      <ErrorBoundary scope="Tutorial">
+        <Tutorial open={tutorialOpen} onClose={hideTutorial} />
+      </ErrorBoundary>
     </div>
   );
 }

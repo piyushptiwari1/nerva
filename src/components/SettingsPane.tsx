@@ -4,6 +4,7 @@ import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai } from "@/lib/ai";
+import { ipc } from "@/lib/ipc";
 
 type Tab = "ai" | "timers" | "audio" | "focus" | "diag" | "about";
 
@@ -458,6 +459,57 @@ function DiagTab() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<{ name: string; body: string } | null>(null);
+  const [dataDir, setDataDir] = useState<string | null>(null);
+  const [eventCount, setEventCount] = useState<number | null>(null);
+  const bootstrapErrors = useApp((s) => s.bootstrapErrors);
+
+  useEffect(() => {
+    ipc.runtime()
+      .then((info) => {
+        setDataDir(info.data_dir);
+        setEventCount(info.event_count);
+      })
+      .catch(() => void 0);
+  }, []);
+
+  async function reveal() {
+    try {
+      await ipc.revealDataDir();
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
+  async function resetAll() {
+    const ok = confirm(
+      "Reset Nerva to a clean state?\n\n" +
+        "This wipes every task, timer, note, habit, and workspace from your " +
+        "local database. A timestamped backup of the database is kept inside " +
+        "the data folder so support can recover it by hand if needed.\n\n" +
+        "Nerva will relaunch automatically.",
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      // Clear UI-side localStorage too, so the tutorial replays on first launch.
+      // Preserve theme + UI preferences — they're not what the user wants gone.
+      try {
+        const KEEP = new Set(["nerva-theme"]);
+        const drop: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && !KEEP.has(k)) drop.push(k);
+        }
+        drop.forEach((k) => localStorage.removeItem(k));
+      } catch {
+        /* private mode etc. — best-effort */
+      }
+      await ipc.resetAllData();
+    } catch (e) {
+      setErr(String(e));
+      setBusy(false);
+    }
+  }
 
   async function refresh() {
     setErr(null);
@@ -501,6 +553,47 @@ function DiagTab() {
         into a bug report. Nothing is uploaded — files live under your
         platform's user data directory.
       </div>
+
+      {/* Storage / recovery — the escape hatch when the on-disk state goes bad. */}
+      <div className="border border-ink-700/60 rounded-md p-2.5 flex flex-col gap-1.5">
+        <div className="text-[11px] font-medium text-ink-200">Storage</div>
+        {dataDir && (
+          <div className="text-[10px] text-ink-400 font-mono break-all leading-snug">
+            {dataDir}
+          </div>
+        )}
+        {eventCount !== null && (
+          <div className="text-[10px] text-ink-500 tnum">
+            {eventCount.toLocaleString()} event{eventCount === 1 ? "" : "s"} in store
+          </div>
+        )}
+        {bootstrapErrors.length > 0 && (
+          <div className="text-[10px] text-amber-300 leading-snug">
+            ⚠ Partial boot — some panels failed to load: {bootstrapErrors.join(", ")}.
+            If symptoms persist, try Reset.
+          </div>
+        )}
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          <button
+            onClick={() => void reveal()}
+            className="text-[11px] px-2 py-0.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-200"
+          >
+            Open data folder
+          </button>
+          <button
+            onClick={() => void resetAll()}
+            disabled={busy}
+            className="text-[11px] px-2 py-0.5 rounded bg-red-500/15 hover:bg-red-500/25 text-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Reset all data…
+          </button>
+        </div>
+        <div className="text-[10px] text-ink-500 leading-snug">
+          Reset keeps a timestamped <code>backup-…</code> copy of the database
+          inside the same folder. Nothing is sent off-device.
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <button
           onClick={() => void refresh()}

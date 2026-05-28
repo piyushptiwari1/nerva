@@ -945,6 +945,95 @@ pub fn window_close(app: tauri::AppHandle, label: String) -> Result<()> {
     Ok(())
 }
 
+/// Open the data directory in the host OS file manager. Used by the
+/// Settings → Diagnostics "Open data folder" button so the user can
+/// inspect / back up / hand-edit / hand-wipe Nerva's on-disk state.
+#[tauri::command]
+pub fn reveal_data_dir(state: State) -> Result<()> {
+    let path = state.data_dir.clone();
+    let path_str = path.to_string_lossy().to_string();
+    // Linux: xdg-open is the freedesktop standard; falls back to gio open on
+    // pure-Wayland systems where xdg-utils may be absent. On WSL without
+    // WSLg there is no file manager — we surface the error to the UI so the
+    // button does not appear to silently no-op.
+    #[cfg(target_os = "linux")]
+    let candidates: &[&str] = &["xdg-open", "gio"];
+    #[cfg(target_os = "linux")]
+    let args_for = |cmd: &str| -> Vec<String> {
+        if cmd == "gio" {
+            vec!["open".to_string(), path_str.clone()]
+        } else {
+            vec![path_str.clone()]
+        }
+    };
+    #[cfg(target_os = "macos")]
+    let candidates: &[&str] = &["open"];
+    #[cfg(target_os = "macos")]
+    let args_for = |_: &str| -> Vec<String> { vec![path_str.clone()] };
+    #[cfg(target_os = "windows")]
+    let candidates: &[&str] = &["explorer"];
+    #[cfg(target_os = "windows")]
+    let args_for = |_: &str| -> Vec<String> { vec![path_str.clone()] };
+
+    let mut last_err: Option<std::io::Error> = None;
+    for cmd in candidates {
+        match std::process::Command::new(cmd).args(args_for(cmd)).spawn() {
+            Ok(_) => return Ok(()),
+            Err(e) => last_err = Some(e),
+        }
+    }
+    Err(NervaError::Invalid(format!(
+        "reveal_data_dir: no file manager available ({})",
+        last_err
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "no candidates tried".into())
+    )))
+}
+
+/// Nuclear recovery hatch: wipe Nerva's on-disk database + meta and exit so
+/// the next launch boots into a clean default state.
+///
+/// Why exit instead of in-place reset: the SQLite handle, projections, and
+/// audio engine are all live in `AppState`. Tearing them down safely from a
+/// command handler while the JS bridge is mid-call is a recipe for use-after-
+/// free and partial writes. Exit + auto-relaunch via the frontend is simpler
+/// and the user's "I broke it, fix it" expectation is met either way.
+///
+/// Safety: the user must confirm in the UI (the React side shows a destructive
+/// modal). We also keep a one-shot backup of the previous DB next to it so a
+/// click-by-accident can be recovered from disk by hand.
+#[tauri::command]
+pub fn reset_all_data(state: State, app: tauri::AppHandle) -> Result<()> {
+    let dir = state.data_dir.clone();
+    tracing::warn!(path = %dir.display(), "reset_all_data: user requested wipe");
+
+    // Backup what we're about to delete so support can recover a misclick.
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let backup_dir = dir.join(format!("backup-{stamp}"));
+    let _ = std::fs::create_dir_all(&backup_dir);
+    for name in ["nerva.db", "nerva.db-wal", "nerva.db-shm"] {
+        let from = dir.join(name);
+        if from.exists() {
+            let _ = std::fs::rename(&from, backup_dir.join(name));
+        }
+    }
+    // Tutorial / theme flags live in localStorage, not on disk, so we don't
+    // touch those — the React side clears them in the same handler.
+
+    tracing::warn!(backup = %backup_dir.display(), "data backed up before reset");
+
+    // Schedule an exit so the in-flight IPC reply can return cleanly first.
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        handle.restart();
+    });
+    Ok(())
+}
+
 // ---------- audio ----------
 
 #[derive(Debug, Serialize)]
@@ -1519,6 +1608,15 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
             )))
         }
     };
+    // Reject NaN/Inf targets — they silently break the stats math (`value >= NaN`
+    // is always false) and would make the habit appear never-completable.
+    if let Some(t) = args.target {
+        if !t.is_finite() || t < 0.0 {
+            return Err(NervaError::Invalid(
+                "habit target must be a finite, non-negative number".into(),
+            ));
+        }
+    }
     let id = Uuid::new_v4().to_string();
     let ws = args
         .workspace_id
@@ -1563,7 +1661,14 @@ pub fn habit_update(state: State, args: UpdateHabitArgs) -> Result<Habit> {
         payload.insert(
             "target".into(),
             match t {
-                Some(f) => serde_json::Value::from(f),
+                Some(f) => {
+                    if !f.is_finite() || f < 0.0 {
+                        return Err(NervaError::Invalid(
+                            "habit target must be a finite, non-negative number".into(),
+                        ));
+                    }
+                    serde_json::Value::from(f)
+                }
                 None => serde_json::Value::Null,
             },
         );

@@ -107,6 +107,9 @@ impl HabitsProjection {
                     _ => HabitKind::Bool,
                 };
                 let target = ev.payload["target"].as_f64();
+                // Defense in depth: an event with NaN/Inf target would silently
+                // break stats math (value >= NaN is always false). Strip it.
+                let target = target.filter(|t| t.is_finite() && *t >= 0.0);
                 let unit = ev.payload["unit"]
                     .as_str()
                     .map(|s| s.to_string())
@@ -140,7 +143,9 @@ impl HabitsProjection {
                         h.color = c.to_string();
                     }
                     if ev.payload.get("target").is_some() {
-                        h.target = ev.payload["target"].as_f64();
+                        h.target = ev.payload["target"]
+                            .as_f64()
+                            .filter(|t| t.is_finite() && *t >= 0.0);
                     }
                     if ev.payload.get("unit").is_some() {
                         h.unit = ev.payload["unit"]
@@ -408,17 +413,32 @@ fn has_any_entry_on_or_before(map: &BTreeMap<String, HabitEntry>, day: &str) -> 
 }
 
 /// Move an ISO YYYY-MM-DD string back one day. Naive arithmetic; relies on the
-/// helpers below.
+/// helpers below. On malformed input we log + return the input unchanged so a
+/// corrupt entry doesn't get silently rewritten to 1970-01-01.
 fn previous_day(day: &str) -> String {
-    let (y, m, d) = parse_iso(day).unwrap_or((1970, 1, 1));
-    let (ny, nm, nd) = sub_one_day(y, m, d);
-    format!("{:04}-{:02}-{:02}", ny, nm, nd)
+    match parse_iso(day) {
+        Some((y, m, d)) => {
+            let (ny, nm, nd) = sub_one_day(y, m, d);
+            format!("{:04}-{:02}-{:02}", ny, nm, nd)
+        }
+        None => {
+            tracing::warn!(day = %day, "previous_day: malformed ISO");
+            day.to_string()
+        }
+    }
 }
 
 fn next_day(day: &str) -> String {
-    let (y, m, d) = parse_iso(day).unwrap_or((1970, 1, 1));
-    let (ny, nm, nd) = add_one_day(y, m, d);
-    format!("{:04}-{:02}-{:02}", ny, nm, nd)
+    match parse_iso(day) {
+        Some((y, m, d)) => {
+            let (ny, nm, nd) = add_one_day(y, m, d);
+            format!("{:04}-{:02}-{:02}", ny, nm, nd)
+        }
+        None => {
+            tracing::warn!(day = %day, "next_day: malformed ISO");
+            day.to_string()
+        }
+    }
 }
 
 fn parse_iso(s: &str) -> Option<(i32, u32, u32)> {

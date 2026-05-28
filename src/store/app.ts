@@ -12,6 +12,10 @@ import {
 
 interface AppStore {
   ready: boolean;
+  /** Names of bootstrap slices that failed (workspaces|timers|notes|tasks|momentum|audio|focus).
+   *  Empty array means a clean boot. Used by the UI to surface partial failures
+   *  without blocking the whole app from rendering. */
+  bootstrapErrors: string[];
   workspaces: Workspace[];
   active: Workspace | null;
   timers: Timer[];
@@ -44,6 +48,7 @@ interface AppStore {
 
 export const useApp = create<AppStore>((set, get) => ({
   ready: false,
+  bootstrapErrors: [],
   workspaces: [],
   active: null,
   timers: [],
@@ -53,31 +58,82 @@ export const useApp = create<AppStore>((set, get) => ({
   audio: null,
   focus: null,
   async bootstrap() {
-    const [workspaces, active, timers, notes, tasks, momentum, audio, focus] =
-      await Promise.all([
-        ipc.workspaceList(),
-        ipc.workspaceActive(),
-        ipc.timerList(),
-        ipc.noteList(),
-        ipc.taskList(),
-        ipc.momentumSnapshot(7),
-        ipc.audioState().catch(() => null),
-        ipc.focusState().catch(() => null),
-      ]);
-    set({ workspaces, active, timers, notes, tasks, momentum, audio, focus, ready: true });
+    // Resilient boot: each slice is fetched independently, so a single
+    // corrupted projection (or a transient backend hiccup) can never wedge
+    // the entire app in `ready: false`. Every failure is logged + surfaced
+    // via `bootstrapErrors`, and the slice falls back to its empty default.
+    const results = await Promise.allSettled([
+      ipc.workspaceList(),
+      ipc.workspaceActive(),
+      ipc.timerList(),
+      ipc.noteList(),
+      ipc.taskList(),
+      ipc.momentumSnapshot(7),
+      ipc.audioState(),
+      ipc.focusState(),
+    ]);
+    const slices = [
+      "workspaces",
+      "active",
+      "timers",
+      "notes",
+      "tasks",
+      "momentum",
+      "audio",
+      "focus",
+    ] as const;
+    const errors: string[] = [];
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        errors.push(slices[i]);
+        console.error(`[bootstrap] slice "${slices[i]}" failed:`, r.reason);
+      }
+    });
+    const pick = <T,>(i: number, fallback: T): T =>
+      results[i].status === "fulfilled"
+        ? ((results[i] as PromiseFulfilledResult<T>).value ?? fallback)
+        : fallback;
+    set({
+      workspaces: pick(0, [] as Workspace[]),
+      active: pick(1, null as Workspace | null),
+      timers: pick(2, [] as Timer[]),
+      notes: pick(3, [] as NoteMeta[]),
+      tasks: pick(4, [] as Task[]),
+      momentum: pick(5, [] as MomentumBucket[]),
+      audio: pick(6, null as AudioState | null),
+      focus: pick(7, null as FocusState | null),
+      bootstrapErrors: errors,
+      ready: true,
+    });
   },
   async refreshTimers() {
-    const rep = await ipc.timerTick();
-    set({ timers: rep.timers });
+    try {
+      const rep = await ipc.timerTick();
+      set({ timers: rep.timers });
+    } catch (e) {
+      console.warn("[refreshTimers] failed:", e);
+    }
   },
   async refreshNotes() {
-    set({ notes: await ipc.noteList() });
+    try {
+      set({ notes: await ipc.noteList() });
+    } catch (e) {
+      console.warn("[refreshNotes] failed:", e);
+    }
   },
   async refreshTasks() {
-    set({ tasks: await ipc.taskList() });
+    try {
+      set({ tasks: await ipc.taskList() });
+    } catch (e) {
+      console.warn("[refreshTasks] failed:", e);
+    }
   },
   async refreshMomentum() {
-    set({ momentum: await ipc.momentumSnapshot(7) });
+    try {
+      set({ momentum: await ipc.momentumSnapshot(7) });
+    } catch (e) {
+      console.warn("[refreshMomentum] failed:", e);
+    }
   },
   async activateWorkspace(id) {
     await ipc.workspaceActivate(id);
