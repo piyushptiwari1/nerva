@@ -2,8 +2,8 @@
 <!--
   AppStream metadata for the Flathub listing. Required for the store
   page (name, summary, screenshots, releases, OARS rating, license).
-  Validated locally with `appstream-cli validate` and on Flathub's CI
-  by `appstreamcli validate --pedantic`.
+  Validated locally with `appstreamcli validate` and on Flathub's CI
+  by `appstreamcli validate -pedantic`.
 
   Keep the <id> identical to the Flatpak app id and to the Tauri
   identifier so a single ID flows through .desktop, DBus,
@@ -13,7 +13,9 @@
   <id>ai.bytical.nerva</id>
   <name>Nerva</name>
   <summary>The focus workspace that never forgets</summary>
-  <developer_name>Bytical Solutions Private Limited</developer_name>
+  <developer id="ai.bytical">
+    <name>Bytical Solutions Private Limited</name>
+  </developer>
   <project_license>Apache-2.0</project_license>
   <metadata_license>CC0-1.0</metadata_license>
   <launchable type="desktop-id">ai.bytical.nerva.desktop</launchable>
