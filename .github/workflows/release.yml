@@ -123,6 +123,63 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # After all builds finish, generate the auto-updater manifest
+  # (`latest.json`) from the per-platform .sig files and upload it as
+  # a release asset. The Tauri updater plugin (configured in
+  # src-tauri/tauri.conf.json) fetches this file on every app launch.
+  updater-manifest:
+    name: Publish updater manifest
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          # Wait for the (still-draft) release to settle and fetch the
+          # signed updater artefacts. tauri-action ships them as
+          # `<asset>.sig` alongside the .AppImage / .msi.
+          mkdir -p sigs
+          gh release download "$TAG" -p '*.sig' -D sigs/ || {
+            echo "::warning::no .sig files on $TAG \u2014 createUpdaterArtifacts may be off"; exit 0;
+          }
+
+          # Find each platform's signature. Names emitted by tauri-action:
+          #   Nerva_0.1.1_amd64.AppImage.tar.gz.sig    linux-x86_64
+          #   Nerva_0.1.1_x64-setup.exe.sig            windows-x86_64
+          LIN_SIG=$(cat sigs/*.AppImage.tar.gz.sig 2>/dev/null || cat sigs/*amd64*.sig 2>/dev/null | head -1 || echo "")
+          WIN_SIG=$(cat sigs/*setup.exe.sig 2>/dev/null || cat sigs/*x64*.sig 2>/dev/null | head -1 || echo "")
+
+          REL_BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+          LIN_URL="${REL_BASE}/Nerva_${VERSION}_amd64.AppImage.tar.gz"
+          WIN_URL="${REL_BASE}/Nerva_${VERSION}_x64-setup.exe"
+
+          jq -n \
+            --arg v "$VERSION" \
+            --arg pub "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg lin_sig "$LIN_SIG" --arg lin_url "$LIN_URL" \
+            --arg win_sig "$WIN_SIG" --arg win_url "$WIN_URL" \
+            '{
+              version: $v,
+              notes: "See release notes on GitHub",
+              pub_date: $pub,
+              platforms: (
+                ({} as $p)
+                | (if $lin_sig != "" then $p + {"linux-x86_64": {signature: $lin_sig, url: $lin_url}} else $p end)
+                | (if $win_sig != "" then . + {"windows-x86_64": {signature: $win_sig, url: $win_url}} else . end)
+              )
+            }' > latest.json
+
+          cat latest.json
+          gh release upload "$TAG" latest.json --clobber
+
   # After all builds finish, submit a winget manifest PR (Windows only)
   winget-publish:
     name: Publish to winget

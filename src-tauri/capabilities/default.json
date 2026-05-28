@@ -20,6 +20,7 @@
     "core:path:default",
     "global-shortcut:default",
     "notification:default",
-    "os:default"
+    "os:default",
+    "updater:default"
   ]
 }

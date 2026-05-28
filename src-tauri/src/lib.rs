@@ -52,6 +52,12 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // Auto-updater: probes the endpoint in tauri.conf.json once at
+        // startup. Signature is verified against the bundled pubkey
+        // before the .deb/.AppImage/.msi is swapped in. Default is
+        // "check, prompt user, apply on next launch" — see the JS
+        // call in src/main.tsx for the UI side.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             use tauri::Manager;
             let handle = app.handle().clone();

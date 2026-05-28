@@ -6,10 +6,16 @@ import { TimerWidget } from "./components/TimerWidget";
 import { HabitsWidget } from "./components/HabitsWidget";
 import { TasksWidget } from "./components/TasksWidget";
 import { bootstrapTheme } from "./store/theme";
+import { scheduleUpdateCheck } from "./updater";
 import "./styles/globals.css";
 
 // Apply persisted theme before React renders so the first paint matches.
 bootstrapTheme();
+
+// Probe the GitHub releases endpoint a few seconds after launch and
+// install signed updates in the background. No-op in dev / when
+// `latest.json` is missing.
+scheduleUpdateCheck();
 
 // Multi-window routing: separate Tauri webview windows reuse the same JS
 // bundle and choose their root via URL query params.
