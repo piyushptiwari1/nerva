@@ -143,3 +143,61 @@ jobs:
           installers-regex: '(-setup\.exe|\.msi)$'
           token: ${{ secrets.WINGET_TOKEN }}
         continue-on-error: true   # don't block the release if PR submission fails
+
+  # Build and publish the Snap to the Snap Store stable channel.
+  # The snap repacks the .deb that tauri-action just uploaded to the
+  # GitHub release, so we download it instead of rebuilding from
+  # source (a fresh Tauri 2 build inside a snap base takes ~25 min).
+  snap-publish:
+    name: Build and publish Snap
+    runs-on: ubuntu-22.04
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync snap version with git tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
+          grep '^version:' snap/snapcraft.yaml
+
+      - name: Wait for release assets to settle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q '_amd64.deb$'; then
+              echo "deb is up"; exit 0
+            fi
+            echo "waiting for deb... ($i/5)"; sleep 15
+          done
+          echo "::error::deb asset never appeared on $TAG"; exit 1
+
+      - name: Download .deb from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p src-tauri/target/release/bundle/deb
+          gh release download "$TAG" -p '*_amd64.deb' \
+            -D src-tauri/target/release/bundle/deb/
+          ls -la src-tauri/target/release/bundle/deb/
+
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+
+      - name: Publish to stable
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+        continue-on-error: true   # don't block other distribution channels if Snap Store rejects
