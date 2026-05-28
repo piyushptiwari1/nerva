@@ -35,7 +35,8 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libssl-dev
+            libssl-dev \
+            libasound2-dev
       - run: cd src-tauri && cargo fmt --check
       - run: cd src-tauri && cargo clippy --all-targets -- -D warnings
       - run: cd src-tauri && cargo check
