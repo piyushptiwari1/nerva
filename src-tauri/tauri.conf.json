@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Nerva",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "ai.bytical.nerva",
   "build": {
     "frontendDist": "../dist",
@@ -31,6 +31,7 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: asset: blob:; connect-src 'self' ipc: http://ipc.localhost"
     },
     "trayIcon": {
+      "id": "main",
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false

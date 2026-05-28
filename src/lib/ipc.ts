@@ -174,6 +174,10 @@ export const ipc = {
   openTimerWidget: () => invoke<void>("open_timer_widget"),
   openHabitsWidget: () => invoke<void>("open_habits_widget"),
   openTasksWidget: () => invoke<void>("open_tasks_widget"),
+  /** Pin/unpin a popout window (always-on-top). `label` is the Tauri window label. */
+  windowSetAlwaysOnTop: (label: string, on: boolean) =>
+    invoke<void>("window_set_always_on_top", { label, on }),
+  windowClose: (label: string) => invoke<void>("window_close", { label }),
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ipc, type Note } from "@/lib/ipc";
 import { renderMarkdown } from "@/lib/markdown";
+import { PinButton } from "./PinButton";
 
 /**
  * Always-on-top sticky-note view. Opened via the `open_sticky` IPC command —
@@ -74,6 +75,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
           >
             {mode === "edit" ? "Preview" : "Edit"}
           </button>
+          <PinButton className="text-stone-700 hover:text-stone-950" />
           <button
             onClick={closeWin}
             className="text-base leading-none px-1 text-stone-700 hover:text-stone-950"

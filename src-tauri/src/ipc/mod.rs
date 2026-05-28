@@ -707,99 +707,130 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 
 // ---------- sticky windows ----------
 
-/// Spawn (or focus, if already open) a small always-on-top sticky-note window
-/// rendering a single note. The frontend is the same bundle — it reads the
-/// `sticky` URL query param and mounts the `<StickyNote/>` view.
+/// Spawn (or focus, if already open) a sticky-note window rendering a single note.
+///
+/// The window is a *regular* toplevel by default — it stays on the virtual
+/// desktop / workspace where it was opened. The user can pin it on top via the
+/// in-app pin button (which calls `window_set_always_on_top`).
 #[tauri::command]
 pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-
     let label = format!("sticky-{}", note_id.replace(['-', ' '], "_"));
-    if let Some(win) = app.get_webview_window(&label) {
-        let _ = win.set_focus();
-        return Ok(());
-    }
     let url = format!("index.html?sticky={note_id}");
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
-        .title("Nerva Sticky")
-        .inner_size(360.0, 420.0)
-        .min_inner_size(240.0, 240.0)
-        .always_on_top(true)
-        .decorations(false)
-        .transparent(false)
-        .skip_taskbar(false)
-        .resizable(true)
-        .build()
-        .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))?;
-    Ok(())
+    spawn_popout(&app, &label, &url, "Nerva Sticky", 360.0, 420.0, 240.0, 240.0)
+        .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))
 }
 
-/// Spawn (or focus) the always-on-top floating timer widget. Single instance.
+/// Spawn (or focus) the floating timer widget. Single instance.
+/// Default = regular window (stays on origin desktop). Pin via UI to keep on top.
 #[tauri::command]
 pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-
-    let label = "timer-widget";
-    if let Some(win) = app.get_webview_window(label) {
-        let _ = win.set_focus();
-        return Ok(());
-    }
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=timer".into()))
-        .title("Nerva Timer")
-        .inner_size(280.0, 130.0)
-        .min_inner_size(220.0, 100.0)
-        .always_on_top(true)
-        .decorations(false)
-        .transparent(false)
-        .resizable(true)
-        .build()
-        .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))?;
-    Ok(())
+    spawn_popout(&app, "timer-widget", "index.html?widget=timer",
+        "Nerva Timer", 280.0, 130.0, 220.0, 100.0)
+        .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))
 }
 
-/// Spawn (or focus) the always-on-top floating habits widget. Single instance.
+/// Spawn (or focus) the floating habits widget. Single instance.
 #[tauri::command]
 pub fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
+    spawn_popout(&app, "habits-widget", "index.html?widget=habits",
+        "Nerva Habits", 320.0, 420.0, 260.0, 280.0)
+        .map_err(|e| NervaError::Invalid(format!("open habits widget: {e}")))
+}
+
+/// Spawn (or focus) the floating tasks widget. Single instance.
+#[tauri::command]
+pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
+    spawn_popout(&app, "tasks-widget", "index.html?widget=tasks",
+        "Nerva Tasks", 320.0, 460.0, 260.0, 300.0)
+        .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
+}
+
+/// Shared popout creator. Builds an undecorated, *non*-always-on-top window
+/// positioned next to the main window so it appears on the same monitor and
+/// same virtual desktop. The frontend draws its own header with drag region,
+/// close button, and pin (always-on-top) toggle.
+///
+/// Workspace/desktop behavior:
+///   - Default: regular toplevel → OS keeps it on the desktop where it was
+///     created. Switching virtual desktops leaves the popout behind, as the
+///     user expects.
+///   - Pinned: user clicks the pin button → frontend calls
+///     `window_set_always_on_top(label, true)` which flips to sticky/on-top
+///     behavior.
+///
+/// Windows-specific note: we explicitly avoid `always_on_top(true)` at create
+/// time because the combination of `decorations(false) + always_on_top(true)`
+/// can leave WebView2 unpainted (blank popout) and grab focus from the main
+/// window's message pump (= main app appears frozen). Toggling AOT *after*
+/// the window is fully initialized works reliably.
+fn spawn_popout(
+    app: &tauri::AppHandle,
+    label: &str,
+    url: &str,
+    title: &str,
+    width: f64,
+    height: f64,
+    min_width: f64,
+    min_height: f64,
+) -> std::result::Result<(), tauri::Error> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-    let label = "habits-widget";
     if let Some(win) = app.get_webview_window(label) {
+        let _ = win.unminimize();
+        let _ = win.show();
         let _ = win.set_focus();
         return Ok(());
     }
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=habits".into()))
-        .title("Nerva Habits")
-        .inner_size(320.0, 420.0)
-        .min_inner_size(260.0, 280.0)
-        .always_on_top(true)
+
+    // Compute a position offset from the main window so the popout opens on
+    // the same monitor / virtual desktop the user is currently looking at.
+    // Falls back to OS-default centering if the main window is unavailable.
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
+        .title(title)
+        .inner_size(width, height)
+        .min_inner_size(min_width, min_height)
         .decorations(false)
-        .transparent(false)
         .resizable(true)
-        .build()
-        .map_err(|e| NervaError::Invalid(format!("open habits widget: {e}")))?;
+        .visible(true)
+        .focused(true)
+        .skip_taskbar(false);
+
+    if let Some(main) = app.get_webview_window("main") {
+        if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
+            // Place popout 40 px inside the right edge, 60 px below the top.
+            let x = pos.x + (size.width as i32).saturating_sub(width as i32 + 40);
+            let y = pos.y + 60;
+            builder = builder.position(x as f64, y as f64);
+        }
+    }
+
+    let _win = builder.build()?;
     Ok(())
 }
 
-/// Spawn (or focus) the always-on-top floating tasks widget. Single instance.
+/// Toggle always-on-top ("pin") for an arbitrary popout window by label.
+/// Used by the frontend pin button on sticky / timer / habits / tasks widgets.
 #[tauri::command]
-pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) -> Result<()> {
+    use tauri::Manager;
+    let win = app
+        .get_webview_window(&label)
+        .ok_or_else(|| NervaError::Invalid(format!("window not found: {label}")))?;
+    win.set_always_on_top(on)
+        .map_err(|e| NervaError::Invalid(format!("set_always_on_top({label},{on}): {e}")))?;
+    Ok(())
+}
 
-    let label = "tasks-widget";
-    if let Some(win) = app.get_webview_window(label) {
-        let _ = win.set_focus();
-        return Ok(());
+/// Close a popout window by label. Frontend already calls `window.close()`
+/// directly via the Tauri JS API, but this command is the canonical surface
+/// for the tray menu and command palette to close widgets too.
+#[tauri::command]
+pub fn window_close(app: tauri::AppHandle, label: String) -> Result<()> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window(&label) {
+        win.close()
+            .map_err(|e| NervaError::Invalid(format!("close({label}): {e}")))?;
     }
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html?widget=tasks".into()))
-        .title("Nerva Tasks")
-        .inner_size(320.0, 460.0)
-        .min_inner_size(260.0, 300.0)
-        .always_on_top(true)
-        .decorations(false)
-        .transparent(false)
-        .resizable(true)
-        .build()
-        .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))?;
     Ok(())
 }
 

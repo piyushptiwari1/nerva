@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
+import { PinButton } from "./PinButton";
 
 /**
  * Floating always-on-top tasks widget (single window label `tasks-widget`).
@@ -90,13 +91,16 @@ export function TasksWidget() {
             Tasks
           </span>
         </span>
-        <button
-          onClick={close}
-          className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"
-          title="Close widget"
-        >
-          ×
-        </button>
+        <span className="flex items-center gap-1">
+          <PinButton />
+          <button
+            onClick={close}
+            className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"
+            title="Close widget"
+          >
+            ×
+          </button>
+        </span>
       </header>
 
       <div className="px-2 py-2 border-b border-ink-800 shrink-0">

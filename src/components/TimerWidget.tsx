@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ipc, formatRemaining, type Timer } from "@/lib/ipc";
+import { PinButton } from "./PinButton";
 
 /**
  * Floating always-on-top timer widget. Single window (label `timer-widget`).
@@ -67,6 +68,7 @@ export function TimerWidget() {
             className="w-2 h-2 rounded-full"
             style={{ background: active?.color ?? "#7c9cff" }}
           />
+          <PinButton />
           <button
             onClick={close}
             className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"

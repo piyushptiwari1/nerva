@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
+import { PinButton } from "./PinButton";
 
 /**
  * Floating always-on-top habits widget (single window label `habits-widget`).
@@ -108,13 +109,16 @@ export function HabitsWidget() {
             Habits · {todayLabel()}
           </span>
         </span>
-        <button
-          onClick={close}
-          className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"
-          title="Close widget"
-        >
-          ×
-        </button>
+        <span className="flex items-center gap-1">
+          <PinButton />
+          <button
+            onClick={close}
+            className="text-ink-400 hover:text-ink-100 text-base leading-none px-1"
+            title="Close widget"
+          >
+            ×
+          </button>
+        </span>
       </header>
 
       <div className="flex-1 overflow-y-auto p-2">

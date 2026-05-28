@@ -8,7 +8,7 @@
 # correct and submit. Subsequent releases auto-PR.
 
 PackageIdentifier: Bytical.Nerva
-PackageVersion: 0.1.0
+PackageVersion: 0.1.1
 PackageLocale: en-US
 Publisher: Bytical Solutions Private Limited
 PublisherUrl: https://bytical.ai

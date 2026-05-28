@@ -38,11 +38,15 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // Focus existing window on second-instance launch.
+            // Second-instance launch (e.g. user double-clicks the app icon
+            // again while it's already running, or main has been hidden via
+            // the close button). Restore + focus the main window so the user
+            // always gets back to their workspace.
             use tauri::Manager;
             if let Some(win) = app.get_webview_window("main") {
-                let _ = win.set_focus();
                 let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
             }
         }))
         .plugin(tauri_plugin_os::init())
@@ -55,6 +59,39 @@ pub fn run() {
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
             let state = Arc::new(state);
             app.manage(state.clone());
+
+            // Wire up the system-tray menu. The icon itself is declared in
+            // tauri.conf.json (so it's bundled and registered at boot); here
+            // we attach a real menu so right-click reveals Show/Quit/etc.,
+            // and left-click on the icon focuses the main window.
+            //
+            // Without this block the tray icon appears but does nothing on
+            // either left or right click, which is the v0.1.0 bug we're fixing.
+            if let Err(e) = install_tray_menu(app) {
+                tracing::warn!(err = %e, "tray menu setup failed (continuing without)");
+            }
+
+            // Intercept the main window's close button: instead of destroying
+            // the window (which leaves the user with no way back into the app
+            // while popouts are still running), hide it. The user re-opens
+            // main via the tray icon ("Show Nerva" or left-click). To truly
+            // exit, use tray → "Quit Nerva".
+            //
+            // Without this, closing the main window on Windows or Linux while
+            // popouts are open orphans the user — popouts keep running but
+            // there's no tray menu hook (pre-v0.1.1) and no main window to
+            // click, so the only recovery is killing every popout.
+            if let Some(main) = app.get_webview_window("main") {
+                let app_for_event = app.handle().clone();
+                main.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(w) = app_for_event.get_webview_window("main") {
+                            let _ = w.hide();
+                        }
+                    }
+                });
+            }
 
             // Best-effort background backfill: embed any notes that don't
             // have a cached vector yet. Runs once on boot; bounded by the
@@ -132,6 +169,8 @@ pub fn run() {
             ipc::open_timer_widget,
             ipc::open_habits_widget,
             ipc::open_tasks_widget,
+            ipc::window_set_always_on_top,
+            ipc::window_close,
             // audio
             ipc::audio_state,
             ipc::audio_set_volume,
@@ -169,4 +208,72 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nerva");
+}
+
+/// Build and attach the tray menu to the conf-declared tray icon.
+///
+/// Menu:
+///   Show Nerva     — brings the main window forward (de-minimizes too).
+///   New Timer      — opens (or focuses) the floating timer widget.
+///   New Tasks      — opens (or focuses) the floating tasks widget.
+///   New Habits     — opens (or focuses) the floating habits widget.
+///   ───────────────────────────────────────────────────────
+///   Quit Nerva     — cleanly shuts down the app.
+///
+/// Left-clicking the tray icon also brings the main window forward.
+fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
+
+    let show = MenuItemBuilder::with_id("tray_show", "Show Nerva").build(app)?;
+    let new_timer = MenuItemBuilder::with_id("tray_new_timer", "New Timer").build(app)?;
+    let new_tasks = MenuItemBuilder::with_id("tray_new_tasks", "New Tasks").build(app)?;
+    let new_habits = MenuItemBuilder::with_id("tray_new_habits", "New Habits").build(app)?;
+    let sep = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItemBuilder::with_id("tray_quit", "Quit Nerva").build(app)?;
+
+    let menu = MenuBuilder::new(app)
+        .items(&[&show, &new_timer, &new_tasks, &new_habits, &sep, &quit])
+        .build()?;
+
+    // The icon is declared in tauri.conf.json; Tauri assigns it the default
+    // id "main". Look it up and attach the menu we just built.
+    let Some(tray) = app.tray_by_id("main") else {
+        tracing::warn!("tray icon 'main' not found (declared in tauri.conf.json?) — skipping menu wire-up");
+        return Ok(());
+    };
+
+    tray.set_menu(Some(menu))?;
+    tray.set_show_menu_on_left_click(false)?;
+
+    tray.on_menu_event(move |app, event| match event.id().as_ref() {
+        "tray_show" => focus_main(app),
+        "tray_new_timer" => { let _ = ipc::open_timer_widget(app.clone()); }
+        "tray_new_tasks" => { let _ = ipc::open_tasks_widget(app.clone()); }
+        "tray_new_habits" => { let _ = ipc::open_habits_widget(app.clone()); }
+        "tray_quit" => app.exit(0),
+        _ => {}
+    });
+
+    tray.on_tray_icon_event(|tray, event| {
+        if let TrayIconEvent::Click {
+            button: MouseButton::Left,
+            button_state: MouseButtonState::Up,
+            ..
+        } = event
+        {
+            focus_main(tray.app_handle());
+        }
+    });
+
+    Ok(())
+}
+
+fn focus_main(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
 }

@@ -1,6 +1,6 @@
 {
   "name": "nerva-landing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Landing page for Nerva — nerva.bytical.ai",
   "scripts": {
