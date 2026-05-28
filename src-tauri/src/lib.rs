@@ -6,7 +6,10 @@
 //!   - Wall-clock based timer math (survives sleep/reboot).
 //!   - Tauri commands + events for IPC with the React frontend.
 
+pub mod audio;
+pub mod diag;
 pub mod error;
+pub mod focus;
 pub mod habits;
 pub mod intelligence;
 pub mod ipc;
@@ -16,9 +19,6 @@ pub mod store;
 pub mod tasks;
 pub mod timers;
 pub mod workspaces;
-pub mod audio;
-pub mod focus;
-pub mod diag;
 
 use state::AppState;
 use std::sync::Arc;
@@ -104,9 +104,14 @@ pub fn run() {
                     .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
                 let pending = match bg.store.notes_missing_embeddings() {
                     Ok(v) => v,
-                    Err(e) => { tracing::warn!(err = %e, "embed backfill query"); return; }
+                    Err(e) => {
+                        tracing::warn!(err = %e, "embed backfill query");
+                        return;
+                    }
                 };
-                if pending.is_empty() { return; }
+                if pending.is_empty() {
+                    return;
+                }
                 tracing::info!(count = pending.len(), "embedding backfill starting");
                 for (id, title, body) in pending {
                     let text = format!("{title}\n\n{body}");
@@ -239,7 +244,9 @@ fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
     // The icon is declared in tauri.conf.json; Tauri assigns it the default
     // id "main". Look it up and attach the menu we just built.
     let Some(tray) = app.tray_by_id("main") else {
-        tracing::warn!("tray icon 'main' not found (declared in tauri.conf.json?) — skipping menu wire-up");
+        tracing::warn!(
+            "tray icon 'main' not found (declared in tauri.conf.json?) — skipping menu wire-up"
+        );
         return Ok(());
     };
 
@@ -248,9 +255,15 @@ fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
 
     tray.on_menu_event(move |app, event| match event.id().as_ref() {
         "tray_show" => focus_main(app),
-        "tray_new_timer" => { let _ = ipc::open_timer_widget(app.clone()); }
-        "tray_new_tasks" => { let _ = ipc::open_tasks_widget(app.clone()); }
-        "tray_new_habits" => { let _ = ipc::open_habits_widget(app.clone()); }
+        "tray_new_timer" => {
+            let _ = ipc::open_timer_widget(app.clone());
+        }
+        "tray_new_tasks" => {
+            let _ = ipc::open_tasks_widget(app.clone());
+        }
+        "tray_new_habits" => {
+            let _ = ipc::open_habits_widget(app.clone());
+        }
         "tray_quit" => app.exit(0),
         _ => {}
     });

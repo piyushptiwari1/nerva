@@ -1,12 +1,12 @@
 //! Tauri command surface (frontend ↔ backend IPC).
 
 use crate::error::{NervaError, Result};
+use crate::habits::{Habit, HabitEntry, HabitStats};
 use crate::intelligence::{AiHealth, ChatMessage};
 use crate::notes::NoteMeta;
 use crate::state::AppState;
 use crate::store::StoredEvent;
 use crate::tasks::Task;
-use crate::habits::{Habit, HabitEntry, HabitStats};
 use crate::timers::Timer;
 use crate::workspaces::Workspace;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,9 @@ pub struct RuntimeInfo {
 }
 
 #[tauri::command]
-pub fn ping() -> &'static str { "pong" }
+pub fn ping() -> &'static str {
+    "pong"
+}
 
 #[tauri::command]
 pub fn get_runtime_info(state: State) -> Result<RuntimeInfo> {
@@ -65,16 +67,29 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
         "task_id": args.task_id,
     });
     let evt_id = state.store.append_event("timer.created", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(), kind: "timer.created".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "timer.created".into(),
+        payload,
+    };
     let mut engine = state.timers.lock();
     engine.apply(&ev);
-    Ok(engine.get(&id).cloned().ok_or_else(|| NervaError::Invalid("create failed".into()))?)
+    engine
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::Invalid("create failed".into()))
 }
 
 fn append_and_apply(state: &State, kind: &str, id: &str) -> Result<()> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event(kind, &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(), kind: kind.into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: kind.into(),
+        payload,
+    };
     state.timers.lock().apply(&ev);
     Ok(())
 }
@@ -82,25 +97,45 @@ fn append_and_apply(state: &State, kind: &str, id: &str) -> Result<()> {
 #[tauri::command]
 pub fn timer_start(state: State, id: String) -> Result<Timer> {
     append_and_apply(&state, "timer.started", &id)?;
-    state.timers.lock().get(&id).cloned().ok_or_else(|| NervaError::NotFound(id))
+    state
+        .timers
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::NotFound(id))
 }
 
 #[tauri::command]
 pub fn timer_pause(state: State, id: String) -> Result<Timer> {
     append_and_apply(&state, "timer.paused", &id)?;
-    state.timers.lock().get(&id).cloned().ok_or_else(|| NervaError::NotFound(id))
+    state
+        .timers
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::NotFound(id))
 }
 
 #[tauri::command]
 pub fn timer_resume(state: State, id: String) -> Result<Timer> {
     append_and_apply(&state, "timer.resumed", &id)?;
-    state.timers.lock().get(&id).cloned().ok_or_else(|| NervaError::NotFound(id))
+    state
+        .timers
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::NotFound(id))
 }
 
 #[tauri::command]
 pub fn timer_reset(state: State, id: String) -> Result<Timer> {
     append_and_apply(&state, "timer.reset", &id)?;
-    state.timers.lock().get(&id).cloned().ok_or_else(|| NervaError::NotFound(id))
+    state
+        .timers
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::NotFound(id))
 }
 
 #[tauri::command]
@@ -129,7 +164,9 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
     // completion sound once per batch (a single "ding" even if N timers finish
     // in the same tick — avoids a cluster of overlapping tones).
     for id in &completed {
-        let _ = state.store.append_event("timer.completed", &serde_json::json!({ "id": id }));
+        let _ = state
+            .store
+            .append_event("timer.completed", &serde_json::json!({ "id": id }));
     }
     if !completed.is_empty() {
         state.audio.play_completion();
@@ -146,7 +183,9 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
                 .find(|t| t.id == *task_id)
                 .map(|t| matches!(t.status, crate::tasks::TaskStatus::Todo))
                 .unwrap_or(false);
-            if !is_open { continue; }
+            if !is_open {
+                continue;
+            }
             let payload = serde_json::json!({ "id": task_id });
             if let Ok(evt_id) = state.store.append_event("task.completed", &payload) {
                 let ev = StoredEvent {
@@ -160,7 +199,10 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
         }
     }
 
-    Ok(TickReport { completed, timers: state.timers.lock().list() })
+    Ok(TickReport {
+        completed,
+        timers: state.timers.lock().list(),
+    })
 }
 
 #[derive(Debug, Serialize)]
@@ -220,7 +262,12 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
         "len": args.body.len(),
     });
     let evt_id = state.store.append_event("note.saved", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(), kind: "note.saved".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "note.saved".into(),
+        payload,
+    };
     state.notes.lock().apply(&ev);
 
     // Fire-and-forget embedding. We deliberately don't await — saves stay
@@ -359,10 +406,19 @@ pub async fn note_semantic_search(
             }
             let dot: f32 = qvec.iter().zip(v.iter()).map(|(a, b)| a * b).sum();
             let score = dot / (qnorm * n);
-            Some(SemanticHit { id, title, workspace_id: ws, score })
+            Some(SemanticHit {
+                id,
+                title,
+                workspace_id: ws,
+                score,
+            })
         })
         .collect();
-    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     scored.truncate(args.limit.unwrap_or(10) as usize);
     Ok(scored)
 }
@@ -391,8 +447,10 @@ pub fn workspace_create(state: State, args: CreateWorkspaceArgs) -> Result<Works
     let payload = serde_json::json!({ "id": id, "name": args.name, "color": color });
     let evt_id = state.store.append_event("workspace.created", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "workspace.created".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "workspace.created".into(),
+        payload,
     };
     let mut ws = state.workspaces.lock();
     ws.apply(&ev);
@@ -407,8 +465,10 @@ pub fn workspace_activate(state: State, id: String) -> Result<()> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event("workspace.activated", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "workspace.activated".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "workspace.activated".into(),
+        payload,
     };
     state.workspaces.lock().apply(&ev);
     Ok(())
@@ -456,8 +516,10 @@ pub fn task_create(state: State, args: CreateTaskArgs) -> Result<Task> {
     });
     let evt_id = state.store.append_event("task.created", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.created".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.created".into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -484,8 +546,10 @@ pub fn task_toggle(state: State, id: String) -> Result<Task> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event(kind, &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: kind.into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: kind.into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -510,8 +574,10 @@ pub fn task_rename(state: State, args: RenameTaskArgs) -> Result<Task> {
     let payload = serde_json::json!({ "id": args.id, "title": title });
     let evt_id = state.store.append_event("task.renamed", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.renamed".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.renamed".into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -526,8 +592,10 @@ pub fn task_delete(state: State, id: String) -> Result<()> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event("task.deleted", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.deleted".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.deleted".into(),
+        payload,
     };
     state.tasks.lock().apply(&ev);
     Ok(())
@@ -550,8 +618,10 @@ pub fn task_set_priority(state: State, args: SetTaskPriorityArgs) -> Result<Task
     let payload = serde_json::json!({ "id": args.id, "priority": priority_str });
     let evt_id = state.store.append_event("task.priority_set", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.priority_set".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.priority_set".into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -574,8 +644,10 @@ pub fn task_set_due(state: State, args: SetTaskDueArgs) -> Result<Task> {
     let payload = serde_json::json!({ "id": args.id, "due_ms": args.due_ms });
     let evt_id = state.store.append_event("task.due_set", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.due_set".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.due_set".into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -605,8 +677,10 @@ pub fn task_reorder(state: State, args: ReorderTasksArgs) -> Result<Vec<Task>> {
     });
     let evt_id = state.store.append_event("task.reordered", &payload)?;
     let ev = StoredEvent {
-        id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "task.reordered".into(), payload,
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "task.reordered".into(),
+        payload,
     };
     let mut proj = state.tasks.lock();
     proj.apply(&ev);
@@ -716,33 +790,66 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
     let label = format!("sticky-{}", note_id.replace(['-', ' '], "_"));
     let url = format!("index.html?sticky={note_id}");
-    spawn_popout(&app, &label, &url, "Nerva Sticky", 360.0, 420.0, 240.0, 240.0)
-        .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))
+    spawn_popout(
+        &app,
+        &label,
+        &url,
+        "Nerva Sticky",
+        360.0,
+        420.0,
+        240.0,
+        240.0,
+    )
+    .map_err(|e| NervaError::Invalid(format!("open sticky: {e}")))
 }
 
 /// Spawn (or focus) the floating timer widget. Single instance.
 /// Default = regular window (stays on origin desktop). Pin via UI to keep on top.
 #[tauri::command]
 pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(&app, "timer-widget", "index.html?widget=timer",
-        "Nerva Timer", 280.0, 130.0, 220.0, 100.0)
-        .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))
+    spawn_popout(
+        &app,
+        "timer-widget",
+        "index.html?widget=timer",
+        "Nerva Timer",
+        280.0,
+        130.0,
+        220.0,
+        100.0,
+    )
+    .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))
 }
 
 /// Spawn (or focus) the floating habits widget. Single instance.
 #[tauri::command]
 pub fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(&app, "habits-widget", "index.html?widget=habits",
-        "Nerva Habits", 320.0, 420.0, 260.0, 280.0)
-        .map_err(|e| NervaError::Invalid(format!("open habits widget: {e}")))
+    spawn_popout(
+        &app,
+        "habits-widget",
+        "index.html?widget=habits",
+        "Nerva Habits",
+        320.0,
+        420.0,
+        260.0,
+        280.0,
+    )
+    .map_err(|e| NervaError::Invalid(format!("open habits widget: {e}")))
 }
 
 /// Spawn (or focus) the floating tasks widget. Single instance.
 #[tauri::command]
 pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(&app, "tasks-widget", "index.html?widget=tasks",
-        "Nerva Tasks", 320.0, 460.0, 260.0, 300.0)
-        .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
+    spawn_popout(
+        &app,
+        "tasks-widget",
+        "index.html?widget=tasks",
+        "Nerva Tasks",
+        320.0,
+        460.0,
+        260.0,
+        300.0,
+    )
+    .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
 }
 
 /// Shared popout creator. Builds an undecorated, *non*-always-on-top window
@@ -763,6 +870,10 @@ pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
 /// can leave WebView2 unpainted (blank popout) and grab focus from the main
 /// window's message pump (= main app appears frozen). Toggling AOT *after*
 /// the window is fully initialized works reliably.
+// Clippy: 8 args > default 7. Splitting these into a struct would just
+// scatter the popout-window contract across two places; every caller wants
+// to set every field, so positional args at the call site stay clearer.
+#[allow(clippy::too_many_arguments)]
 fn spawn_popout(
     app: &tauri::AppHandle,
     label: &str,
@@ -868,7 +979,9 @@ pub fn audio_set_volume(state: State, volume: f32) -> Result<AudioState> {
 #[tauri::command]
 pub fn audio_set_muted(state: State, muted: bool) -> Result<AudioState> {
     state.audio.set_muted(muted);
-    state.store.meta_set("audio.muted", if muted { "true" } else { "false" })?;
+    state
+        .store
+        .meta_set("audio.muted", if muted { "true" } else { "false" })?;
     audio_state(state)
 }
 
@@ -908,7 +1021,9 @@ pub fn ambient_set(state: State, args: AmbientArgs) -> Result<AudioState> {
 pub fn ambient_set_volume(state: State, volume: f32) -> Result<AudioState> {
     let v = volume.clamp(0.0, 1.0);
     state.audio.set_ambient_volume(v);
-    state.store.meta_set("audio.ambient_volume", &v.to_string())?;
+    state
+        .store
+        .meta_set("audio.ambient_volume", &v.to_string())?;
     audio_state(state)
 }
 
@@ -923,7 +1038,10 @@ pub struct FocusState {
 #[tauri::command]
 pub fn focus_state() -> Result<FocusState> {
     let dnd = crate::focus::get_dnd()?;
-    Ok(FocusState { dnd, supported: dnd.is_some() })
+    Ok(FocusState {
+        dnd,
+        supported: dnd.is_some(),
+    })
 }
 
 #[tauri::command]
@@ -995,7 +1113,10 @@ pub async fn ai_ask(
             // rather than aborting the stream.
             let _ = win.emit(
                 "ai.chunk",
-                AiChunk { request_id: req_id.clone(), delta: delta.to_string() },
+                AiChunk {
+                    request_id: req_id.clone(),
+                    delta: delta.to_string(),
+                },
             );
         })
         .await?;
@@ -1025,7 +1146,10 @@ pub async fn ai_ask(
         let _ = state.store.append_event("ai.exchange.recorded", &payload);
     }
 
-    Ok(AiResult { request_id: req_id, text: outcome.text })
+    Ok(AiResult {
+        request_id: req_id,
+        text: outcome.text,
+    })
 }
 
 #[tauri::command]
@@ -1050,13 +1174,43 @@ pub fn ai_history(state: State, limit: Option<i64>) -> Result<Vec<AiExchange>> {
     // Walk events newest→oldest so we can early-exit once we've collected enough.
     let all = state.store.replay_all()?;
     for ev in all.into_iter().rev() {
-        if ev.kind != "ai.exchange.recorded" { continue; }
-        let id = ev.payload.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let prompt = ev.payload.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let response = ev.payload.get("response").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let model = ev.payload.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        out.push(AiExchange { id, ts_ms: ev.ts_ms, prompt, response, model });
-        if out.len() >= limit { break; }
+        if ev.kind != "ai.exchange.recorded" {
+            continue;
+        }
+        let id = ev
+            .payload
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let prompt = ev
+            .payload
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let response = ev
+            .payload
+            .get("response")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let model = ev
+            .payload
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        out.push(AiExchange {
+            id,
+            ts_ms: ev.ts_ms,
+            prompt,
+            response,
+            model,
+        });
+        if out.len() >= limit {
+            break;
+        }
     }
     Ok(out)
 }
@@ -1070,7 +1224,10 @@ pub struct AiSettings {
 #[tauri::command]
 pub fn ai_settings_get(state: State) -> Result<AiSettings> {
     let cfg = state.ai.snapshot();
-    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
+    Ok(AiSettings {
+        endpoint: cfg.endpoint,
+        model: cfg.model,
+    })
 }
 
 #[tauri::command]
@@ -1082,7 +1239,10 @@ pub fn ai_set_model(state: State, model: String) -> Result<AiSettings> {
     state.ai.set_model(m);
     state.store.meta_set("ai.model", m)?;
     let cfg = state.ai.snapshot();
-    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
+    Ok(AiSettings {
+        endpoint: cfg.endpoint,
+        model: cfg.model,
+    })
 }
 
 #[tauri::command]
@@ -1097,7 +1257,10 @@ pub fn ai_set_endpoint(state: State, endpoint: String) -> Result<AiSettings> {
     state.ai.set_endpoint(&e);
     state.store.meta_set("ai.endpoint", &e)?;
     let cfg = state.ai.snapshot();
-    Ok(AiSettings { endpoint: cfg.endpoint, model: cfg.model })
+    Ok(AiSettings {
+        endpoint: cfg.endpoint,
+        model: cfg.model,
+    })
 }
 
 // ---------- settings (unified bundle) ----------
@@ -1193,7 +1356,12 @@ fn build_messages(state: &State, args: &AskArgs) -> Result<Vec<ChatMessage>> {
         let timers = state.timers.lock().list();
         let active_timers: Vec<String> = timers
             .iter()
-            .filter(|t| matches!(t.status, crate::timers::TimerStatus::Running | crate::timers::TimerStatus::Paused))
+            .filter(|t| {
+                matches!(
+                    t.status,
+                    crate::timers::TimerStatus::Running | crate::timers::TimerStatus::Paused
+                )
+            })
             .map(|t| format!("- {} ({}m, {:?})", t.name, t.duration_ms / 60_000, t.status))
             .collect();
         let tasks = state.tasks.lock().list();
@@ -1211,7 +1379,9 @@ fn build_messages(state: &State, args: &AskArgs) -> Result<Vec<ChatMessage>> {
             .collect();
 
         system.push_str("\n\n# Current session\n");
-        if let Some(w) = ws { system.push_str(&format!("Workspace: {w}\n")); }
+        if let Some(w) = ws {
+            system.push_str(&format!("Workspace: {w}\n"));
+        }
         if !active_timers.is_empty() {
             system.push_str("Active timers:\n");
             system.push_str(&active_timers.join("\n"));
@@ -1229,8 +1399,14 @@ fn build_messages(state: &State, args: &AskArgs) -> Result<Vec<ChatMessage>> {
         }
     }
     Ok(vec![
-        ChatMessage { role: "system".into(), content: system },
-        ChatMessage { role: "user".into(), content: args.prompt.clone() },
+        ChatMessage {
+            role: "system".into(),
+            content: system,
+        },
+        ChatMessage {
+            role: "user".into(),
+            content: args.prompt.clone(),
+        },
     ])
 }
 
@@ -1240,7 +1416,9 @@ fn short_payload(v: &serde_json::Value) -> String {
     for k in ["name", "title", "id"] {
         if let Some(s) = v.get(k).and_then(|x| x.as_str()) {
             parts.push(format!("{k}={s}"));
-            if parts.len() >= 2 { break; }
+            if parts.len() >= 2 {
+                break;
+            }
         }
     }
     parts.join(" ")
@@ -1334,7 +1512,12 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
     }
     let kind = match args.kind.as_str() {
         "bool" | "count" | "amount" => args.kind.clone(),
-        _ => return Err(NervaError::Invalid(format!("unknown habit kind: {}", args.kind))),
+        _ => {
+            return Err(NervaError::Invalid(format!(
+                "unknown habit kind: {}",
+                args.kind
+            )))
+        }
     };
     let id = Uuid::new_v4().to_string();
     let ws = args
@@ -1350,11 +1533,16 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
         "workspace_id": ws,
     });
     let evt_id = state.store.append_event("habit.created", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "habit.created".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "habit.created".into(),
+        payload,
+    };
     let mut proj = state.habits.lock();
     proj.apply(&ev);
-    proj.get(&id).ok_or_else(|| NervaError::Invalid("habit create failed".into()))
+    proj.get(&id)
+        .ok_or_else(|| NervaError::Invalid("habit create failed".into()))
 }
 
 #[tauri::command]
@@ -1391,19 +1579,28 @@ pub fn habit_update(state: State, args: UpdateHabitArgs) -> Result<Habit> {
     }
     let payload = serde_json::Value::Object(payload);
     let evt_id = state.store.append_event("habit.updated", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "habit.updated".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "habit.updated".into(),
+        payload,
+    };
     let mut proj = state.habits.lock();
     proj.apply(&ev);
-    proj.get(&args.id).ok_or_else(|| NervaError::NotFound(args.id))
+    proj.get(&args.id)
+        .ok_or_else(|| NervaError::NotFound(args.id))
 }
 
 #[tauri::command]
 pub fn habit_delete(state: State, id: String) -> Result<()> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event("habit.deleted", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "habit.deleted".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "habit.deleted".into(),
+        payload,
+    };
     state.habits.lock().apply(&ev);
     Ok(())
 }
@@ -1420,12 +1617,18 @@ pub fn habit_log(state: State, args: LogHabitArgs) -> Result<HabitEntry> {
         "skipped": args.skipped,
     });
     let evt_id = state.store.append_event("habit.logged", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "habit.logged".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "habit.logged".into(),
+        payload,
+    };
     let mut proj = state.habits.lock();
     proj.apply(&ev);
     let entries = proj.entries_range(&args.habit_id, &args.day, &args.day);
-    entries.into_iter().next()
+    entries
+        .into_iter()
+        .next()
         .ok_or_else(|| NervaError::Invalid("habit log apply failed".into()))
 }
 
@@ -1433,19 +1636,29 @@ pub fn habit_log(state: State, args: LogHabitArgs) -> Result<HabitEntry> {
 pub fn habit_clear(state: State, args: ClearHabitArgs) -> Result<()> {
     let payload = serde_json::json!({ "habit_id": args.habit_id, "day": args.day });
     let evt_id = state.store.append_event("habit.cleared", &payload)?;
-    let ev = StoredEvent { id: evt_id, ts_ms: crate::store::now_ms(),
-        kind: "habit.cleared".into(), payload };
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "habit.cleared".into(),
+        payload,
+    };
     state.habits.lock().apply(&ev);
     Ok(())
 }
 
 #[tauri::command]
 pub fn habit_entries(state: State, args: EntriesRangeArgs) -> Result<Vec<HabitEntry>> {
-    Ok(state.habits.lock().entries_range(&args.habit_id, &args.from_day, &args.to_day))
+    Ok(state
+        .habits
+        .lock()
+        .entries_range(&args.habit_id, &args.from_day, &args.to_day))
 }
 
 #[tauri::command]
 pub fn habit_stats(state: State, args: StatsArgs) -> Result<HabitStats> {
-    state.habits.lock().stats(&args.habit_id, &args.today)
+    state
+        .habits
+        .lock()
+        .stats(&args.habit_id, &args.today)
         .ok_or_else(|| NervaError::NotFound(args.habit_id))
 }

@@ -56,9 +56,12 @@ impl AppState {
         // Ensure a default workspace exists.
         if workspaces.list().is_empty() {
             let id = workspaces.create_default();
-            store.append_event("workspace.created", &serde_json::json!({
-                "id": id, "name": "Default", "color": "#7c9cff"
-            }))?;
+            store.append_event(
+                "workspace.created",
+                &serde_json::json!({
+                    "id": id, "name": "Default", "color": "#7c9cff"
+                }),
+            )?;
             workspaces.set_active(&id);
             store.append_event("workspace.activated", &serde_json::json!({ "id": id }))?;
         }
@@ -85,8 +88,12 @@ impl AppState {
 
         // Resolve LLM config: meta-table override, then env vars, then defaults.
         let mut cfg = OllamaConfig::from_env();
-        if let Ok(Some(url)) = store.meta_get("ai.endpoint") { cfg.endpoint = url; }
-        if let Ok(Some(m)) = store.meta_get("ai.model") { cfg.model = m; }
+        if let Ok(Some(url)) = store.meta_get("ai.endpoint") {
+            cfg.endpoint = url;
+        }
+        if let Ok(Some(m)) = store.meta_get("ai.model") {
+            cfg.model = m;
+        }
         let ai = Arc::new(OllamaClient::new(cfg));
 
         Ok(Self {

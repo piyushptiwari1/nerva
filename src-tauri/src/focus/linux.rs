@@ -5,7 +5,12 @@ use crate::error::Result;
 pub fn set_dnd(enabled: bool) -> Result<bool> {
     let show = if enabled { "false" } else { "true" };
     let out = std::process::Command::new("gsettings")
-        .args(["set", "org.gnome.desktop.notifications", "show-banners", show])
+        .args([
+            "set",
+            "org.gnome.desktop.notifications",
+            "show-banners",
+            show,
+        ])
         .output();
     match out {
         Ok(o) if o.status.success() => Ok(true),

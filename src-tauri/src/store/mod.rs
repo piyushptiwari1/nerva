@@ -25,6 +25,16 @@ pub struct Store {
     pool: DbPool,
 }
 
+/// One FTS hit row: `(note_id, workspace_id, title, snippet_html, bm25_rank)`.
+/// Pulled out into a type alias so `note_search`'s signature stops tripping
+/// clippy's `type_complexity` lint.
+pub type NoteSearchHit = (String, String, String, String, f64);
+
+/// One stored embedding row from `embeddings_all`:
+/// `(note_id, note_title, workspace_id, vector)`. Type alias for the same
+/// `type_complexity` reason as `NoteSearchHit`.
+pub type NoteEmbeddingRow = (String, String, Option<String>, Vec<f32>);
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         let manager = SqliteConnectionManager::file(path).with_init(|c| {
@@ -112,10 +122,8 @@ impl Store {
         )?;
         // Backfill FTS if it's empty but notes exist (first migration after upgrade).
         let conn = self.pool.get()?;
-        let fts_count: i64 =
-            conn.query_row("SELECT count(*) FROM notes_fts", [], |r| r.get(0))?;
-        let notes_count: i64 =
-            conn.query_row("SELECT count(*) FROM notes", [], |r| r.get(0))?;
+        let fts_count: i64 = conn.query_row("SELECT count(*) FROM notes_fts", [], |r| r.get(0))?;
+        let notes_count: i64 = conn.query_row("SELECT count(*) FROM notes", [], |r| r.get(0))?;
         if fts_count == 0 && notes_count > 0 {
             conn.execute(
                 "INSERT INTO notes_fts(id, workspace_id, title, body)
@@ -148,11 +156,7 @@ impl Store {
     }
 
     /// Full-text search across notes. Returns (id, workspace_id, title, snippet, rank).
-    pub fn note_search(
-        &self,
-        query: &str,
-        limit: i64,
-    ) -> Result<Vec<(String, String, String, String, f64)>> {
+    pub fn note_search(&self, query: &str, limit: i64) -> Result<Vec<NoteSearchHit>> {
         let conn = self.pool.get()?;
         // snippet(table, col_index, before, after, ellipsis, max_tokens)
         let mut stmt = conn.prepare(
@@ -213,9 +217,8 @@ impl Store {
 
     pub fn recent_events(&self, limit: i64) -> Result<Vec<StoredEvent>> {
         let conn = self.pool.get()?;
-        let mut stmt = conn.prepare(
-            "SELECT id, ts_ms, kind, payload FROM events ORDER BY id DESC LIMIT ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, ts_ms, kind, payload FROM events ORDER BY id DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit], |r| {
             let payload_text: String = r.get(3)?;
             Ok(StoredEvent {
@@ -257,8 +260,8 @@ impl Store {
 
     pub fn note_get(&self, id: &str) -> Result<Option<(String, String, String, i64)>> {
         let conn = self.pool.get()?;
-        let mut stmt = conn
-            .prepare("SELECT workspace_id, title, body, updated_ms FROM notes WHERE id = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT workspace_id, title, body, updated_ms FROM notes WHERE id = ?1")?;
         let mut rows = stmt.query(params![id])?;
         if let Some(row) = rows.next()? {
             let ws: Option<String> = row.get(0)?;
@@ -318,7 +321,7 @@ impl Store {
     /// search. `expected_dim` filters out stale rows from a previous model
     /// (rather than mass-deleting them — the next `note.saved` will rebuild
     /// them naturally).
-    pub fn embeddings_all(&self, expected_dim: usize) -> Result<Vec<(String, String, Option<String>, Vec<f32>)>> {
+    pub fn embeddings_all(&self, expected_dim: usize) -> Result<Vec<NoteEmbeddingRow>> {
         let conn = self.pool.get()?;
         let mut stmt = conn.prepare(
             "SELECT e.note_id, n.title, n.workspace_id, e.dim, e.vec
@@ -361,10 +364,16 @@ impl Store {
              WHERE e.note_id IS NULL",
         )?;
         let rows = stmt.query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
         })?;
         let mut out = Vec::new();
-        for r in rows { out.push(r?); }
+        for r in rows {
+            out.push(r?);
+        }
         Ok(out)
     }
 }

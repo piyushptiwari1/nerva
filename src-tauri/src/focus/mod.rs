@@ -32,8 +32,12 @@ use windows as backend;
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod fallback {
     use crate::error::Result;
-    pub fn set_dnd(_enabled: bool) -> Result<bool> { Ok(false) }
-    pub fn get_dnd() -> Result<Option<bool>> { Ok(None) }
+    pub fn set_dnd(_enabled: bool) -> Result<bool> {
+        Ok(false)
+    }
+    pub fn get_dnd() -> Result<Option<bool>> {
+        Ok(None)
+    }
 }
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 use fallback as backend;

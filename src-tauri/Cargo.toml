@@ -4,7 +4,10 @@ version = "0.1.1"
 description = "Nerva — persistent focus workspace"
 authors = ["Nerva contributors"]
 edition = "2021"
-rust-version = "1.77"
+# Bumped from 1.77 to 1.81: `std::panic::PanicHookInfo` (used by the crash
+# handler in src/diag/mod.rs) was renamed/stabilized in 1.81. The 1.77
+# alias `PanicInfo` is deprecated and clippy flags it.
+rust-version = "1.81"
 
 [lib]
 name = "nerva_lib"

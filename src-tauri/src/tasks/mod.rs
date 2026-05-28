@@ -62,7 +62,9 @@ pub struct Task {
     pub due_ms: Option<i64>,
 }
 
-fn default_priority() -> TaskPriority { TaskPriority::Med }
+fn default_priority() -> TaskPriority {
+    TaskPriority::Med
+}
 
 #[derive(Default)]
 pub struct TasksProjection {
@@ -72,16 +74,21 @@ pub struct TasksProjection {
 }
 
 impl TasksProjection {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn apply(&mut self, ev: &StoredEvent) {
         match ev.kind.as_str() {
             "task.created" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
-                if id.is_empty() { return; }
+                if id.is_empty() {
+                    return;
+                }
                 let title = ev.payload["title"].as_str().unwrap_or("").to_string();
                 let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
-                let priority = ev.payload["priority"].as_str()
+                let priority = ev.payload["priority"]
+                    .as_str()
                     .map(TaskPriority::from_str)
                     .unwrap_or(TaskPriority::Med);
                 let due_ms = ev.payload["due_ms"].as_i64();
@@ -132,7 +139,11 @@ impl TasksProjection {
                 let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
                 let ids: Vec<String> = ev.payload["ordered_ids"]
                     .as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 self.order.insert(ws, ids);
             }
@@ -177,7 +188,11 @@ impl TasksProjection {
                 .then_with(|| b.created_ms.cmp(&a.created_ms))
         });
         // Done: newest-completion first.
-        done.sort_by(|a, b| b.completed_ms.unwrap_or(0).cmp(&a.completed_ms.unwrap_or(0)));
+        done.sort_by(|a, b| {
+            b.completed_ms
+                .unwrap_or(0)
+                .cmp(&a.completed_ms.unwrap_or(0))
+        });
         todo.extend(done);
         todo
     }
@@ -190,6 +205,10 @@ impl TasksProjection {
             Some(v) => v,
             None => return i64::MAX,
         };
-        order.iter().position(|x| *x == t.id).map(|i| i as i64).unwrap_or(i64::MAX)
+        order
+            .iter()
+            .position(|x| *x == t.id)
+            .map(|i| i as i64)
+            .unwrap_or(i64::MAX)
     }
 }

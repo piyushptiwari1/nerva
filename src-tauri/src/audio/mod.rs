@@ -239,7 +239,13 @@ pub struct NoiseSource {
     rng_state: u64,
     sample_rate: u32,
     // Pink-noise state (Paul Kellet coefficients).
-    b0: f32, b1: f32, b2: f32, b3: f32, b4: f32, b5: f32, b6: f32,
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    b3: f32,
+    b4: f32,
+    b5: f32,
+    b6: f32,
     // Brown-noise running sum.
     brown_last: f32,
 }
@@ -251,7 +257,13 @@ impl NoiseSource {
             // Cheap, non-zero seed; not a security RNG.
             rng_state: 0x9E37_79B9_7F4A_7C15,
             sample_rate: 44_100,
-            b0: 0.0, b1: 0.0, b2: 0.0, b3: 0.0, b4: 0.0, b5: 0.0, b6: 0.0,
+            b0: 0.0,
+            b1: 0.0,
+            b2: 0.0,
+            b3: 0.0,
+            b4: 0.0,
+            b5: 0.0,
+            b6: 0.0,
             brown_last: 0.0,
         }
     }
@@ -281,12 +293,18 @@ impl Iterator for NoiseSource {
                 // Paul Kellet refined pink-noise filter.
                 self.b0 = 0.99886 * self.b0 + white * 0.0555179;
                 self.b1 = 0.99332 * self.b1 + white * 0.0750759;
-                self.b2 = 0.96900 * self.b2 + white * 0.1538520;
+                self.b2 = 0.96900 * self.b2 + white * 0.153_852;
                 self.b3 = 0.86650 * self.b3 + white * 0.3104856;
                 self.b4 = 0.55000 * self.b4 + white * 0.5329522;
                 self.b5 = -0.7616 * self.b5 - white * 0.0168980;
-                let pink = self.b0 + self.b1 + self.b2 + self.b3
-                    + self.b4 + self.b5 + self.b6 + white * 0.5362;
+                let pink = self.b0
+                    + self.b1
+                    + self.b2
+                    + self.b3
+                    + self.b4
+                    + self.b5
+                    + self.b6
+                    + white * 0.5362;
                 self.b6 = white * 0.115926;
                 pink * 0.11
             }
@@ -303,8 +321,16 @@ impl Iterator for NoiseSource {
 }
 
 impl Source for NoiseSource {
-    fn current_frame_len(&self) -> Option<usize> { None }
-    fn channels(&self) -> u16 { 1 }
-    fn sample_rate(&self) -> u32 { self.sample_rate }
-    fn total_duration(&self) -> Option<Duration> { None }
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+    fn channels(&self) -> u16 {
+        1
+    }
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        None
+    }
 }

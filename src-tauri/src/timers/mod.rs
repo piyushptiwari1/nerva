@@ -42,7 +42,13 @@ pub struct Timer {
 }
 
 impl Timer {
-    fn new(id: String, name: String, color: String, duration_ms: i64, workspace_id: Option<String>) -> Self {
+    fn new(
+        id: String,
+        name: String,
+        color: String,
+        duration_ms: i64,
+        workspace_id: Option<String>,
+    ) -> Self {
         Self {
             id,
             name,
@@ -84,15 +90,22 @@ pub struct TimerEngine {
 }
 
 impl TimerEngine {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn apply(&mut self, ev: &StoredEvent) {
         match ev.kind.as_str() {
             "timer.created" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
-                if id.is_empty() { return; }
+                if id.is_empty() {
+                    return;
+                }
                 let name = ev.payload["name"].as_str().unwrap_or("Timer").to_string();
-                let color = ev.payload["color"].as_str().unwrap_or("#7c9cff").to_string();
+                let color = ev.payload["color"]
+                    .as_str()
+                    .unwrap_or("#7c9cff")
+                    .to_string();
                 let duration = ev.payload["duration_ms"].as_i64().unwrap_or(25 * 60 * 1000);
                 let ws = ev.payload["workspace_id"].as_str().map(|s| s.to_string());
                 let mut t = Timer::new(id.clone(), name, color, duration, ws);
@@ -174,5 +187,7 @@ impl TimerEngine {
         just_completed
     }
 
-    pub fn get(&self, id: &str) -> Option<&Timer> { self.timers.get(id) }
+    pub fn get(&self, id: &str) -> Option<&Timer> {
+        self.timers.get(id)
+    }
 }

@@ -20,28 +20,47 @@ pub struct WorkspacesProjection {
 }
 
 impl WorkspacesProjection {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn apply(&mut self, ev: &StoredEvent) {
         match ev.kind.as_str() {
             "workspace.created" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
-                if id.is_empty() { return; }
-                let name = ev.payload["name"].as_str().unwrap_or("Workspace").to_string();
-                let color = ev.payload["color"].as_str().unwrap_or("#7c9cff").to_string();
+                if id.is_empty() {
+                    return;
+                }
+                let name = ev.payload["name"]
+                    .as_str()
+                    .unwrap_or("Workspace")
+                    .to_string();
+                let color = ev.payload["color"]
+                    .as_str()
+                    .unwrap_or("#7c9cff")
+                    .to_string();
                 self.items.insert(
                     id.clone(),
-                    Workspace { id, name, color, created_ms: ev.ts_ms },
+                    Workspace {
+                        id,
+                        name,
+                        color,
+                        created_ms: ev.ts_ms,
+                    },
                 );
             }
             "workspace.activated" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
-                if !id.is_empty() { self.active = Some(id); }
+                if !id.is_empty() {
+                    self.active = Some(id);
+                }
             }
             "workspace.deleted" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default();
                 self.items.remove(id);
-                if self.active.as_deref() == Some(id) { self.active = None; }
+                if self.active.as_deref() == Some(id) {
+                    self.active = None;
+                }
             }
             _ => {}
         }
@@ -49,7 +68,7 @@ impl WorkspacesProjection {
 
     pub fn list(&self) -> Vec<Workspace> {
         let mut v: Vec<_> = self.items.values().cloned().collect();
-        v.sort_by(|a, b| a.created_ms.cmp(&b.created_ms));
+        v.sort_by_key(|a| a.created_ms);
         v
     }
 
@@ -58,7 +77,9 @@ impl WorkspacesProjection {
     }
 
     pub fn set_active(&mut self, id: &str) {
-        if self.items.contains_key(id) { self.active = Some(id.to_string()); }
+        if self.items.contains_key(id) {
+            self.active = Some(id.to_string());
+        }
     }
 
     pub fn create_default(&mut self) -> String {

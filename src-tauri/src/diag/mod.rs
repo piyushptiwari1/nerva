@@ -88,33 +88,33 @@ pub fn list_crashes() -> Result<Vec<CrashEntry>> {
         if !name.ends_with(".log") {
             continue;
         }
-        let ts_ms: i64 = name
-            .trim_end_matches(".log")
-            .parse()
-            .unwrap_or(0);
+        let ts_ms: i64 = name.trim_end_matches(".log").parse().unwrap_or(0);
         let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
         // Read up to 240 bytes for a one-line preview.
         let snippet = fs::read_to_string(entry.path())
             .ok()
             .map(|s| {
-                let line = s
-                    .lines()
-                    .find(|l| l.starts_with("what:"))
-                    .unwrap_or("");
+                let line = s.lines().find(|l| l.starts_with("what:")).unwrap_or("");
                 line.chars().take(240).collect::<String>()
             })
             .unwrap_or_default();
-        out.push(CrashEntry { name, ts_ms, size_bytes, snippet });
+        out.push(CrashEntry {
+            name,
+            ts_ms,
+            size_bytes,
+            snippet,
+        });
     }
-    out.sort_by(|a, b| b.ts_ms.cmp(&a.ts_ms));
+    out.sort_by_key(|x| std::cmp::Reverse(x.ts_ms));
     Ok(out)
 }
 
 /// Read the full body of one crash log. Hardened against path traversal:
 /// only accepts a bare basename ending in `.log` with no separators.
 pub fn read_crash(name: &str) -> Result<String> {
-    let safe = sanitize_name(name)
-        .ok_or_else(|| NervaError::Invalid("crash name must be <ts>.log with no path separators".into()))?;
+    let safe = sanitize_name(name).ok_or_else(|| {
+        NervaError::Invalid("crash name must be <ts>.log with no path separators".into())
+    })?;
     let path = crash_dir().join(safe);
     Ok(fs::read_to_string(path)?)
 }

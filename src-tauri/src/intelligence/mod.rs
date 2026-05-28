@@ -83,7 +83,9 @@ impl OllamaClient {
         }
     }
 
-    pub fn snapshot(&self) -> OllamaConfig { self.cfg.read().clone() }
+    pub fn snapshot(&self) -> OllamaConfig {
+        self.cfg.read().clone()
+    }
 
     /// Update the active model. Persisted by the caller via the meta-table.
     pub fn set_model(&self, model: &str) {
@@ -105,9 +107,13 @@ impl OllamaClient {
         match self.http.get(&url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 #[derive(Deserialize)]
-                struct TagsResp { models: Vec<TagModel> }
+                struct TagsResp {
+                    models: Vec<TagModel>,
+                }
                 #[derive(Deserialize)]
-                struct TagModel { name: String }
+                struct TagModel {
+                    name: String,
+                }
                 let body: TagsResp = resp.json().await.unwrap_or(TagsResp { models: vec![] });
                 let installed: Vec<String> = body.models.into_iter().map(|m| m.name).collect();
                 AiHealth {
@@ -176,8 +182,13 @@ impl OllamaClient {
 
         // Register cancel flag for this request.
         let flag = Arc::new(AtomicBool::new(false));
-        self.cancels.lock().insert(request_id.to_string(), flag.clone());
-        let _guard = CancelGuard { client: self, id: request_id };
+        self.cancels
+            .lock()
+            .insert(request_id.to_string(), flag.clone());
+        let _guard = CancelGuard {
+            client: self,
+            id: request_id,
+        };
 
         let resp = self
             .http
@@ -203,7 +214,11 @@ impl OllamaClient {
                 // Frontend requested cancel — stop reading; dropping the body
                 // here closes the TCP stream, which Ollama treats as a normal
                 // client disconnect and aborts generation server-side.
-                return Ok(ChatOutcome { text: out, cancelled: true, model: cfg.model });
+                return Ok(ChatOutcome {
+                    text: out,
+                    cancelled: true,
+                    model: cfg.model,
+                });
             }
             let chunk = chunk
                 .map_err(|e| NervaError::Invalid(format!("ollama stream: {}", simple_err(&e))))?;
@@ -211,24 +226,36 @@ impl OllamaClient {
             // Process complete lines.
             while let Some(nl) = buf.iter().position(|&b| b == b'\n') {
                 let line = buf.drain(..=nl).collect::<Vec<u8>>();
-                let trimmed = std::str::from_utf8(&line)
-                    .unwrap_or("")
-                    .trim();
-                if trimmed.is_empty() { continue; }
+                let trimmed = std::str::from_utf8(&line).unwrap_or("").trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                    if let Some(c) = v.get("message").and_then(|m| m.get("content")).and_then(|c| c.as_str()) {
+                    if let Some(c) = v
+                        .get("message")
+                        .and_then(|m| m.get("content"))
+                        .and_then(|c| c.as_str())
+                    {
                         if !c.is_empty() {
                             on_token(c);
                             out.push_str(c);
                         }
                     }
                     if v.get("done").and_then(|b| b.as_bool()).unwrap_or(false) {
-                        return Ok(ChatOutcome { text: out, cancelled: false, model: cfg.model });
+                        return Ok(ChatOutcome {
+                            text: out,
+                            cancelled: false,
+                            model: cfg.model,
+                        });
                     }
                 }
             }
         }
-        Ok(ChatOutcome { text: out, cancelled: false, model: cfg.model })
+        Ok(ChatOutcome {
+            text: out,
+            cancelled: false,
+            model: cfg.model,
+        })
     }
 
     /// Compute an embedding for arbitrary text via Ollama's `/api/embeddings`.
@@ -242,7 +269,9 @@ impl OllamaClient {
         let prompt = if text.trim().is_empty() { " " } else { text };
         let body = serde_json::json!({ "model": model, "prompt": prompt });
         #[derive(Deserialize)]
-        struct EmbedResp { embedding: Vec<f32> }
+        struct EmbedResp {
+            embedding: Vec<f32>,
+        }
         let resp = self
             .http
             .post(&url)

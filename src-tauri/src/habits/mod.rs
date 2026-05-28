@@ -7,9 +7,9 @@
 //!     neither success nor failure — for streak math and completion %.
 //!   - **No paywalls, no quotas**: any number of habits, any kind.
 //!   - **Three kinds covering 95% of real-world use**:
-//!       `Bool`    — yes / no       (e.g. meditate)
-//!       `Count`   — integer reps   (e.g. push-ups, glasses of water as units)
-//!       `Amount`  — floating value (e.g. minutes, miles, ml)
+//!     - `Bool`    — yes / no       (e.g. meditate)
+//!     - `Count`   — integer reps   (e.g. push-ups, glasses of water as units)
+//!     - `Amount`  — floating value (e.g. minutes, miles, ml)
 //!   - **Per-entry value is signed f64**; the projection knows how to interpret
 //!     it given the habit kind. Target (if set) defines "complete" for the day.
 //!
@@ -114,7 +114,10 @@ impl HabitsProjection {
                 let h = Habit {
                     id: id.clone(),
                     workspace_id: ev.payload["workspace_id"].as_str().map(|s| s.to_string()),
-                    name: ev.payload["name"].as_str().unwrap_or("Untitled").to_string(),
+                    name: ev.payload["name"]
+                        .as_str()
+                        .unwrap_or("Untitled")
+                        .to_string(),
                     kind,
                     target,
                     unit,
@@ -165,7 +168,10 @@ impl HabitsProjection {
                 self.entries.remove(id);
             }
             "habit.logged" => {
-                let id = ev.payload["habit_id"].as_str().unwrap_or_default().to_string();
+                let id = ev.payload["habit_id"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string();
                 let day = ev.payload["day"].as_str().unwrap_or_default().to_string();
                 if id.is_empty() || day.is_empty() {
                     return;
@@ -194,7 +200,7 @@ impl HabitsProjection {
 
     pub fn list(&self) -> Vec<Habit> {
         let mut out: Vec<Habit> = self.habits.values().cloned().collect();
-        out.sort_by(|a, b| a.created_ms.cmp(&b.created_ms));
+        out.sort_by_key(|a| a.created_ms);
         out
     }
 
@@ -266,9 +272,9 @@ impl HabitsProjection {
         }
 
         // --- completion rates ---
-        let (completed_30, scheduled_30) = window_completion(map, target, &is_complete, today_iso, 30);
-        let (completed_all, scheduled_all) =
-            all_time_completion(map, target, &is_complete);
+        let (completed_30, scheduled_30) =
+            window_completion(map, target, &is_complete, today_iso, 30);
+        let (completed_all, scheduled_all) = all_time_completion(map, target, &is_complete);
         let completion_30d = if scheduled_30 > 0 {
             completed_30 as f64 / scheduled_30 as f64
         } else {

@@ -163,10 +163,20 @@ fn timer_deleted_is_gone() {
 fn notes_fts_round_trip() {
     let (_g, store) = tmp_store();
     store
-        .note_upsert("n1", Some("w"), "Pinned thoughts", "The quick brown fox jumps over.")
+        .note_upsert(
+            "n1",
+            Some("w"),
+            "Pinned thoughts",
+            "The quick brown fox jumps over.",
+        )
         .unwrap();
     store
-        .note_upsert("n2", Some("w"), "Recipe ideas", "Slow-cooked beans with smoked paprika.")
+        .note_upsert(
+            "n2",
+            Some("w"),
+            "Recipe ideas",
+            "Slow-cooked beans with smoked paprika.",
+        )
         .unwrap();
 
     let hits = store.note_search("smoked paprika", 10).unwrap();
@@ -203,7 +213,10 @@ fn replay_all_preserves_event_order() {
     let (_g, store) = tmp_store();
     for i in 0..5 {
         store
-            .append_event("task.created", &json!({ "id": format!("id{i}"), "title": "t" }))
+            .append_event(
+                "task.created",
+                &json!({ "id": format!("id{i}"), "title": "t" }),
+            )
             .unwrap();
     }
     let evs: Vec<StoredEvent> = store.replay_all().unwrap();
@@ -216,9 +229,7 @@ fn replay_all_preserves_event_order() {
 #[test]
 fn embeddings_upsert_and_dim_filter() {
     let (_g, store) = tmp_store();
-    store
-        .note_upsert("n1", Some("w"), "title", "body")
-        .unwrap();
+    store.note_upsert("n1", Some("w"), "title", "body").unwrap();
     let v768: Vec<f32> = (0..768).map(|i| i as f32 * 0.001).collect();
     store
         .embedding_upsert("n1", "test-model", &v768)
