@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Thank you — Nerva</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;
+         background:#0a0b0d;color:#ecf0f6;margin:0;min-height:100vh;
+         display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{max-width:520px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;
+          padding:40px;background:#15171c;text-align:center}
+    h1{font-size:28px;margin:0 0 16px;letter-spacing:-0.02em}
+    p{margin:0 0 12px;color:#a8acb4;line-height:1.6}
+    .txn{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:#5a6273;margin-top:24px}
+    a{color:#7c9cff;text-decoration:none}
+    a:hover{color:#a8bdff}
+    .cta{display:inline-block;margin-top:24px;background:#7c9cff;color:#0a0b0d;
+         padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px}
+    .cta:hover{background:#a8bdff;color:#0a0b0d}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Thank you. 🙏</h1>
+    <p>Your donation funds the Windows code-signing cert, CI minutes, and the cross-device sync work on the roadmap.</p>
+    <p>A PayU receipt is on its way to your email. Nerva remains Apache-2.0 and yours.</p>
+    <a class="cta" href="/">Back to Nerva</a>
+    <p class="txn" id="txn"></p>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const txn = params.get("txnid");
+    const amount = params.get("amount");
+    if (txn) document.getElementById("txn").textContent =
+      "Reference: " + txn + (amount ? " · ₹" + amount : "");
+  </script>
+</body>
+</html>

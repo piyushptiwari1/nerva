@@ -51,6 +51,64 @@
     .opt.primary:hover { background: rgba(120, 210, 180, 0.18); }
     .opt h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
     .opt p { font-size: 13px; color: #8b8f97; margin: 0; line-height: 1.45; }
+
+    /* Donation form */
+    .donate-form {
+      margin: 28px 0 8px;
+      padding: 22px 22px 20px;
+      border-radius: 14px;
+      border: 1px solid rgba(124, 156, 255, 0.30);
+      background: rgba(124, 156, 255, 0.06);
+    }
+    .donate-form h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+    .donate-form .sub { font-size: 13px; color: #8b8f97; margin: 0 0 16px; }
+    .preset { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .preset button {
+      background: #14161a;
+      color: #ecf0f6;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 120ms, background 120ms;
+    }
+    .preset button:hover { border-color: rgba(124,156,255,0.50); }
+    .preset button.active { background: rgba(124,156,255,0.18); border-color: #7c9cff; color: #fff; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .field label { font-size: 12px; color: #8b8f97; }
+    .field input {
+      background: #0f1115;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      color: #ecf0f6;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      width: 100%;
+    }
+    .field input:focus { outline: none; border-color: #7c9cff; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+    .submit {
+      width: 100%;
+      margin-top: 6px;
+      background: #7c9cff;
+      color: #0a0b0d;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .submit:hover { background: #a8bdff; }
+    .submit:disabled { opacity: 0.6; cursor: progress; }
+    .legal { font-size: 11px; color: #5a6273; margin: 10px 0 0; line-height: 1.55; }
+    .err { color: #f47d7d; font-size: 12px; margin-top: 8px; min-height: 16px; }
+
     footer { margin-top: 36px; font-size: 12px; color: #6a6e76; line-height: 1.6; }
     footer a { color: #a8acb4; }
     .note {
@@ -81,26 +139,73 @@
 
     <div class="options">
       <a class="opt primary" href="https://github.com/sponsors/piyushptiwari1" target="_blank" rel="noopener">
-        <h2>❤︎ Sponsor on GitHub</h2>
-        <p>Recurring monthly or one-time. Tax-deductible in some jurisdictions. Best signal that the project should keep shipping.</p>
+        <h2>❤︎ Sponsor on GitHub (recurring)</h2>
+        <p>Monthly recurring. Best signal that the project should keep shipping. Tax-deductible in some jurisdictions.</p>
       </a>
 
       <a class="opt" href="https://github.com/piyushptiwari1/nerva" target="_blank" rel="noopener">
         <h2>★ Star on GitHub</h2>
         <p>Costs nothing, surfaces Nerva to more deep-work people. Issues and PRs are welcome too.</p>
       </a>
-
-      <!--
-        One-time INR donation via the Bytical platform's PayU integration
-        lands here once the /support → /api/payu-checkout edge function is
-        wired (planned with P5.5 in docs/ROADMAP.md). For now the link
-        falls back to Sponsors so the button is never broken.
-      -->
-      <a class="opt" href="https://github.com/sponsors/piyushptiwari1?frequency=one-time" target="_blank" rel="noopener">
-        <h2>☕ One-time donation</h2>
-        <p>A coffee, a CI month, a code-signing renewal — pick any amount. Card / UPI / Google Pay supported via GitHub.</p>
-      </a>
     </div>
+
+    <form class="donate-form" id="donate" action="/api/payu-checkout" method="POST">
+      <h2>☕ One-time donation (INR via PayU)</h2>
+      <p class="sub">A coffee, a CI month, a code-signing renewal — pick any amount. Card / UPI / Net banking / Google Pay supported.</p>
+
+      <div class="preset" role="group" aria-label="Preset amounts">
+        <button type="button" data-amt="199">₹199</button>
+        <button type="button" data-amt="499" class="active">₹499</button>
+        <button type="button" data-amt="999">₹999</button>
+        <button type="button" data-amt="1999">₹1999</button>
+        <button type="button" data-amt="4999">₹4999</button>
+      </div>
+
+      <div class="field">
+        <label for="amount">Amount (₹)</label>
+        <input id="amount" name="amount" type="number" min="50" max="100000" step="1" required value="499" inputmode="numeric" />
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="name">Name (shown on receipt)</label>
+          <input id="name" name="name" type="text" maxlength="60" placeholder="Friend of Nerva" />
+        </div>
+        <div class="field">
+          <label for="email">Email (PayU receipt)</label>
+          <input id="email" name="email" type="email" required maxlength="100" placeholder="you@example.com" />
+        </div>
+      </div>
+
+      <button class="submit" type="submit" id="submitBtn">Donate via PayU →</button>
+      <p class="err" id="err"></p>
+      <p class="legal">
+        Payments processed by PayU India. Nerva never sees your card or UPI details. Donations are non-refundable and not tax-deductible (we'll mention here when 80G is filed). Receipt is emailed by PayU on success.
+      </p>
+    </form>
+
+    <script>
+      (function() {
+        const amountInput = document.getElementById("amount");
+        const buttons = document.querySelectorAll(".preset button");
+        buttons.forEach(b => b.addEventListener("click", () => {
+          buttons.forEach(x => x.classList.remove("active"));
+          b.classList.add("active");
+          amountInput.value = b.dataset.amt;
+        }));
+        amountInput.addEventListener("input", () => {
+          buttons.forEach(x => x.classList.toggle("active", String(x.dataset.amt) === amountInput.value));
+        });
+        const form = document.getElementById("donate");
+        const btn = document.getElementById("submitBtn");
+        const err = document.getElementById("err");
+        form.addEventListener("submit", () => {
+          err.textContent = "";
+          btn.disabled = true;
+          btn.textContent = "Redirecting to PayU…";
+        });
+      })();
+    </script>
 
     <div class="note">
       Nerva has no telemetry, no analytics, no account, and no paid

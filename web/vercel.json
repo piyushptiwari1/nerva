@@ -21,6 +21,8 @@
     { "source": "/download/linux/rpm",      "destination": "/api/download?p=linux&f=rpm" },
     { "source": "/download/windows/msi",    "destination": "/api/download?p=windows&f=msi" },
     { "source": "/download/windows/exe",    "destination": "/api/download?p=windows&f=exe" },
-    { "source": "/cert",                    "destination": "/api/download?p=cert&f=crt" }
+    { "source": "/cert",                    "destination": "/api/download?p=cert&f=crt" },
+    { "source": "/support/thanks",          "destination": "/support/thanks.html" },
+    { "source": "/support/failed",          "destination": "/support/failed.html" }
   ]
 }
