@@ -171,11 +171,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          for i in 1 2 3 4 5; do
-            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q '_amd64.deb$'; then
+          # tauri-action may take several minutes to (a) create the draft
+          # release and (b) finish uploading every asset. Poll for up to
+          # 20 minutes (40 * 30 s) so we don't race the upload.
+          for i in $(seq 1 40); do
+            if gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '_amd64.deb$'; then
               echo "deb is up"; exit 0
             fi
-            echo "waiting for deb... ($i/5)"; sleep 15
+            echo "waiting for deb... ($i/40)"; sleep 30
           done
           echo "::error::deb asset never appeared on $TAG"; exit 1
 
