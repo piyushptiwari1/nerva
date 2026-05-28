@@ -33,9 +33,8 @@ use tracing_subscriber::EnvFilter;
 /// pattern we're recovering from.
 fn wipe_data_dir_for_cli_reset() -> std::io::Result<()> {
     const ID: &str = "ai.bytical.nerva";
-    let base = dirs::data_dir().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "no platform data dir")
-    })?;
+    let base = dirs::data_dir()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no platform data dir"))?;
     let dir = base.join(ID);
     if !dir.exists() {
         return Ok(());
