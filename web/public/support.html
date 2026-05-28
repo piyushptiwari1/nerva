@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Support Nerva — donate or sponsor</title>
+  <meta name="description" content="Nerva is free and open source. If it earns a place in your workflow, a sponsorship or one-time donation funds code-signing, CI, and cross-device sync." />
+  <meta name="theme-color" content="#0a0b0d" />
+  <link rel="canonical" href="https://nerva.bytical.ai/support" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="robots" content="index, follow" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0a0b0d;
+      color: #e4e6ea;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+    }
+    main {
+      max-width: 560px;
+      width: 100%;
+    }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    header img { width: 40px; height: 40px; border-radius: 8px; }
+    header a { color: inherit; text-decoration: none; font-weight: 600; font-size: 18px; }
+    h1 { font-size: 28px; line-height: 1.25; margin: 0 0 12px; }
+    p.lede { color: #a8acb4; margin: 0 0 28px; }
+    .options { display: grid; gap: 12px; }
+    .opt {
+      display: block;
+      padding: 18px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #14161a;
+      color: inherit;
+      text-decoration: none;
+      transition: background 120ms, border-color 120ms;
+    }
+    .opt:hover { background: #1a1d22; border-color: rgba(255,255,255,0.16); }
+    .opt.primary { background: rgba(120, 210, 180, 0.10); border-color: rgba(120, 210, 180, 0.30); }
+    .opt.primary:hover { background: rgba(120, 210, 180, 0.18); }
+    .opt h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+    .opt p { font-size: 13px; color: #8b8f97; margin: 0; line-height: 1.45; }
+    footer { margin-top: 36px; font-size: 12px; color: #6a6e76; line-height: 1.6; }
+    footer a { color: #a8acb4; }
+    .note {
+      margin-top: 24px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #14161a;
+      border: 1px dashed rgba(255,255,255,0.10);
+      font-size: 12px;
+      color: #a8acb4;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="/favicon.png" alt="" />
+      <a href="/">Nerva</a>
+    </header>
+
+    <h1>Thank you for keeping Nerva free.</h1>
+    <p class="lede">
+      Nerva is and stays Apache-2.0. If it earns a place in your
+      workflow, a sponsorship funds the Windows code-signing cert,
+      CI minutes, and the cross-device sync infra on the roadmap.
+    </p>
+
+    <div class="options">
+      <a class="opt primary" href="https://github.com/sponsors/piyushptiwari1" target="_blank" rel="noopener">
+        <h2>❤︎ Sponsor on GitHub</h2>
+        <p>Recurring monthly or one-time. Tax-deductible in some jurisdictions. Best signal that the project should keep shipping.</p>
+      </a>
+
+      <a class="opt" href="https://github.com/piyushptiwari1/nerva" target="_blank" rel="noopener">
+        <h2>★ Star on GitHub</h2>
+        <p>Costs nothing, surfaces Nerva to more deep-work people. Issues and PRs are welcome too.</p>
+      </a>
+
+      <!--
+        One-time INR donation via the Bytical platform's PayU integration
+        lands here once the /support → /api/payu-checkout edge function is
+        wired (planned with P5.5 in docs/ROADMAP.md). For now the link
+        falls back to Sponsors so the button is never broken.
+      -->
+      <a class="opt" href="https://github.com/sponsors/piyushptiwari1?frequency=one-time" target="_blank" rel="noopener">
+        <h2>☕ One-time donation</h2>
+        <p>A coffee, a CI month, a code-signing renewal — pick any amount. Card / UPI / Google Pay supported via GitHub.</p>
+      </a>
+    </div>
+
+    <div class="note">
+      Nerva has no telemetry, no analytics, no account, and no paid
+      tier today. Money received goes to project infrastructure
+      (signing certs, CI, hosting) and the open-source roadmap.
+    </div>
+
+    <footer>
+      © 2026 Bytical Solutions Private Limited ·
+      <a href="/">Home</a> ·
+      <a href="https://github.com/piyushptiwari1/nerva" target="_blank" rel="noopener">Source</a> ·
+      <a href="https://github.com/piyushptiwari1/nerva/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0</a>
+    </footer>
+  </main>
+</body>
+</html>

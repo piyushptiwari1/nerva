@@ -5,7 +5,7 @@ import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai } from "@/lib/ai";
 
-type Tab = "ai" | "timers" | "audio" | "focus" | "diag";
+type Tab = "ai" | "timers" | "audio" | "focus" | "diag" | "about";
 
 /**
  * Tabbed settings overlay. Opens via `useSettingsUi.toggle()` — bound to
@@ -72,7 +72,7 @@ export function SettingsPane() {
             <div className="flex-1 min-h-0 flex">
               {/* Tab rail */}
               <nav className="w-28 border-r border-ink-700/40 py-2 flex flex-col">
-                {((["ai", "timers", "audio", "focus", "diag"] as Tab[])).map((t) => (
+                {((['ai', 'timers', 'audio', 'focus', 'diag', 'about'] as Tab[])).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -101,6 +101,7 @@ export function SettingsPane() {
                     {tab === "audio" && <AudioTab />}
                     {tab === "focus" && <FocusTab />}
                     {tab === "diag" && <DiagTab />}
+                    {tab === "about" && <AboutTab />}
                   </>
                 )}
               </div>
@@ -567,6 +568,109 @@ function DiagTab() {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * About / Support panel. Surfaces what Nerva is, what version is running,
+ * the project links (source, license, issues), and how to support
+ * development — GitHub Sponsors first, one-time donate URL second.
+ *
+ * Nerva is and stays free and open source (Apache-2.0). Sponsorships fund
+ * code-signing certs, CI minutes, and future cross-device sync infra.
+ * There is no telemetry; this panel does not call out anywhere.
+ *
+ * Donate URL is intentionally a plain external link rather than an
+ * in-app PayU/Stripe form — keeps the OSS desktop binary free of any
+ * payment-gateway secrets and lets the supporting page (hosted on
+ * nerva.bytical.ai/support) evolve independently of the app release
+ * cycle. The hosted page itself reuses the Bytical platform's PayU
+ * integration once it lands.
+ */
+function AboutTab() {
+  // Version is filled in at build time by Vite (`__APP_VERSION__` in
+  // vite.config). Falls back to "dev" in non-bundled runs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const version: string = (globalThis as any).__APP_VERSION__ ?? "dev";
+
+  // Tauri 2's default webview opens target="_blank" links in the OS browser,
+  // so plain anchors are enough — no shell plugin / IPC dance needed.
+  const linkClass =
+    "hover:text-ink-100 underline-offset-2 hover:underline transition-colors";
+
+  return (
+    <section className="space-y-4 text-xs">
+      <header className="space-y-1">
+        <h3 className="text-sm font-medium text-ink-100">Nerva</h3>
+        <p className="text-ink-400">
+          The focus workspace that never forgets. Native, offline-first, no
+          telemetry. Apache-2.0.
+        </p>
+        <p className="text-ink-500">
+          v{version} · © 2026 Bytical Solutions Private Limited
+        </p>
+      </header>
+
+      <div className="space-y-2">
+        <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Support development</h4>
+        <p className="text-ink-400">
+          Nerva is free and open-source and will stay that way. If it earns a
+          place in your workflow, a sponsorship keeps it that way — it funds
+          the Windows code-signing cert, CI minutes, and the cross-device
+          sync infra on the roadmap.
+        </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <a
+            href="https://github.com/sponsors/piyushptiwari1"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded bg-accent/15 hover:bg-accent/25 text-accent-glow border border-accent/30 transition-colors"
+          >
+            ❤︎ Sponsor on GitHub
+          </a>
+          <a
+            href="https://nerva.bytical.ai/support"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-100 border border-ink-700/60 transition-colors"
+          >
+            One-time donation
+          </a>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Project</h4>
+        <ul className="space-y-1 text-ink-400">
+          <li>
+            <a href="https://nerva.bytical.ai" target="_blank" rel="noopener noreferrer" className={linkClass}>
+              nerva.bytical.ai
+            </a>
+            <span className="text-ink-500"> — website</span>
+          </li>
+          <li>
+            <a href="https://github.com/piyushptiwari1/nerva" target="_blank" rel="noopener noreferrer" className={linkClass}>
+              github.com/piyushptiwari1/nerva
+            </a>
+            <span className="text-ink-500"> — source, issues, contributions welcome</span>
+          </li>
+          <li>
+            <a href="https://github.com/piyushptiwari1/nerva/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className={linkClass}>
+              Apache-2.0 license
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/piyushptiwari1/nerva/releases" target="_blank" rel="noopener noreferrer" className={linkClass}>
+              Release notes
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <p className="text-[10px] text-ink-500 pt-2 border-t border-ink-800">
+        Built with Tauri + Rust + React. No analytics, no accounts, no cloud.
+      </p>
     </section>
   );
 }

@@ -1,0 +1,10 @@
+# GitHub Sponsors funding config — surfaced as the "Sponsor" button on the
+# repo page and on every release. Kept intentionally short: the primary
+# channel is GitHub Sponsors; the `custom` URL points at the same hosted
+# /support page the in-app "One-time donation" button uses, so a future
+# switch of payment provider (currently planned: PayU via the Bytical
+# platform backend) doesn't require a new release of the desktop app.
+
+github: [piyushptiwari1]
+custom:
+  - "https://nerva.bytical.ai/support"

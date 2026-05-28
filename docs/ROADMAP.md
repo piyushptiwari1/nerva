@@ -205,6 +205,35 @@ timers, same notes, same habit grid, same coach context.
   hosted coach inference (P4) for users without a local GPU,
   priority support. Pricing TBD.
 
+#### P5.5 — Funding + payment infrastructure
+
+Until tiers ship, monetisation is donation-only and runs through
+the same gateway the Bytical platform already uses:
+
+- **GitHub Sponsors** — primary recurring channel
+  (`.github/FUNDING.yml`, surfaced on every release page and inside
+  the app at Settings → About).
+- **One-time donation page** at `nerva.bytical.ai/support`. Hosted
+  on the same Vercel project as the marketing site, posts to a
+  PayU checkout. PayU was picked to match
+  [`bytical-platform-backend/routes/payment_endpoints.py`](https://github.com/bytical/bytical-platform-backend)
+  so the same `PAYU_KEY` / `PAYU_SALT` / `PAYU_BASE_URL` env vars
+  and the same hash + redirect-back flow Bytical already runs in
+  prod are reused. Only the productinfo, amount, and surl/furl
+  change per integration.
+- **Pro subscription** (post-P5.1) reuses the platform's
+  `PaymentIntent` + `subscription_manager` mongo collection — the
+  Nerva account-server is a thin shim that calls into the same
+  payment endpoints rather than a parallel Stripe/Razorpay
+  integration. Means one billing dashboard, one tax-report, one
+  reconciliation pipeline.
+- **What does NOT live in the desktop binary**: no payment keys,
+  no checkout iframe, no IAP. The app only opens
+  `nerva.bytical.ai/support` and `github.com/sponsors/piyushptiwari1`
+  in the user's browser. Keeps the OSS binary free of any
+  payment-gateway secret and lets the support page evolve without
+  a desktop release.
+
 Open questions:
 - Self-host story for the account server — provide a Docker image
   + a one-command `nerva-self-host up`?

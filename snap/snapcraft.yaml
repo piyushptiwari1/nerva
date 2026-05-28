@@ -64,7 +64,14 @@ parts:
       # The release CI drops a single .deb into bundle/deb/ — unpack it
       DEB_FILE=$(ls *.deb | head -n1)
       dpkg-deb -x "$DEB_FILE" "$SNAPCRAFT_PART_INSTALL"
-      # Snapcraft expects $SNAPCRAFT_PART_INSTALL as the staged root.
+      # tauri-bundler ships the .desktop with the upstream PascalCase
+      # ("Nerva.desktop"), but snapcraft's app.desktop key needs the
+      # lowercase path it can find on stage. Rename in place so the
+      # subsequent snapcraft "Copying snap assets" step finds it.
+      DESKTOP_DIR="$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+      if [ -f "$DESKTOP_DIR/Nerva.desktop" ] && [ ! -f "$DESKTOP_DIR/nerva.desktop" ]; then
+        mv "$DESKTOP_DIR/Nerva.desktop" "$DESKTOP_DIR/nerva.desktop"
+      fi
     build-packages:
       - dpkg
     stage-packages:
