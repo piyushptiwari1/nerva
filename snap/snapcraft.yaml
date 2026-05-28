@@ -1,6 +1,6 @@
 name: nerva
 base: core22
-version: '0.1.2'
+version: '0.1.3'
 summary: The focus workspace that never forgets
 description: |
   Nerva is a native desktop focus workspace built for deep work. Parallel
