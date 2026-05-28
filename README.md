@@ -18,8 +18,31 @@ Offline-first. No telemetry. No account.
 
 Native Rust core, ~80 MB RAM idle. Not Electron. Apache-2.0.
 
-→ **Download:** https://nerva.bytical.ai
+→ **Website:** https://nerva.bytical.ai
 → **Canonical product story:** [`docs/STORY.md`](docs/STORY.md)
+→ **Support development:** https://nerva.bytical.ai/support
+
+## Download
+
+Direct downloads (no GitHub redirect — fronted by the bytical.ai CDN):
+
+| Platform | Format | Link |
+|---|---|---|
+| **Linux** (Ubuntu 22.04/24.04, Fedora, Debian) | `.deb` | https://nerva.bytical.ai/download/linux/deb |
+| **Linux** (any distro, portable) | `.AppImage` | https://nerva.bytical.ai/download/linux/appimage |
+| **Linux** (Fedora, openSUSE, RHEL) | `.rpm` | https://nerva.bytical.ai/download/linux/rpm |
+| **Windows 10 / 11** | `.exe` (NSIS) | https://nerva.bytical.ai/download/windows/exe |
+| **Windows 10 / 11** | `.msi` | https://nerva.bytical.ai/download/windows/msi |
+
+Or via your package manager:
+
+```bash
+sudo snap install nerva               # Linux (any snap-enabled distro)
+winget install Bytical.Nerva          # Windows
+yay -S nerva-bin                      # Arch (AUR, coming v0.1.3)
+```
+
+From **v0.1.2** onward Nerva auto-updates itself silently (minisign-signed, verified locally).
 
 ## Status
 

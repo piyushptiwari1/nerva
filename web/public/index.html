@@ -38,8 +38,8 @@
     "operatingSystem": "Linux, Windows",
     "description": "Persistent desktop focus workspace for deep work. Parallel timers that survive sleep and reboot, sticky markdown notes, year-long habit heatmap, and tasks. Offline-first.",
     "url": "https://nerva.bytical.ai/",
-    "downloadUrl": "https://github.com/piyushptiwari1/nerva/releases",
-    "softwareVersion": "0.1.0",
+    "downloadUrl": "https://nerva.bytical.ai/download/linux/deb",
+    "softwareVersion": "0.1.2",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "author": {"@type":"Organization","name":"Bytical Solutions Private Limited","url":"https://bytical.ai"},
     "offers": {"@type":"Offer","price":"0","priceCurrency":"USD"},
@@ -193,6 +193,7 @@
       <a href="#features">Features</a>
       <a href="#downloads">Download</a>
       <a href="#faq">FAQ</a>
+      <a href="/support">Donate</a>
       <a href="https://github.com/piyushptiwari1/nerva" rel="noopener">GitHub</a>
       <a href="#downloads" class="cta">Get Nerva</a>
     </div>
@@ -757,31 +758,35 @@
     <div class="downloads">
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg> Linux</h3>
-        <a class="primary" href="https://github.com/piyushptiwari1/nerva/releases">View releases</a>
+        <a class="primary" href="/download/linux/deb" download>Download .deb</a>
         <div class="alts">
-          <a href="https://github.com/piyushptiwari1/nerva/releases">.deb · .AppImage · .rpm</a>
+          <a href="/download/linux/appimage" download>.AppImage</a> ·
+          <a href="/download/linux/rpm" download>.rpm</a> ·
+          <a href="https://snapcraft.io/nerva" rel="noopener">Snap Store</a>
         </div>
       </div>
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg> Windows 10 / 11</h3>
-        <a class="primary" href="https://github.com/piyushptiwari1/nerva/releases">View releases</a>
+        <a class="primary" href="/download/windows/exe" download>Download installer (.exe)</a>
         <div class="alts">
-          <a href="https://github.com/piyushptiwari1/nerva/releases">.exe · .msi</a>
+          <a href="/download/windows/msi" download>.msi</a> ·
+          <a href="https://winstall.app/apps/Bytical.Nerva" rel="noopener">winget</a>
         </div>
       </div>
       <div class="dl-card">
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Package managers</h3>
-        <a class="primary" href="https://github.com/piyushptiwari1/nerva">★ Star on GitHub</a>
+        <a class="primary" href="https://github.com/piyushptiwari1/nerva" rel="noopener">★ Star on GitHub</a>
         <div class="alts">
-          <a href="https://github.com/piyushptiwari1/nerva">Snap · winget · AUR (soon)</a>
+          <code>sudo snap install nerva</code><br/>
+          <code>winget install Bytical.Nerva</code><br/>
+          <code>yay -S nerva-bin</code> <span style="opacity:.6">(soon)</span>
         </div>
       </div>
     </div>
     <div class="note">
-      <strong>v0.1.0 ships shortly.</strong> Star the GitHub repo to be notified the moment
-      installers go live. Once shipped, Windows installers carry the Bytical self-signed
-      certificate — first run shows <strong>SmartScreen "Unrecognized app"</strong>;
-      click <code>More info → Run anyway</code>, or install the Bytical trust certificate
+      <strong>Latest: v0.1.2 — auto-updating.</strong> From v0.1.2 onward Nerva updates itself silently in the background (signed with minisign, verified locally).
+      Windows installers carry the Bytical self-signed certificate — first run shows <strong>SmartScreen "Unrecognized app"</strong>;
+      click <code>More info → Run anyway</code>, or install the <a href="/cert">Bytical trust certificate</a>
       once to silence the warning forever. The Microsoft Store build (in review) bypasses this.
     </div>
   </div>
