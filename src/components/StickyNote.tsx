@@ -59,7 +59,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
     try {
       const saved = await ipc.noteSave({
         id: noteId,
-        title: p.title || "Untitled",
+        title: p.title,
         body: p.body,
         workspace_id: workspaceId.current,
       });
@@ -207,7 +207,8 @@ export function StickyNote({ noteId }: { noteId: string }) {
             scheduleSave(e.target.value, body);
           }}
           className="bg-transparent text-stone-900 text-sm font-semibold focus:outline-none flex-1 mr-2 placeholder:text-amber-700/50"
-          placeholder="Untitled note"
+          placeholder="Note title…"
+          aria-label="Sticky note title"
         />
         <div className="flex items-center gap-1">
           <button

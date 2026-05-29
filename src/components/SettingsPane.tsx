@@ -20,6 +20,7 @@ type Tab = "ai" | "timers" | "audio" | "focus" | "diag" | "about";
 export function SettingsPane() {
   const open = useSettingsUi((s) => s.open);
   const setOpen = useSettingsUi((s) => s.setOpen);
+  const consumePendingTab = useSettingsUi((s) => s.consumePendingTab);
   const [tab, setTab] = useState<Tab>("ai");
   const [bundle, setBundle] = useState<SettingsBundle | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,12 @@ export function SettingsPane() {
 
   useEffect(() => {
     if (!open) return;
+    // Honor deep-link from the command palette (e.g. "Reset Nerva" opens
+    // Settings already focused on Diagnostics so the button is in view).
+    const pending = consumePendingTab();
+    if (pending && ["ai", "timers", "audio", "focus", "diag", "about"].includes(pending)) {
+      setTab(pending as Tab);
+    }
     setLoading(true);
     setErr(null);
     settingsApi
@@ -34,7 +41,7 @@ export function SettingsPane() {
       .then(setBundle)
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false));
-  }, [open]);
+  }, [open, consumePendingTab]);
 
   // Esc to close.
   useEffect(() => {
@@ -687,6 +694,53 @@ function AboutTab() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const version: string = (globalThis as any).__APP_VERSION__ ?? "dev";
 
+  type UpdateState =
+    | { kind: "idle" }
+    | { kind: "checking" }
+    | { kind: "up-to-date" }
+    | { kind: "available"; version: string }
+    | { kind: "installing" }
+    | { kind: "error"; message: string };
+  const [updateState, setUpdateState] = useState<UpdateState>({ kind: "idle" });
+
+  /**
+   * Manual update check. Mirrors what `scheduleUpdateCheck()` does at boot
+   * but surfaces every state to the user — including "you're already on
+   * the latest" which the silent boot check swallows. Confined to the
+   * desktop bundle: the dynamic import keeps web/dev builds buildable
+   * even though the plugin only exists in the Tauri runtime.
+   */
+  async function checkForUpdates() {
+    setUpdateState({ kind: "checking" });
+    try {
+      const [{ check }, { relaunch }] = await Promise.all([
+        import("@tauri-apps/plugin-updater"),
+        import("@tauri-apps/plugin-process"),
+      ]);
+      const update = await check();
+      if (!update) {
+        setUpdateState({ kind: "up-to-date" });
+        return;
+      }
+      setUpdateState({ kind: "available", version: update.version });
+      // Native confirm so we honor the user's "not now" choice without
+      // building bespoke UI for download progress.
+      const ok = window.confirm(
+        `Nerva ${update.version} is available (you're on ${version}). ` +
+          `Download and install now? Nerva will relaunch automatically.`,
+      );
+      if (!ok) {
+        setUpdateState({ kind: "idle" });
+        return;
+      }
+      setUpdateState({ kind: "installing" });
+      await update.downloadAndInstall();
+      await relaunch();
+    } catch (err) {
+      setUpdateState({ kind: "error", message: String(err) });
+    }
+  }
+
   // Tauri 2's default webview opens target="_blank" links in the OS browser,
   // so plain anchors are enough — no shell plugin / IPC dance needed.
   const linkClass =
@@ -704,6 +758,41 @@ function AboutTab() {
           v{version} · © 2026 Bytical Solutions Private Limited
         </p>
       </header>
+
+      {/* Updates — manual check. The app also auto-checks 4 s after launch. */}
+      <div className="space-y-2">
+        <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Updates</h4>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={checkForUpdates}
+            disabled={updateState.kind === "checking" || updateState.kind === "installing"}
+            className="px-3 py-1.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-100 border border-ink-700/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {updateState.kind === "checking"
+              ? "Checking…"
+              : updateState.kind === "installing"
+              ? "Installing…"
+              : "Check for updates"}
+          </button>
+          {updateState.kind === "up-to-date" && (
+            <span className="text-ink-400">You're on the latest version.</span>
+          )}
+          {updateState.kind === "available" && (
+            <span className="text-accent-glow">
+              {updateState.version} available.
+            </span>
+          )}
+          {updateState.kind === "error" && (
+            <span className="text-red-400 truncate" title={updateState.message}>
+              Check failed — see Diagnostics.
+            </span>
+          )}
+        </div>
+        <p className="text-[10px] text-ink-500">
+          Updates are signed and verified locally. Snap and Microsoft Store
+          builds update through their respective channels.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Support development</h4>

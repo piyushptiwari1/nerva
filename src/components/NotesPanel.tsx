@@ -32,6 +32,8 @@ export function NotesPanel() {
   // Hold onto the currently loaded note id without going through React state,
   // so the popout `note:saved` listener can ignore events for other notes.
   const currentIdRef = useRef<string | null>(null);
+  // Title <input> ref so "+ New" can move focus straight to it.
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // On workspace change: try resume last-edited note, else most-recent, else fresh.
   useEffect(() => {
@@ -49,8 +51,10 @@ export function NotesPanel() {
       if (pick) {
         await loadNote(pick.id);
       } else {
+        // Blank slate — empty title lets the input placeholder show through
+        // so the user isn't forced to delete filler text before typing.
         setCurrentId(null);
-        setTitle("Scratchpad");
+        setTitle("");
         setBody("");
       }
     })();
@@ -66,15 +70,17 @@ export function NotesPanel() {
       if (n) {
         setCurrentId(n.id);
         currentIdRef.current = n.id;
-        setTitle(n.title || "Untitled");
+        // Show whatever the backend has. Empty string surfaces the input
+        // placeholder; the backend auto-titles on save anyway (v0.1.5+).
+        setTitle(n.title ?? "");
         setBody(n.body);
       } else {
         // Note was deleted (e.g. on another device, or by reset). Drop the
-        // stale pointer and fall back to a blank scratchpad rather than
+        // stale pointer and fall back to a blank slate rather than
         // displaying a half-loaded ghost note.
         setCurrentId(null);
         currentIdRef.current = null;
-        setTitle("Untitled");
+        setTitle("");
         setBody("");
       }
     } catch (e) {
@@ -104,7 +110,7 @@ export function NotesPanel() {
       if (currentIdRef.current === id) {
         setCurrentId(null);
         currentIdRef.current = null;
-        setTitle("Untitled");
+        setTitle("");
         setBody("");
       }
       refreshNotes();
@@ -138,7 +144,7 @@ export function NotesPanel() {
             try {
               const n = await ipc.noteGet(id);
               if (n) {
-                setTitle(n.title || "Untitled");
+                setTitle(n.title ?? "");
                 setBody(n.body);
               }
             } catch {
@@ -160,7 +166,7 @@ export function NotesPanel() {
             pending.current = null;
             setCurrentId(null);
             currentIdRef.current = null;
-            setTitle("Untitled");
+            setTitle("");
             setBody("");
           }
           refreshNotes();
@@ -185,7 +191,7 @@ export function NotesPanel() {
       pending.current = null;
       void ipc.noteSave({
         id: currentIdRef.current ?? undefined,
-        title: p.title || "Untitled",
+        title: p.title,
         body: p.body,
         workspace_id: active?.id,
       });
@@ -216,7 +222,7 @@ export function NotesPanel() {
       try {
         const saved = await ipc.noteSave({
           id: currentId ?? undefined,
-          title: nextTitle || "Untitled",
+          title: nextTitle,
           body: nextBody,
           workspace_id: active?.id,
         });
@@ -243,9 +249,19 @@ export function NotesPanel() {
   async function newNote() {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     setCurrentId(null);
-    setTitle("New note");
+    // Empty title + empty body — placeholders explain what to do.
+    // The user doesn't need to delete filler text before they can type.
+    setTitle("");
     setBody("");
     setMode("edit");
+    // Focus the title input on the next paint so the user can start typing.
+    queueMicrotask(() => {
+      try {
+        titleInputRef.current?.focus();
+      } catch {
+        /* ref not mounted yet — harmless */
+      }
+    });
   }
 
   function onSearch(q: string) {
@@ -313,9 +329,9 @@ export function NotesPanel() {
             onClick={popSticky}
             disabled={!currentId}
             className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Open this note as an always-on-top sticky window"
+            title="Open this note in a floating sticky window"
           >
-            Pop up
+            Pop out
           </button>
           <button
             onClick={newNote}
@@ -387,13 +403,16 @@ export function NotesPanel() {
       ) : (
         <>
           <input
+            ref={titleInputRef}
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
               scheduleSave(e.target.value, body);
             }}
-            className="bg-transparent px-3 py-2 text-sm font-medium border-b border-ink-700/40 focus:outline-none"
-            placeholder="Title"
+            onFocus={(e) => e.currentTarget.select()}
+            className="bg-transparent px-3 py-2 text-sm font-medium border-b border-ink-700/40 focus:outline-none placeholder:text-ink-500"
+            placeholder="Note title — leave blank for an auto-timestamp"
+            aria-label="Note title"
           />
 
           {mode === "edit" ? (
@@ -404,8 +423,9 @@ export function NotesPanel() {
                 scheduleSave(title, e.target.value);
               }}
               spellCheck={false}
-              className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none"
-              placeholder="Start writing… your words save themselves. Markdown works — # headings, **bold**, - lists, `code`."
+              className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none placeholder:text-ink-500"
+              placeholder={"Type your note here \u2014 it auto-saves as you write.\n\nMarkdown works:  # heading  **bold**  - list  `code`\nPop out to a sticky window with the button above."}
+              aria-label="Note body"
             />
           ) : (
             <div

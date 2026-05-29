@@ -350,6 +350,48 @@ export function CommandPalette() {
       keywords: "help tour tutorial walkthrough onboarding intro guide".toLowerCase(),
       run: () => showTutorial(),
     });
+    out.push({
+      id: "system.updates",
+      group: "System",
+      glyph: "⇪",
+      title: "Check for updates",
+      subtitle: "downloads + verifies signed release if newer",
+      keywords: "update updates upgrade version download install latest".toLowerCase(),
+      run: async () => {
+        try {
+          const [{ check }, { relaunch }] = await Promise.all([
+            import("@tauri-apps/plugin-updater"),
+            import("@tauri-apps/plugin-process"),
+          ]);
+          const update = await check();
+          if (!update) {
+            window.alert("You're on the latest version of Nerva.");
+            return;
+          }
+          if (
+            window.confirm(
+              `Nerva ${update.version} is available. Download and install now? Nerva will relaunch.`,
+            )
+          ) {
+            await update.downloadAndInstall();
+            await relaunch();
+          }
+        } catch (err) {
+          window.alert(`Update check failed: ${err}`);
+        }
+      },
+    });
+    out.push({
+      id: "system.reset",
+      group: "System",
+      glyph: "⌫",
+      title: "Reset Nerva (clear all local data)",
+      subtitle: "Settings → Diagnostics · last resort if the app is stuck",
+      keywords: "reset wipe clear erase factory clean stuck recover broken fix repair".toLowerCase(),
+      run: () => {
+        useSettingsUi.getState().openOn("diag");
+      },
+    });
 
     return out;
   }, [

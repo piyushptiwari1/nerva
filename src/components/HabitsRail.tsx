@@ -103,9 +103,9 @@ export function HabitsRail() {
           <button
             onClick={() => ipc.openHabitsWidget()}
             className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
-            title="Open as floating always-on-top widget"
+            title="Open as a floating always-on-top widget"
           >
-            ↗ pop up
+            ↗ Pop out
           </button>
           <button
             onClick={openHabits}
