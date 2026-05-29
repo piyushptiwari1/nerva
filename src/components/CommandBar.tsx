@@ -4,14 +4,17 @@ import { FocusMenu } from "@/components/FocusMenu";
 import { usePalette } from "@/store/palette";
 import { useTutorial } from "@/store/tutorial";
 import { useHabitsUi } from "@/store/habits";
+import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
   const [now, setNow] = useState(() => new Date());
   const openPalette = usePalette((s) => s.set);
+  const askNerva = usePalette((s) => s.ask);
   const showTutorial = useTutorial((s) => s.show);
   const toggleHabits = useHabitsUi((s) => s.toggle);
+  const toggleSettings = useSettingsUi((s) => s.toggle);
   const theme = useTheme((s) => s.theme);
   const toggleTheme = useTheme((s) => s.toggleTheme);
 
@@ -49,6 +52,15 @@ export function CommandBar() {
       <FocusMenu />
 
       <button
+        onClick={() => askNerva("")}
+        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        title="Ask Nerva"
+        aria-label="Ask Nerva"
+      >
+        ✦
+      </button>
+
+      <button
         onClick={toggleHabits}
         className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
         title="Habits (Ctrl+H)"
@@ -73,6 +85,15 @@ export function CommandBar() {
         aria-label="Show quick tour"
       >
         ?
+      </button>
+
+      <button
+        onClick={toggleSettings}
+        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        title="Settings (Ctrl+,)"
+        aria-label="Open settings"
+      >
+        ⚙
       </button>
 
       <div className="text-xs text-ink-300 tnum">

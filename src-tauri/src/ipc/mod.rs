@@ -1270,7 +1270,7 @@ pub fn focus_set_dnd(state: State, enabled: bool) -> Result<FocusState> {
 
 #[derive(Debug, Deserialize)]
 pub struct AskArgs {
-    /// Frontend-supplied request id — echoed in every `ai.chunk` event so the
+    /// Frontend-supplied request id — echoed in every `ai:chunk` event so the
     /// UI can multiplex concurrent asks against a single window event channel.
     pub request_id: String,
     pub prompt: String,
@@ -1323,7 +1323,7 @@ pub async fn ai_ask(
             // Best-effort emit; if the listener has dropped, swallow the error
             // rather than aborting the stream.
             let _ = win.emit(
-                "ai.chunk",
+                "ai:chunk",
                 AiChunk {
                     request_id: req_id.clone(),
                     delta: delta.to_string(),
@@ -1334,7 +1334,7 @@ pub async fn ai_ask(
 
     // Tell the frontend the stream ended (cleanly or via cancel).
     let _ = window.emit(
-        "ai.done",
+        "ai:done",
         AiDone {
             request_id: req_id.clone(),
             text: outcome.text.clone(),

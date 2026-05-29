@@ -46,10 +46,10 @@ export async function aiAsk(
   let unlistenChunk: UnlistenFn | null = null;
   let unlistenDone: UnlistenFn | null = null;
   try {
-    unlistenChunk = await listen<AiChunk>("ai.chunk", (e) => {
+    unlistenChunk = await listen<AiChunk>("ai:chunk", (e) => {
       if (e.payload.request_id === request_id) opts.onChunk(e.payload.delta);
     });
-    unlistenDone = await listen<AiDone>("ai.done", () => void 0);
+    unlistenDone = await listen<AiDone>("ai:done", () => void 0);
 
     if (opts.signal) {
       opts.signal.addEventListener("abort", () => {
