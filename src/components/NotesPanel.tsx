@@ -26,6 +26,12 @@ export function NotesPanel() {
   const [semHits, setSemHits] = useState<SemanticHit[]>([]);
   const saveTimer = useRef<number | null>(null);
   const searchTimer = useRef<number | null>(null);
+  // Mirrors the latest in-flight edit so flushSave() can persist without
+  // racing React's state updater on unmount.
+  const pending = useRef<{ title: string; body: string } | null>(null);
+  // Hold onto the currently loaded note id without going through React state,
+  // so the popout `note:saved` listener can ignore events for other notes.
+  const currentIdRef = useRef<string | null>(null);
 
   // On workspace change: try resume last-edited note, else most-recent, else fresh.
   useEffect(() => {
@@ -59,6 +65,7 @@ export function NotesPanel() {
       const n = await ipc.noteGet(id);
       if (n) {
         setCurrentId(n.id);
+        currentIdRef.current = n.id;
         setTitle(n.title || "Untitled");
         setBody(n.body);
       } else {
@@ -66,6 +73,7 @@ export function NotesPanel() {
         // stale pointer and fall back to a blank scratchpad rather than
         // displaying a half-loaded ghost note.
         setCurrentId(null);
+        currentIdRef.current = null;
         setTitle("Untitled");
         setBody("");
       }
@@ -74,18 +82,161 @@ export function NotesPanel() {
     }
   }
 
-  function scheduleSave(nextTitle: string, nextBody: string) {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
-      const saved = await ipc.noteSave({
-        id: currentId ?? undefined,
-        title: nextTitle || "Untitled",
-        body: nextBody,
+  /**
+   * Permanently delete a note. Confirms first because there's no undo —
+   * the backend hard-deletes the row and cascades the FTS5 + embedding
+   * cleanup. Cross-window listeners (sticky popout on the same note) get
+   * notified via the `note:deleted` Tauri event emitted server-side.
+   */
+  async function deleteNote(id: string, titleHint: string) {
+    const label = titleHint?.trim() || "this note";
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    try {
+      // Cancel any pending autosave for this id so we don't resurrect it.
+      if (currentIdRef.current === id && saveTimer.current) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        pending.current = null;
+      }
+      await ipc.noteDelete(id);
+      // If the deleted note is the one currently open, reset the editor.
+      if (currentIdRef.current === id) {
+        setCurrentId(null);
+        currentIdRef.current = null;
+        setTitle("Untitled");
+        setBody("");
+      }
+      refreshNotes();
+    } catch (e) {
+      console.warn("[NotesPanel] deleteNote failed:", e);
+      // eslint-disable-next-line no-alert
+      window.alert(`Could not delete note: ${e}`);
+    }
+  }
+
+  // Listen for cross-window note saves (sticky popout edited the same note)
+  // and refresh the editor + list. Also flush our own pending edits on
+  // visibility-hidden / beforeunload so closing the main window doesn't drop
+  // the last keystroke.
+  useEffect(() => {
+    let unlistenSaved: (() => void) | undefined;
+    let unlistenDeleted: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenSaved = await listen<{ id: string }>("note:saved", async (ev) => {
+          const id = ev.payload?.id;
+          if (!id) return;
+          // Refresh the sidebar list regardless of which note changed.
+          refreshNotes();
+          // If the changed note is the one we're editing, reload it — but
+          // *only* if there's no local pending edit, otherwise we'd clobber
+          // the user's in-flight typing.
+          if (id === currentIdRef.current && !pending.current) {
+            try {
+              const n = await ipc.noteGet(id);
+              if (n) {
+                setTitle(n.title || "Untitled");
+                setBody(n.body);
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+        unlistenDeleted = await listen<{ id: string }>("note:deleted", (ev) => {
+          const id = ev.payload?.id;
+          if (!id) return;
+          // Drop the open editor if it pointed at the now-gone note, and
+          // refresh the sidebar so the deleted row disappears.
+          if (currentIdRef.current === id) {
+            // Cancel any pending save so we don't recreate it.
+            if (saveTimer.current) {
+              window.clearTimeout(saveTimer.current);
+              saveTimer.current = null;
+            }
+            pending.current = null;
+            setCurrentId(null);
+            currentIdRef.current = null;
+            setTitle("Untitled");
+            setBody("");
+          }
+          refreshNotes();
+        });
+        if (cancelled) {
+          unlistenSaved?.();
+          unlistenDeleted?.();
+        }
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+
+    const flushSync = () => {
+      if (!pending.current || !saveTimer.current) return;
+      // Cancel the debounce timer and fire the IPC immediately. We can't
+      // await here (beforeunload doesn't wait for async), but the call is
+      // in-flight before the webview tears down.
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      const p = pending.current;
+      pending.current = null;
+      void ipc.noteSave({
+        id: currentIdRef.current ?? undefined,
+        title: p.title || "Untitled",
+        body: p.body,
         workspace_id: active?.id,
       });
-      setCurrentId(saved.id);
-      setSavedAt(Date.now());
-      refreshNotes();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushSync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", flushSync);
+    window.addEventListener("pagehide", flushSync);
+    return () => {
+      cancelled = true;
+      if (unlistenSaved) unlistenSaved();
+      if (unlistenDeleted) unlistenDeleted();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", flushSync);
+      window.removeEventListener("pagehide", flushSync);
+      flushSync();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id]);
+
+  function scheduleSave(nextTitle: string, nextBody: string) {
+    pending.current = { title: nextTitle, body: nextBody };
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(async () => {
+      saveTimer.current = null;
+      try {
+        const saved = await ipc.noteSave({
+          id: currentId ?? undefined,
+          title: nextTitle || "Untitled",
+          body: nextBody,
+          workspace_id: active?.id,
+        });
+        // Successful persist — clear pending so cross-window refresh can
+        // re-fetch without fearing it'll clobber local edits.
+        pending.current = null;
+        setCurrentId(saved.id);
+        currentIdRef.current = saved.id;
+        setSavedAt(Date.now());
+        refreshNotes();
+        // Tell any other window (sticky popout on the same note) to refresh.
+        try {
+          const { emit } = await import("@tauri-apps/api/event");
+          await emit("note:saved", { id: saved.id });
+        } catch {
+          /* event bus unavailable */
+        }
+      } catch (e) {
+        console.error("[NotesPanel] save failed:", e);
+      }
     }, 250);
   }
 
@@ -274,15 +425,31 @@ export function NotesPanel() {
                   .filter((n) => !active || n.workspace_id === active.id)
                   .slice(0, 8)
                   .map((n) => (
-                    <button
+                    <div
                       key={n.id}
-                      onClick={() => loadNote(n.id)}
-                      className={`text-left text-xs px-2 py-1 rounded-md hover:bg-ink-800/60 truncate ${
+                      className={`group flex items-center gap-1 rounded-md hover:bg-ink-800/60 ${
                         n.id === currentId ? "text-ink-100" : "text-ink-300"
                       }`}
                     >
-                      {n.title || "Untitled"}
-                    </button>
+                      <button
+                        onClick={() => loadNote(n.id)}
+                        className="flex-1 min-w-0 text-left text-xs px-2 py-1 truncate"
+                        title={n.title || "Untitled"}
+                      >
+                        {n.title || "Untitled"}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNote(n.id, n.title || "Untitled");
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] px-1.5 py-1 text-ink-400 hover:text-red-300"
+                        title="Delete note"
+                        aria-label={`Delete note ${n.title || "Untitled"}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
               </div>
             </div>

@@ -306,6 +306,16 @@ impl Store {
         Ok(out)
     }
 
+    /// Hard-delete a note row. FTS5 + embeddings rows cascade via the
+    /// triggers + `ON DELETE CASCADE` constraint on `note_embeddings`.
+    /// The corresponding `note.deleted` event is appended by the caller so
+    /// the projection + timeline stay aligned.
+    pub fn note_delete(&self, id: &str) -> Result<()> {
+        let conn = self.pool.get()?;
+        conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
     // ---------- embeddings (semantic search cache) ----------
 
     /// Upsert a note embedding. We serialise the f32 vector as a little-endian

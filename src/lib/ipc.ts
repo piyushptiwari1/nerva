@@ -1,4 +1,29 @@
 import { invoke } from "@tauri-apps/api/core";
+import { emit as tauriEmit } from "@tauri-apps/api/event";
+
+/**
+ * Fire a cross-window Tauri event after a mutation. Best-effort: failures
+ * (e.g. running outside a Tauri context during unit tests) are swallowed so
+ * the underlying IPC call still returns its result to the caller.
+ *
+ * Subscribers (widgets, sticky popouts) listen for these events to refresh
+ * instantly instead of polling every few seconds.
+ */
+function notify(event: string, payload?: unknown): void {
+  void tauriEmit(event, payload ?? {}).catch(() => {
+    /* event bus unavailable — ignore */
+  });
+}
+
+/**
+ * Wrap a mutation IPC so it auto-emits a notification event on success.
+ * Keeps the call-site signature identical to the un-wrapped `invoke`.
+ */
+async function mutate<T>(cmd: string, args: unknown, event: string): Promise<T> {
+  const result = await invoke<T>(cmd, args as Record<string, unknown>);
+  notify(event);
+  return result;
+}
 
 // ---- types (mirror Rust) ----
 export type TimerStatus = "idle" | "running" | "paused" | "completed" | "cancelled";
@@ -163,6 +188,7 @@ export const ipc = {
   noteGet: (id: string) => invoke<Note | null>("note_get", { id }),
   noteSave: (args: { id?: string; title: string; body: string; workspace_id?: string }) =>
     invoke<Note>("note_save", { args }),
+  noteDelete: (id: string) => invoke<void>("note_delete", { id }),
   noteList: () => invoke<NoteMeta[]>("note_list"),
   noteSearch: (query: string, limit?: number) =>
     invoke<NoteSearchHit[]>("note_search", { query, limit }),
@@ -203,17 +229,17 @@ export const ipc = {
   // tasks
   taskList: () => invoke<Task[]>("task_list"),
   taskCreate: (args: { title: string; workspace_id?: string }) =>
-    invoke<Task>("task_create", { args }),
-  taskToggle: (id: string) => invoke<Task>("task_toggle", { id }),
+    mutate<Task>("task_create", { args }, "task:changed"),
+  taskToggle: (id: string) => mutate<Task>("task_toggle", { id }, "task:changed"),
   taskRename: (args: { id: string; title: string }) =>
-    invoke<Task>("task_rename", { args }),
-  taskDelete: (id: string) => invoke<void>("task_delete", { id }),
+    mutate<Task>("task_rename", { args }, "task:changed"),
+  taskDelete: (id: string) => mutate<void>("task_delete", { id }, "task:changed"),
   taskReorder: (args: { ordered_ids: string[]; workspace_id?: string }) =>
-    invoke<Task[]>("task_reorder", { args }),
+    mutate<Task[]>("task_reorder", { args }, "task:changed"),
   taskSetPriority: (args: { id: string; priority: TaskPriority }) =>
-    invoke<Task>("task_set_priority", { args }),
+    mutate<Task>("task_set_priority", { args }, "task:changed"),
   taskSetDue: (args: { id: string; due_ms: number | null }) =>
-    invoke<Task>("task_set_due", { args }),
+    mutate<Task>("task_set_due", { args }, "task:changed"),
   // momentum
   momentumSnapshot: (days?: number) =>
     invoke<MomentumBucket[]>("momentum_snapshot", { days }),
@@ -226,19 +252,19 @@ export const ipc = {
     unit?: string | null;
     color?: string;
     workspace_id?: string;
-  }) => invoke<Habit>("habit_create", { args }),
+  }) => mutate<Habit>("habit_create", { args }, "habit:changed"),
   habitUpdate: (args: {
     id: string;
     name?: string;
     color?: string;
     target?: number | null;
     unit?: string | null;
-  }) => invoke<Habit>("habit_update", { args }),
-  habitDelete: (id: string) => invoke<void>("habit_delete", { id }),
+  }) => mutate<Habit>("habit_update", { args }, "habit:changed"),
+  habitDelete: (id: string) => mutate<void>("habit_delete", { id }, "habit:changed"),
   habitLog: (args: { habit_id: string; day: string; value: number; skipped?: boolean }) =>
-    invoke<HabitEntry>("habit_log", { args }),
+    mutate<HabitEntry>("habit_log", { args }, "habit:changed"),
   habitClear: (args: { habit_id: string; day: string }) =>
-    invoke<void>("habit_clear", { args }),
+    mutate<void>("habit_clear", { args }, "habit:changed"),
   habitEntries: (args: { habit_id: string; from_day: string; to_day: string }) =>
     invoke<HabitEntry[]>("habit_entries", { args }),
   habitStats: (args: { habit_id: string; today: string }) =>

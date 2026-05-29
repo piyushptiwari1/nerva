@@ -34,12 +34,35 @@ export function TasksWidget() {
 
   useEffect(() => {
     refresh();
-    const h = window.setInterval(refresh, 4000);
+    // Slow safety-net poll (30 s) in case a cross-window event was dropped
+    // — primary refresh trigger is the `task:changed` Tauri event below.
+    const h = window.setInterval(refresh, 30000);
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
+
+    let unlistenTask: (() => void) | undefined;
+    let unlistenWs: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenTask = await listen("task:changed", () => refresh());
+        unlistenWs = await listen("workspace:activated", () => refresh());
+        if (cancelled) {
+          unlistenTask?.();
+          unlistenWs?.();
+        }
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+
     return () => {
+      cancelled = true;
       window.clearInterval(h);
       window.removeEventListener("focus", onFocus);
+      unlistenTask?.();
+      unlistenWs?.();
     };
   }, [refresh]);
 

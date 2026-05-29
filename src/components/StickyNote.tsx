@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ipc, type Note } from "@/lib/ipc";
 import { renderMarkdown } from "@/lib/markdown";
 import { PinButton } from "./PinButton";
@@ -7,13 +7,30 @@ import { PinButton } from "./PinButton";
  * Always-on-top sticky-note view. Opened via the `open_sticky` IPC command —
  * the parent window passes the note id as the `?sticky=<id>` query param.
  * The whole webview is draggable so the user can position it anywhere on screen.
+ *
+ * Data-loss contract:
+ *  - Edits autosave with a 250 ms debounce.
+ *  - The pending debounce is *flushed* on every escape hatch:
+ *      • The in-app close button (closeWin).
+ *      • The OS window close button — captured via Tauri's
+ *        `onCloseRequested` event (we preventDefault, flush, then close).
+ *      • Tab visibility going hidden (window minimized / workspace switched).
+ *      • `beforeunload` (webview navigated / Tauri tearing down).
+ *  - On every successful save we emit a Tauri `note:saved` event so the
+ *    main window's NotesPanel can refresh without polling.
  */
 export function StickyNote({ noteId }: { noteId: string }) {
-  const [note, setNote] = useState<Note | null>(null);
+  const [, setNote] = useState<Note | null>(null);
   const [body, setBody] = useState("");
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState<"edit" | "view">("view");
   const saveTimer = useRef<number | null>(null);
+  // Latest pending payload — read by flushSave so the close path doesn't
+  // need to chase the React state which may be stale at unmount time.
+  const pending = useRef<{ title: string; body: string } | null>(null);
+  // Workspace id is captured once after load; refs avoid re-creating the
+  // flushSave closure (which is attached to native event listeners).
+  const workspaceId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let alive = true;
@@ -22,26 +39,151 @@ export function StickyNote({ noteId }: { noteId: string }) {
       setNote(n);
       setTitle(n.title);
       setBody(n.body);
+      workspaceId.current = n.workspace_id ?? undefined;
     });
     return () => {
       alive = false;
     };
   }, [noteId]);
 
-  function scheduleSave(nextTitle: string, nextBody: string) {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
+  // Synchronous-ish flush: cancels the debounce and persists immediately.
+  // Returns the save promise so callers can await before closing.
+  const flushSave = useCallback(async () => {
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const p = pending.current;
+    if (!p) return;
+    pending.current = null;
+    try {
       const saved = await ipc.noteSave({
         id: noteId,
-        title: nextTitle || "Untitled",
-        body: nextBody,
-        workspace_id: note?.workspace_id || undefined,
+        title: p.title || "Untitled",
+        body: p.body,
+        workspace_id: workspaceId.current,
       });
       setNote(saved);
+      // Notify the main window (and any other sticky on the same note)
+      // so its NotesPanel re-fetches without polling.
+      try {
+        const { emit } = await import("@tauri-apps/api/event");
+        await emit("note:saved", { id: saved.id });
+      } catch {
+        /* event bus unavailable — best effort */
+      }
+    } catch (e) {
+      // Surface to console (devtools) but never throw out of the close path.
+      console.error("[StickyNote] flushSave failed:", e);
+    }
+  }, [noteId]);
+
+  function scheduleSave(nextTitle: string, nextBody: string) {
+    pending.current = { title: nextTitle, body: nextBody };
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      flushSave();
     }, 250);
   }
 
+  // Cross-window awareness: if the underlying note is deleted from the main
+  // window, close this sticky so the user doesn't keep editing a ghost. If
+  // the active workspace switches, update our captured workspace id so the
+  // next save lands in the right place.
+  useEffect(() => {
+    let unlistenDeleted: (() => void) | undefined;
+    let unlistenWs: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenDeleted = await listen<{ id: string }>("note:deleted", async (ev) => {
+          if (ev.payload?.id !== noteId) return;
+          // Drop pending edits so the close path doesn't recreate the row.
+          pending.current = null;
+          if (saveTimer.current) {
+            window.clearTimeout(saveTimer.current);
+            saveTimer.current = null;
+          }
+          try {
+            const { getCurrentWindow } = await import("@tauri-apps/api/window");
+            await getCurrentWindow().close();
+          } catch {
+            /* already closing */
+          }
+        });
+        unlistenWs = await listen<{ id: string }>("workspace:activated", (ev) => {
+          if (ev.payload?.id) workspaceId.current = ev.payload.id;
+        });
+        if (cancelled) {
+          unlistenDeleted?.();
+          unlistenWs?.();
+        }
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlistenDeleted?.();
+      unlistenWs?.();
+    };
+  }, [noteId]);
+
+  // OS window close button, browser navigation, page hide → flush first.
+  useEffect(() => {
+    let unlistenClose: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const win = getCurrentWindow();
+        unlistenClose = await win.onCloseRequested(async (event) => {
+          // If a save is pending, defer the close until persistence completes.
+          if (pending.current) {
+            event.preventDefault();
+            await flushSave();
+            // Re-issue the close now that data is safe.
+            try {
+              await win.close();
+            } catch {
+              /* already closing */
+            }
+          }
+        });
+        if (cancelled && unlistenClose) unlistenClose();
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") void flushSave();
+    };
+    const onBeforeUnload = () => {
+      // Best-effort sync flush — fire-and-forget. The await won't complete
+      // before the webview tears down, but the IPC call is already in-flight
+      // and Rust will finish handling it.
+      void flushSave();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onBeforeUnload);
+    return () => {
+      cancelled = true;
+      if (unlistenClose) unlistenClose();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onBeforeUnload);
+      // Final flush on React unmount.
+      void flushSave();
+    };
+  }, [flushSave]);
+
   async function closeWin() {
+    // Persist before tearing down the webview, otherwise the pending
+    // debounce dies with the window and the user loses edits.
+    await flushSave();
     try {
       const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
       await win.close();

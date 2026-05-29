@@ -37,14 +37,36 @@ export function HabitsWidget() {
 
   useEffect(() => {
     refresh();
-    // Poll every 4s so the widget stays in sync with edits made in the main
-    // window. Cheap — habitEntries reads from in-memory projection.
-    const h = window.setInterval(refresh, 4000);
+    // Safety-net poll at 30 s — the primary refresh trigger is the
+    // `habit:changed` Tauri event below, so the widget reacts within ms
+    // of any edit in the main window.
+    const h = window.setInterval(refresh, 30000);
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
+
+    let unlistenHabit: (() => void) | undefined;
+    let unlistenWs: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenHabit = await listen("habit:changed", () => refresh());
+        unlistenWs = await listen("workspace:activated", () => refresh());
+        if (cancelled) {
+          unlistenHabit?.();
+          unlistenWs?.();
+        }
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+
     return () => {
+      cancelled = true;
       window.clearInterval(h);
       window.removeEventListener("focus", onFocus);
+      unlistenHabit?.();
+      unlistenWs?.();
     };
   }, [refresh]);
 

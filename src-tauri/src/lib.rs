@@ -202,6 +202,7 @@ pub fn run() {
             // notes
             ipc::note_get,
             ipc::note_save,
+            ipc::note_delete,
             ipc::note_list,
             ipc::note_search,
             ipc::note_semantic_search,

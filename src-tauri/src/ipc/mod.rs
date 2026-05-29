@@ -244,20 +244,62 @@ pub fn note_get(state: State, id: String) -> Result<Option<Note>> {
 
 #[tauri::command]
 pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
+    // Body size guard. Tauri/SQLite both technically handle multi-MB blobs,
+    // but the FTS5 trigger + JSON event payload + embedding round-trip all
+    // pay O(n) per save, so a multi-MB paste can freeze the UI for seconds
+    // and bloat the event log permanently. Hard cap at 2 MB and surface a
+    // clean error instead of letting the IPC stall.
+    const MAX_BODY_BYTES: usize = 2 * 1024 * 1024;
+    if args.body.len() > MAX_BODY_BYTES {
+        return Err(NervaError::Invalid(format!(
+            "note body too large: {} bytes (limit {} bytes ~= 2 MB). \
+             Split into separate notes or attach as a file.",
+            args.body.len(),
+            MAX_BODY_BYTES
+        )));
+    }
+    // Title validation: collapse whitespace-only to a stable autogen so the
+    // note is still discoverable in the sidebar / search and the user can
+    // rename it later. Empty / whitespace titles produced "invisible" notes
+    // pre-v0.1.5 (sidebar row blank, FTS5 indexed nothing).
+    let title = if args.title.trim().is_empty() {
+        let ts = crate::store::now_ms();
+        // YYYY-MM-DD HH:MM in UTC (no chrono dependency).
+        let secs = ts / 1000;
+        let days = secs / 86400;
+        // 1970-01-01 + days-since-epoch (Howard Hinnant's civil_from_days).
+        let z = days + 719468;
+        let era = if z >= 0 { z } else { z - 146096 } / 146097;
+        let doe = (z - era * 146097) as u64;
+        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        let y = yoe as i64 + era * 400;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let d = doy - (153 * mp + 2) / 5 + 1;
+        let m = if mp < 10 { mp + 3 } else { mp - 9 };
+        let y = if m <= 2 { y + 1 } else { y };
+        let secs_of_day = (secs % 86400) as u64;
+        let h = secs_of_day / 3600;
+        let mm = (secs_of_day % 3600) / 60;
+        format!("Untitled {y:04}-{m:02}-{d:02} {h:02}:{mm:02}")
+    } else {
+        args.title.trim().to_string()
+    };
+
     let id = args.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let ws = args
         .workspace_id
         .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
     state
         .store
-        .note_upsert(&id, ws.as_deref(), &args.title, &args.body)?;
+        .note_upsert(&id, ws.as_deref(), &title, &args.body)?;
     // Remember this as the "resume" note for the workspace.
     if let Some(ws_id) = ws.as_deref() {
         let _ = state.store.meta_set(&format!("last_note:{ws_id}"), &id);
     }
     let payload = serde_json::json!({
         "id": id,
-        "title": args.title,
+        "title": title,
         "workspace_id": ws,
         "len": args.body.len(),
     });
@@ -276,7 +318,7 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
     let store = state.store.clone();
     let ai = state.ai.clone();
     let id_for_embed = id.clone();
-    let text_for_embed = format!("{}\n\n{}", args.title, args.body);
+    let text_for_embed = format!("{}\n\n{}", title, args.body);
     tauri::async_runtime::spawn(async move {
         let model = std::env::var("NERVA_EMBED_MODEL")
             .unwrap_or_else(|_| crate::intelligence::DEFAULT_EMBED_MODEL.to_string());
@@ -295,7 +337,7 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
     Ok(Note {
         id,
         workspace_id: ws.unwrap_or_default(),
-        title: args.title,
+        title,
         body: args.body,
         updated_ms: crate::store::now_ms(),
     })
@@ -304,6 +346,46 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
 #[tauri::command]
 pub fn note_list(state: State) -> Result<Vec<NoteMeta>> {
     Ok(state.notes.lock().list())
+}
+
+/// Hard-delete a note. Removes the row from `notes` (which cascades into
+/// `notes_fts` via trigger and `note_embeddings` via `ON DELETE CASCADE`),
+/// clears any `last_note:<ws>` resume pointer that referenced it, appends a
+/// `note.deleted` event for timeline replay, and broadcasts a `note:deleted`
+/// Tauri event so any open sticky window can show the deleted-state UI
+/// instead of a half-loaded ghost.
+#[tauri::command]
+pub fn note_delete(app: tauri::AppHandle, state: State, id: String) -> Result<()> {
+    use tauri::Emitter;
+    if id.trim().is_empty() {
+        return Err(NervaError::Invalid("note id required".into()));
+    }
+    // Snapshot meta BEFORE delete so we can sweep resume pointers.
+    let workspace_hint = state.store.note_get(&id)?.map(|(ws, _, _, _)| ws);
+    state.store.note_delete(&id)?;
+    if let Some(ws_id) = workspace_hint.as_deref() {
+        if !ws_id.is_empty() {
+            let key = format!("last_note:{ws_id}");
+            // Only clear if it still points at this id — leave unrelated values intact.
+            if let Ok(Some(v)) = state.store.meta_get(&key) {
+                if v == id {
+                    let _ = state.store.meta_set(&key, "");
+                }
+            }
+        }
+    }
+    let payload = serde_json::json!({ "id": id });
+    let evt_id = state.store.append_event("note.deleted", &payload)?;
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: "note.deleted".into(),
+        payload: payload.clone(),
+    };
+    state.notes.lock().apply(&ev);
+    // Cross-window notification — listeners are in NotesPanel + StickyNote.
+    let _ = app.emit("note:deleted", payload);
+    Ok(())
 }
 
 #[derive(Debug, Serialize)]
@@ -444,7 +526,18 @@ pub fn workspace_list(state: State) -> Result<Vec<Workspace>> {
 pub fn workspace_create(state: State, args: CreateWorkspaceArgs) -> Result<Workspace> {
     let id = Uuid::new_v4().to_string();
     let color = args.color.unwrap_or_else(|| "#7c9cff".into());
-    let payload = serde_json::json!({ "id": id, "name": args.name, "color": color });
+    // Empty / whitespace-only names render as a blank pill in the switcher
+    // and confuse the user. Fall back to "Workspace" so it is at least
+    // pickable and they can rename it later.
+    let mut name = args.name.trim().to_string();
+    if name.is_empty() {
+        name = "Workspace".into();
+    }
+    // Soft length cap — anything longer just bloats the UI.
+    if name.chars().count() > 80 {
+        name = name.chars().take(80).collect();
+    }
+    let payload = serde_json::json!({ "id": id, "name": name, "color": color });
     let evt_id = state.store.append_event("workspace.created", &payload)?;
     let ev = StoredEvent {
         id: evt_id,
@@ -461,16 +554,23 @@ pub fn workspace_create(state: State, args: CreateWorkspaceArgs) -> Result<Works
 }
 
 #[tauri::command]
-pub fn workspace_activate(state: State, id: String) -> Result<()> {
+pub fn workspace_activate(app: tauri::AppHandle, state: State, id: String) -> Result<()> {
+    use tauri::Emitter;
+    if id.trim().is_empty() {
+        return Err(NervaError::Invalid("workspace id required".into()));
+    }
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event("workspace.activated", &payload)?;
     let ev = StoredEvent {
         id: evt_id,
         ts_ms: crate::store::now_ms(),
         kind: "workspace.activated".into(),
-        payload,
+        payload: payload.clone(),
     };
     state.workspaces.lock().apply(&ev);
+    // Broadcast so sticky/widget windows can refresh their workspace context
+    // instead of holding stale ids until their next 4 s poll.
+    let _ = app.emit("workspace:activated", payload);
     Ok(())
 }
 
@@ -909,8 +1009,30 @@ fn spawn_popout(
     if let Some(main) = app.get_webview_window("main") {
         if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
             // Place popout 40 px inside the right edge, 60 px below the top.
-            let x = pos.x + (size.width as i32).saturating_sub(width as i32 + 40);
-            let y = pos.y + 60;
+            let mut x = pos.x + (size.width as i32).saturating_sub(width as i32 + 40);
+            let mut y = pos.y + 60;
+            // Clamp to the current monitor's work area so the popout never
+            // spawns off-screen — happens if the user moved the main window
+            // partially off the edge, dragged across monitors, or unplugged
+            // a display since the previous launch.
+            if let Ok(Some(mon)) = main.current_monitor() {
+                let m_pos = mon.position();
+                let m_size = mon.size();
+                let max_x = m_pos.x + m_size.width as i32 - width as i32;
+                let max_y = m_pos.y + m_size.height as i32 - height as i32;
+                if x < m_pos.x {
+                    x = m_pos.x;
+                }
+                if y < m_pos.y {
+                    y = m_pos.y;
+                }
+                if x > max_x {
+                    x = max_x;
+                }
+                if y > max_y {
+                    y = max_y;
+                }
+            }
             builder = builder.position(x as f64, y as f64);
         }
     }
