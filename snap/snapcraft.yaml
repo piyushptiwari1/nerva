@@ -51,8 +51,14 @@ apps:
       - browser-support
       - removable-media
     environment:
+      # Snap's gnome-extension-22 ships an older Mesa than recent host kernels
+      # (libEGL fatal: did not find extension DRI_Mesa version 1). Disable the
+      # WebKit DMA-BUF renderer AND fall back to llvmpipe so the webview boots
+      # on any host. Removes ~all GPU acceleration, but the UI is light.
       WEBKIT_DISABLE_DMABUF_RENDERER: 1
       WEBKIT_DISABLE_COMPOSITING_MODE: 1
+      WEBKIT_DISABLE_HARDWARE_ACCELERATION: 1
+      LIBGL_ALWAYS_SOFTWARE: 1
 
 parts:
   nerva:
