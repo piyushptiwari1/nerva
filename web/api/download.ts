@@ -54,7 +54,7 @@ interface Release {
 }
 
 let cachedRelease: { at: number; data: Release } | null = null;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 60 * 1000; // 1 minute
 
 async function getLatestRelease(): Promise<Release> {
   const now = Date.now();
@@ -63,8 +63,8 @@ async function getLatestRelease(): Promise<Release> {
   }
   const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
     headers: { "User-Agent": "nerva-vercel-proxy" },
-    // Vercel Edge caches by URL; this short TTL keeps the dance light.
-    cf: { cacheTtl: 300 },
+    // Keep release metadata fresh so a new tag is picked up quickly.
+    cf: { cacheTtl: 60 },
   } as RequestInit);
   if (!res.ok) {
     throw new Error(`GitHub releases API ${res.status}`);
@@ -121,7 +121,7 @@ export default async function handler(req: Request): Promise<Response> {
   // browser save it instead of trying to render it.
   const upstream = await fetch(asset.browser_download_url, {
     redirect: "follow",
-    cf: { cacheTtl: 3600 },
+    cf: { cacheTtl: 300 },
   } as RequestInit);
 
   if (!upstream.ok || !upstream.body) {
@@ -138,10 +138,9 @@ export default async function handler(req: Request): Promise<Response> {
   const len = upstream.headers.get("Content-Length");
   if (len) headers.set("Content-Length", len);
   headers.set("Content-Disposition", `attachment; filename="${asset.name}"`);
-  // Cache aggressively on the edge — releases are immutable artifacts and the
-  // URL resolves to the *latest* tag, so we want the edge to revalidate hourly
-  // not every request. CDN-side TTL only; browsers don't cache.
-  headers.set("Cache-Control", "public, max-age=0, s-maxage=3600");
+  // Cache on the edge briefly so "latest" flips quickly after a new release.
+  // Browser-side max-age stays 0 so users always revalidate.
+  headers.set("Cache-Control", "public, max-age=0, s-maxage=300");
   headers.set("X-Nerva-Release", release.tag_name);
 
   return new Response(upstream.body, { status: 200, headers });
