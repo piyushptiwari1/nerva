@@ -314,14 +314,34 @@ fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
 
     tray.on_menu_event(move |app, event| match event.id().as_ref() {
         "tray_show" => focus_main(app),
+        // The `open_*_widget` commands are async (they build a WebView2 window,
+        // which must not happen on a synchronous code path on Windows — see the
+        // note in ipc/mod.rs). This menu callback is synchronous, so we drive
+        // the future on Tauri's async runtime instead of dropping it with
+        // `let _ = ...` (which would silently never open the window).
         "tray_new_timer" => {
-            let _ = ipc::open_timer_widget(app.clone());
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = ipc::open_timer_widget(app).await {
+                    tracing::warn!(err = %e, "tray: open timer widget failed");
+                }
+            });
         }
         "tray_new_tasks" => {
-            let _ = ipc::open_tasks_widget(app.clone());
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = ipc::open_tasks_widget(app).await {
+                    tracing::warn!(err = %e, "tray: open tasks widget failed");
+                }
+            });
         }
         "tray_new_habits" => {
-            let _ = ipc::open_habits_widget(app.clone());
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = ipc::open_habits_widget(app).await {
+                    tracing::warn!(err = %e, "tray: open habits widget failed");
+                }
+            });
         }
         "tray_quit" => app.exit(0),
         _ => {}
