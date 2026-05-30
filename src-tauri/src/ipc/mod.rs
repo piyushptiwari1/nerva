@@ -886,11 +886,18 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 /// The window is a *regular* toplevel by default — it stays on the virtual
 /// desktop / workspace where it was opened. The user can pin it on top via the
 /// in-app pin button (which calls `window_set_always_on_top`).
+//
+// NOTE: this command is `async` *on purpose*. On Windows, building a
+// `WebviewWindow` from a **synchronous** Tauri command deadlocks the WebView2
+// COM STA message pump (tauri#13092, wry#1665/#583), which surfaces as a blank
+// or frozen popup and a hung main window. The official guidance is to create
+// windows from async commands so the build runs off the main thread's
+// synchronous command handler. Do not remove `async`.
 #[tauri::command]
-pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
+pub async fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
     let label = format!("sticky-{}", note_id.replace(['-', ' '], "_"));
     let url = format!("index.html?sticky={note_id}");
-    spawn_popout(
+    spawn_popup(
         &app,
         &label,
         &url,
@@ -905,9 +912,10 @@ pub fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
 
 /// Spawn (or focus) the floating timer widget. Single instance.
 /// Default = regular window (stays on origin desktop). Pin via UI to keep on top.
+// `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
 #[tauri::command]
-pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(
+pub async fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
+    spawn_popup(
         &app,
         "timer-widget",
         "index.html?widget=timer",
@@ -921,9 +929,10 @@ pub fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
 }
 
 /// Spawn (or focus) the floating habits widget. Single instance.
+// `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
 #[tauri::command]
-pub fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(
+pub async fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
+    spawn_popup(
         &app,
         "habits-widget",
         "index.html?widget=habits",
@@ -937,9 +946,10 @@ pub fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
 }
 
 /// Spawn (or focus) the floating tasks widget. Single instance.
+// `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
 #[tauri::command]
-pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
-    spawn_popout(
+pub async fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
+    spawn_popup(
         &app,
         "tasks-widget",
         "index.html?widget=tasks",
@@ -952,14 +962,14 @@ pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
     .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
 }
 
-/// Shared popout creator. Builds an undecorated, *non*-always-on-top window
+/// Shared popup creator. Builds an undecorated, *non*-always-on-top window
 /// positioned next to the main window so it appears on the same monitor and
 /// same virtual desktop. The frontend draws its own header with drag region,
 /// close button, and pin (always-on-top) toggle.
 ///
 /// Workspace/desktop behavior:
 ///   - Default: regular toplevel → OS keeps it on the desktop where it was
-///     created. Switching virtual desktops leaves the popout behind, as the
+///     created. Switching virtual desktops leaves the popup behind, as the
 ///     user expects.
 ///   - Pinned: user clicks the pin button → frontend calls
 ///     `window_set_always_on_top(label, true)` which flips to sticky/on-top
@@ -967,14 +977,18 @@ pub fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
 ///
 /// Windows-specific note: we explicitly avoid `always_on_top(true)` at create
 /// time because the combination of `decorations(false) + always_on_top(true)`
-/// can leave WebView2 unpainted (blank popout) and grab focus from the main
+/// can leave WebView2 unpainted (blank popup) and grab focus from the main
 /// window's message pump (= main app appears frozen). Toggling AOT *after*
 /// the window is fully initialized works reliably.
+///
+/// This function must be called from an **async** Tauri command: building a
+/// WebView2 window from a synchronous command deadlocks on Windows
+/// (tauri#13092, wry#1665/#583).
 // Clippy: 8 args > default 7. Splitting these into a struct would just
-// scatter the popout-window contract across two places; every caller wants
+// scatter the popup-window contract across two places; every caller wants
 // to set every field, so positional args at the call site stay clearer.
 #[allow(clippy::too_many_arguments)]
-fn spawn_popout(
+fn spawn_popup(
     app: &tauri::AppHandle,
     label: &str,
     url: &str,
@@ -993,7 +1007,7 @@ fn spawn_popout(
         return Ok(());
     }
 
-    // Compute a position offset from the main window so the popout opens on
+    // Compute a position offset from the main window so the popup opens on
     // the same monitor / virtual desktop the user is currently looking at.
     // Falls back to OS-default centering if the main window is unavailable.
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
@@ -1008,10 +1022,10 @@ fn spawn_popout(
 
     if let Some(main) = app.get_webview_window("main") {
         if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
-            // Place popout 40 px inside the right edge, 60 px below the top.
+            // Place popup 40 px inside the right edge, 60 px below the top.
             let mut x = pos.x + (size.width as i32).saturating_sub(width as i32 + 40);
             let mut y = pos.y + 60;
-            // Clamp to the current monitor's work area so the popout never
+            // Clamp to the current monitor's work area so the popup never
             // spawns off-screen — happens if the user moved the main window
             // partially off the edge, dragged across monitors, or unplugged
             // a display since the previous launch.
@@ -1053,7 +1067,7 @@ fn spawn_popout(
     Ok(())
 }
 
-/// Toggle always-on-top ("pin") for an arbitrary popout window by label.
+/// Toggle always-on-top ("pin") for an arbitrary popup window by label.
 /// Used by the frontend pin button on sticky / timer / habits / tasks widgets.
 #[tauri::command]
 pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) -> Result<()> {
@@ -1066,10 +1080,10 @@ pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) 
     Ok(())
 }
 
-/// Hide a popout window by label (non-destructive close).
+/// Hide a popup window by label (non-destructive close).
 ///
 /// Why this exists: on Windows, rapid close/reopen of undecorated WebView2
-/// popouts can occasionally wedge the renderer. Hiding preserves process
+/// popups can occasionally wedge the renderer. Hiding preserves process
 /// state and lets reopen be a cheap show/focus path.
 #[tauri::command]
 pub fn window_hide(app: tauri::AppHandle, label: String) -> Result<()> {
@@ -1081,7 +1095,7 @@ pub fn window_hide(app: tauri::AppHandle, label: String) -> Result<()> {
     Ok(())
 }
 
-/// Close a popout window by label. Frontend already calls `window.close()`
+/// Close a popup window by label. Frontend already calls `window.close()`
 /// directly via the Tauri JS API, but this command is the canonical surface
 /// for the tray menu and command palette to close widgets too.
 #[tauri::command]

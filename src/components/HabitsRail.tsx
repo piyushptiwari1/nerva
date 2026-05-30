@@ -105,7 +105,7 @@ export function HabitsRail() {
             className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
             title="Open as a floating always-on-top widget"
           >
-            ↗ Pop out
+            ↗ Pop up
           </button>
           <button
             onClick={openHabits}

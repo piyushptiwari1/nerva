@@ -30,7 +30,7 @@ export function NotesPanel() {
   // racing React's state updater on unmount.
   const pending = useRef<{ title: string; body: string } | null>(null);
   // Hold onto the currently loaded note id without going through React state,
-  // so the popout `note:saved` listener can ignore events for other notes.
+  // so the popup `note:saved` listener can ignore events for other notes.
   const currentIdRef = useRef<string | null>(null);
   // Title <input> ref so "+ New" can move focus straight to it.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -91,7 +91,7 @@ export function NotesPanel() {
   /**
    * Permanently delete a note. Confirms first because there's no undo —
    * the backend hard-deletes the row and cascades the FTS5 + embedding
-   * cleanup. Cross-window listeners (sticky popout on the same note) get
+   * cleanup. Cross-window listeners (sticky popup on the same note) get
    * notified via the `note:deleted` Tauri event emitted server-side.
    */
   async function deleteNote(id: string, titleHint: string) {
@@ -121,7 +121,7 @@ export function NotesPanel() {
     }
   }
 
-  // Listen for cross-window note saves (sticky popout edited the same note)
+  // Listen for cross-window note saves (sticky popup edited the same note)
   // and refresh the editor + list. Also flush our own pending edits on
   // visibility-hidden / beforeunload so closing the main window doesn't drop
   // the last keystroke.
@@ -233,7 +233,7 @@ export function NotesPanel() {
         currentIdRef.current = saved.id;
         setSavedAt(Date.now());
         refreshNotes();
-        // Tell any other window (sticky popout on the same note) to refresh.
+        // Tell any other window (sticky popup on the same note) to refresh.
         try {
           const { emit } = await import("@tauri-apps/api/event");
           await emit("note:saved", { id: saved.id });
@@ -331,7 +331,7 @@ export function NotesPanel() {
             className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Open this note in a floating sticky window"
           >
-            Pop out
+            Pop up
           </button>
           <button
             onClick={newNote}
@@ -424,7 +424,7 @@ export function NotesPanel() {
               }}
               spellCheck={false}
               className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none placeholder:text-ink-500"
-              placeholder={"Type your note here \u2014 it auto-saves as you write.\n\nMarkdown works:  # heading  **bold**  - list  `code`\nPop out to a sticky window with the button above."}
+              placeholder={"Type your note here \u2014 it auto-saves as you write.\n\nMarkdown works:  # heading  **bold**  - list  `code`\nPop up to a sticky window with the button above."}
               aria-label="Note body"
             />
           ) : (

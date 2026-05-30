@@ -106,7 +106,13 @@ jobs:
             Trusted Root Certification Authorities.
 
             See full release notes in CHANGELOG.md.
-          releaseDraft: true
+          # Publish the release immediately (not as a draft). A draft release
+          # is invisible to the updater: GitHub's `/releases/latest/` endpoint
+          # only resolves to the latest *published* release, so leaving builds
+          # as drafts means `latest.json` never updates and the in-app updater
+          # always reports "you're on the latest version". Auto-publishing keeps
+          # the updater manifest live the moment the build finishes.
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.tauri-args }}
 

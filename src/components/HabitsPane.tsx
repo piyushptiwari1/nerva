@@ -92,7 +92,7 @@ export function HabitsPane() {
                   className="text-[11px] px-2.5 py-1.5 rounded-md bg-ink-800 hover:bg-ink-700 text-ink-200 border border-ink-700 transition-colors"
                   title="Open as floating widget"
                 >
-                  ↗ pop out
+                  ↗ pop up
                 </button>
                 <button
                   onClick={() => setShowNew((v) => !v)}

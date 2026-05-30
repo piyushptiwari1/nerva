@@ -31,7 +31,7 @@
     <p>What Nerva does:</p>
     <ul>
       <li>Parallel focus timers — wall-clock math, survives suspend and reboot</li>
-      <li>Sticky markdown notes — pop out, float above any window, 250 ms autosave</li>
+      <li>Sticky markdown notes — pop up, float above any window, 250 ms autosave</li>
       <li>Habit heatmap — 4-state daily toggle, streaks, full-year contribution grid</li>
       <li>Tasks with pop-out — priority + due time, dockable or floating widget</li>
       <li>Command palette — Ctrl+Space to jump anywhere</li>
@@ -85,7 +85,7 @@
       <image>https://nerva.bytical.ai/screenshots/02-habits.png</image>
     </screenshot>
     <screenshot>
-      <caption>Habit popout — drag-to-move always-on-top widget</caption>
+      <caption>Habit popup — drag-to-move always-on-top widget</caption>
       <image>https://nerva.bytical.ai/screenshots/03-habits-popup.png</image>
     </screenshot>
   </screenshots>

@@ -6,7 +6,7 @@ import { emit as tauriEmit } from "@tauri-apps/api/event";
  * (e.g. running outside a Tauri context during unit tests) are swallowed so
  * the underlying IPC call still returns its result to the caller.
  *
- * Subscribers (widgets, sticky popouts) listen for these events to refresh
+ * Subscribers (widgets, sticky popups) listen for these events to refresh
  * instantly instead of polling every few seconds.
  */
 function notify(event: string, payload?: unknown): void {
@@ -200,10 +200,10 @@ export const ipc = {
   openTimerWidget: () => invoke<void>("open_timer_widget"),
   openHabitsWidget: () => invoke<void>("open_habits_widget"),
   openTasksWidget: () => invoke<void>("open_tasks_widget"),
-  /** Pin/unpin a popout window (always-on-top). `label` is the Tauri window label. */
+  /** Pin/unpin a popup window (always-on-top). `label` is the Tauri window label. */
   windowSetAlwaysOnTop: (label: string, on: boolean) =>
     invoke<void>("window_set_always_on_top", { label, on }),
-  /** Hide popout without destroying its WebView (Windows stability path). */
+  /** Hide popup without destroying its WebView (Windows stability path). */
   windowHide: (label: string) => invoke<void>("window_hide", { label }),
   windowClose: (label: string) => invoke<void>("window_close", { label }),
   /** Reveal Nerva's on-disk data directory in the OS file manager. */

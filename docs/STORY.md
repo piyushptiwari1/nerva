@@ -35,7 +35,7 @@ Nerva is the focus workspace that never forgets. Run multiple deep-work timers i
 ## 5. The six hero features (use these names, this order, everywhere)
 
 1. **Parallel focus timers** — wall-clock multi-timer engine. Survives sleep, suspend, reboot.
-2. **Sticky markdown notes** — pop out a note; it floats above any window. Autosaves every 250 ms.
+2. **Sticky markdown notes** — pop up a note; it floats above any window. Autosaves every 250 ms.
 3. **Habit heatmap** — 4-state daily toggle, streaks, full-year contribution grid.
 4. **Tasks with pop-out** — priority + due time, dockable side panel or floating widget.
 5. **Command palette** — `Ctrl+Space` to jump anywhere. Global shortcuts for habits, tasks, timer.

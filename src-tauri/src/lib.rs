@@ -122,14 +122,14 @@ pub fn run() {
 
             // Intercept the main window's close button: instead of destroying
             // the window (which leaves the user with no way back into the app
-            // while popouts are still running), hide it. The user re-opens
+            // while popups are still running), hide it. The user re-opens
             // main via the tray icon ("Show Nerva" or left-click). To truly
             // exit, use tray → "Quit Nerva".
             //
             // Without this, closing the main window on Windows or Linux while
-            // popouts are open orphans the user — popouts keep running but
+            // popups are open orphans the user — popups keep running but
             // there's no tray menu hook (pre-v0.1.1) and no main window to
-            // click, so the only recovery is killing every popout.
+            // click, so the only recovery is killing every popup.
             if let Some(main) = app.get_webview_window("main") {
                 let app_for_event = app.handle().clone();
                 main.on_window_event(move |event| {

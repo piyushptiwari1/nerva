@@ -1,6 +1,6 @@
 name: nerva
 base: core22
-version: '0.1.8'
+version: '0.1.9'
 summary: The focus workspace that never forgets
 description: |
   Nerva is a native desktop focus workspace built for deep work. Parallel
@@ -10,7 +10,7 @@ description: |
 
   The six things Nerva does properly:
    * Parallel focus timers - wall-clock math. Survives sleep, suspend, reboot.
-   * Sticky markdown notes - pop out a note; it floats above any window.
+   * Sticky markdown notes - pop up a note; it floats above any window.
      Autosaves every 250 ms.
    * Habit heatmap - 4-state daily toggle, streaks, full-year contribution grid.
    * Tasks with pop-out - priority + due time, dockable or floating widget.

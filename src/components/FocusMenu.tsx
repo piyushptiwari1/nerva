@@ -5,7 +5,7 @@ import { ipc } from "@/lib/ipc";
 /**
  * Compact sound + focus settings popover used in the CommandBar.
  * Volume, mute, test ding, DND toggle (Linux GNOME via gsettings),
- * and a "pop out timer" button.
+ * and a "pop up timer" button.
  */
 export function FocusMenu() {
   const { audio, focus, setVolume, setMuted, testAudio, setDnd } = useApp();
@@ -101,7 +101,7 @@ export function FocusMenu() {
                 onClick={() => ipc.openTimerWidget()}
                 className="w-full text-xs px-2 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
               >
-                Pop out timer widget
+                Pop up timer widget
               </button>
             </div>
           </div>

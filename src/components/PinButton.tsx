@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { ipc } from "@/lib/ipc";
 
 /**
- * Tiny pushpin toggle for popout window headers (sticky / timer / habits / tasks).
+ * Tiny pushpin toggle for popup window headers (sticky / timer / habits / tasks).
  *
- * Default popout windows in Nerva are *regular* toplevel windows — they stay on
+ * Default popup windows in Nerva are *regular* toplevel windows — they stay on
  * the virtual desktop / workspace where they were opened, and don't follow the
  * user when they switch desktops. Clicking this pin flips the window to
  * always-on-top (sticky) so it floats above other apps and follows the user

@@ -10,7 +10,7 @@ Offline-first. No telemetry. No account.
 **Six things, done properly:**
 
 1. **Parallel focus timers** — wall-clock math. Survives sleep, suspend, reboot.
-2. **Sticky markdown notes** — pop out a note; it floats above any window. Autosaves every 250 ms.
+2. **Sticky markdown notes** — pop up a note; it floats above any window. Autosaves every 250 ms.
 3. **Habit heatmap** — 4-state daily toggle, streaks, full-year contribution grid.
 4. **Tasks with pop-out** — priority + due time, dockable side panel or floating widget.
 5. **Command palette** — `Ctrl+Space` to jump anywhere. Global shortcuts for habits, tasks, timer.

@@ -34,7 +34,7 @@ screenshot from `web/public/` if asked, hit post.
 >
 > Six things it does properly:
 > 1. **Parallel focus timers** — wall-clock math. Open as many as you want.
-> 2. **Sticky markdown notes** — pop out a note, it floats above any window. 250 ms autosave.
+> 2. **Sticky markdown notes** — pop up a note, it floats above any window. 250 ms autosave.
 > 3. **Habit heatmap** — 4-state daily toggle, streaks, full-year contribution grid.
 > 4. **Tasks with pop-out** — priority + due time, dockable or floating widget.
 > 5. **Command palette** — Ctrl+Space to jump anywhere.

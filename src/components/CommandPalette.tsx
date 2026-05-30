@@ -270,18 +270,18 @@ export function CommandPalette() {
       id: "widget.habits",
       group: "System",
       glyph: "❑",
-      title: "Pop out habits widget",
+      title: "Pop up habits widget",
       subtitle: "floating always-on-top mini tracker",
-      keywords: "widget habits popout floating tracker".toLowerCase(),
+      keywords: "widget habits popup floating tracker".toLowerCase(),
       run: () => ipc.openHabitsWidget(),
     });
     out.push({
       id: "widget.tasks",
       group: "System",
       glyph: "❑",
-      title: "Pop out tasks widget",
+      title: "Pop up tasks widget",
       subtitle: "floating always-on-top mini task list",
-      keywords: "widget tasks popout floating todo".toLowerCase(),
+      keywords: "widget tasks popup floating todo".toLowerCase(),
       run: () => ipc.openTasksWidget(),
     });
     // Ambient noise quick toggles — surface only as palette actions since the

@@ -21,7 +21,7 @@ interface State {
  * (resets the boundary) and surfaces the error message + stack for support.
  *
  * Use at every load-bearing boundary: each sidebar panel, the timer stage,
- * the notes panel, the habits pane, every popout root.
+ * the notes panel, the habits pane, every popup root.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };

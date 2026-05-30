@@ -50,7 +50,7 @@ export function TimerStage() {
             className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700 text-ink-300"
             title="Open as a floating always-on-top widget"
           >
-            ↗ Pop out
+            ↗ Pop up
           </button>
           <button
             onClick={() => setCreating((v) => !v)}
