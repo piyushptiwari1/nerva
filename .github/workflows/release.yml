@@ -12,6 +12,14 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.os }}
+    # Explicit write here (not just the workflow-level grant): with
+    # `releaseDraft: false`, tauri-action publishes the release and marks it
+    # `latest` in one shot. That publish path is denied with "Resource not
+    # accessible by integration" if the effective token is read-only — which
+    # is what broke the first v0.1.9 attempt. Pin it per-job so the release
+    # can be created AND published regardless of the repo's default baseline.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
