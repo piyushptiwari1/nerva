@@ -160,7 +160,11 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
     permissions:
-      contents: read
+      # `contents: write` (not read): the asset-settle poll below queries the
+      # releases REST API, and the promote-to-published fallback edits the
+      # release. A read-only token cannot see draft releases at all, which is
+      # what silently broke Snap publishing on v0.1.8.
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -177,10 +181,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          # tauri-action publishes the release as a DRAFT and uploads every
-          # asset over several minutes. `gh release view` does NOT see draft
-          # releases reliably, so query the REST API directly (it includes
-          # drafts when the token has repo scope). Poll up to 20 min.
+          # tauri-action publishes the release directly (releaseDraft: false)
+          # and uploads every asset over several minutes. Poll the REST API
+          # until the .deb is present (up to 20 min). The API also includes
+          # draft releases when the token has `contents: write`, so this stays
+          # correct even if a release is ever cut as a draft again.
           for i in $(seq 1 40); do
             if gh api "repos/${{ github.repository }}/releases" \
                  --jq ".[] | select(.tag_name==\"$TAG\") | .assets[].name" \
@@ -191,13 +196,15 @@ jobs:
           done
           echo "::error::deb asset never appeared on $TAG"; exit 1
 
-      - name: Promote draft release to published
+      - name: Ensure release is published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          # Flip the draft to a real release so `gh release download` (and
-          # downstream consumers) can find it.
+          # Normally a no-op now that the build publishes directly, but keep it
+          # as a safety net: if anything ever leaves the release as a draft,
+          # downstream consumers (and the in-app updater's /releases/latest
+          # endpoint) need it flipped to a real, latest release.
           gh release edit "$TAG" --draft=false --latest || true
 
       - name: Download .deb from release
