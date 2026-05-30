@@ -231,6 +231,7 @@ pub fn run() {
             ipc::open_habits_widget,
             ipc::open_tasks_widget,
             ipc::window_set_always_on_top,
+            ipc::window_hide,
             ipc::window_close,
             ipc::reveal_data_dir,
             ipc::reset_all_data,

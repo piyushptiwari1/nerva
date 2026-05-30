@@ -1002,9 +1002,19 @@ fn spawn_popout(
         .min_inner_size(min_width, min_height)
         .decorations(false)
         .resizable(true)
-        .visible(true)
-        .focused(true)
+        .visible(false)
+        .focused(false)
         .skip_taskbar(false);
+
+    #[cfg(target_os = "windows")]
+    {
+        // Upstream WebView2/wry reports deadlock/reentrancy issues around
+        // secondary webviews on some Windows stacks. Conservative flags reduce
+        // compositor pressure in small undecorated helper windows.
+        builder = builder.additional_browser_args(
+            "--disable-features=msWebOOUI,CalculateNativeWinOcclusion --disable-gpu-compositing",
+        );
+    }
 
     if let Some(main) = app.get_webview_window("main") {
         if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
@@ -1037,7 +1047,15 @@ fn spawn_popout(
         }
     }
 
-    let _win = builder.build()?;
+    let win = builder.build()?;
+    // Windows + WebView2 can intermittently freeze/blank with undecorated
+    // auxiliary windows if they are created visible+focused in one shot.
+    // Build hidden/unfocused, then show/focus after creation.
+    let _ = win.show();
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = win.set_focus();
+    }
     Ok(())
 }
 
@@ -1051,6 +1069,21 @@ pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) 
         .ok_or_else(|| NervaError::Invalid(format!("window not found: {label}")))?;
     win.set_always_on_top(on)
         .map_err(|e| NervaError::Invalid(format!("set_always_on_top({label},{on}): {e}")))?;
+    Ok(())
+}
+
+/// Hide a popout window by label (non-destructive close).
+///
+/// Why this exists: on Windows, rapid close/reopen of undecorated WebView2
+/// popouts can occasionally wedge the renderer. Hiding preserves process
+/// state and lets reopen be a cheap show/focus path.
+#[tauri::command]
+pub fn window_hide(app: tauri::AppHandle, label: String) -> Result<()> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window(&label) {
+        win.hide()
+            .map_err(|e| NervaError::Invalid(format!("hide({label}): {e}")))?;
+    }
     Ok(())
 }
 

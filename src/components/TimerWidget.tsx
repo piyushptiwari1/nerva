@@ -44,9 +44,14 @@ export function TimerWidget() {
   async function close() {
     try {
       const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
-      await win.close();
+      await ipc.windowHide(win.label);
     } catch {
-      /* ignore */
+      try {
+        const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
+        await win.close();
+      } catch {
+        /* ignore */
+      }
     }
   }
 

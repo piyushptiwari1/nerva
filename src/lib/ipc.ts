@@ -203,6 +203,8 @@ export const ipc = {
   /** Pin/unpin a popout window (always-on-top). `label` is the Tauri window label. */
   windowSetAlwaysOnTop: (label: string, on: boolean) =>
     invoke<void>("window_set_always_on_top", { label, on }),
+  /** Hide popout without destroying its WebView (Windows stability path). */
+  windowHide: (label: string) => invoke<void>("window_hide", { label }),
   windowClose: (label: string) => invoke<void>("window_close", { label }),
   /** Reveal Nerva's on-disk data directory in the OS file manager. */
   revealDataDir: () => invoke<void>("reveal_data_dir"),
