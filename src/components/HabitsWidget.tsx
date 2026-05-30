@@ -121,6 +121,32 @@ export function HabitsWidget() {
     }
   }
 
+  useEffect(() => {
+    let unlistenClose: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const win = getCurrentWindow();
+        unlistenClose = await win.onCloseRequested(async (event) => {
+          event.preventDefault();
+          try {
+            await ipc.windowHide(win.label);
+          } catch {
+            /* ignore */
+          }
+        });
+        if (cancelled && unlistenClose) unlistenClose();
+      } catch {
+        /* not in tauri context */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (unlistenClose) unlistenClose();
+    };
+  }, []);
+
   const visible = habits.filter((h) => !h.archived);
 
   return (

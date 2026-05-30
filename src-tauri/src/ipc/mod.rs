@@ -1006,16 +1006,6 @@ fn spawn_popout(
         .focused(false)
         .skip_taskbar(false);
 
-    #[cfg(target_os = "windows")]
-    {
-        // Upstream WebView2/wry reports deadlock/reentrancy issues around
-        // secondary webviews on some Windows stacks. Conservative flags reduce
-        // compositor pressure in small undecorated helper windows.
-        builder = builder.additional_browser_args(
-            "--disable-features=msWebOOUI,CalculateNativeWinOcclusion --disable-gpu-compositing",
-        );
-    }
-
     if let Some(main) = app.get_webview_window("main") {
         if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
             // Place popout 40 px inside the right edge, 60 px below the top.
@@ -1050,7 +1040,11 @@ fn spawn_popout(
     let win = builder.build()?;
     // Windows + WebView2 can intermittently freeze/blank with undecorated
     // auxiliary windows if they are created visible+focused in one shot.
-    // Build hidden/unfocused, then show/focus after creation.
+    // Build hidden/unfocused, then show after creation.
+    //
+    // We intentionally do NOT set `additional_browser_args` here: tauri issue
+    // #13092 reports extra browser args causing blank secondary webviews on
+    // Windows. Keep this path as conservative as possible.
     let _ = win.show();
     #[cfg(not(target_os = "windows"))]
     {
