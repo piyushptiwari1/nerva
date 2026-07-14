@@ -81,6 +81,11 @@ impl AppState {
                 audio_settings.ambient_volume = f.clamp(0.0, 1.0);
             }
         }
+        if let Ok(Some(v)) = store.meta_get("audio.sound") {
+            if let Some(s) = crate::audio::CompletionSound::from_label(&v) {
+                audio_settings.sound = s;
+            }
+        }
         // Note: we don't auto-resume the ambient track on boot — explicit
         // user intent feels less surprising than waking up to noise. The
         // ipc layer can read the last-selected kind on demand.

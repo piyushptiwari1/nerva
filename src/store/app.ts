@@ -33,6 +33,7 @@ interface AppStore {
   lastNoteFor: (workspaceId: string) => Promise<string | null>;
   setVolume: (v: number) => Promise<void>;
   setMuted: (m: boolean) => Promise<void>;
+  setSound: (s: import("@/lib/ipc").CompletionSound) => Promise<void>;
   testAudio: () => Promise<void>;
   setAmbient: (kind: "white" | "pink" | "brown" | null) => Promise<void>;
   setAmbientVolume: (v: number) => Promise<void>;
@@ -151,6 +152,9 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   async setMuted(m) {
     set({ audio: await ipc.audioSetMuted(m) });
+  },
+  async setSound(s) {
+    set({ audio: await ipc.audioSetSound(s) });
   },
   async testAudio() {
     await ipc.audioTest();

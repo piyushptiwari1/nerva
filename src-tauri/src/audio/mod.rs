@@ -29,12 +29,49 @@ pub enum AmbientKind {
     Brown,
 }
 
+/// Completion-ding flavours. All synthesized — no audio assets shipped.
+/// `Classic` is the historical C5→E5 two-note ding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CompletionSound {
+    #[default]
+    Classic,
+    Chime,
+    Bell,
+    Beep,
+    Soft,
+}
+
+impl CompletionSound {
+    pub fn from_label(s: &str) -> Option<Self> {
+        match s {
+            "classic" => Some(Self::Classic),
+            "chime" => Some(Self::Chime),
+            "bell" => Some(Self::Bell),
+            "beep" => Some(Self::Beep),
+            "soft" => Some(Self::Soft),
+            _ => None,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Classic => "classic",
+            Self::Chime => "chime",
+            Self::Bell => "bell",
+            Self::Beep => "beep",
+            Self::Soft => "soft",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum AudioCmd {
     Completion,
     Click,
     SetVolume(f32),
     SetMuted(bool),
+    SetSound(CompletionSound),
     AmbientStart(AmbientKind),
     AmbientStop,
     AmbientVolume(f32),
@@ -52,6 +89,8 @@ pub struct AudioSettings {
     /// completion-ding volume so users can keep alerts loud while running
     /// background noise at a whisper.
     pub ambient_volume: f32,
+    /// Which completion ding to play when a timer hits zero.
+    pub sound: CompletionSound,
 }
 
 impl Default for AudioSettings {
@@ -62,6 +101,53 @@ impl Default for AudioSettings {
             available: true,
             ambient: None,
             ambient_volume: 0.25,
+            sound: CompletionSound::default(),
+        }
+    }
+}
+
+/// Append the chosen completion sound to the one-shot sink. Every variant is
+/// a short synthesized figure so the bundle carries zero audio assets.
+fn append_completion(sink: &Sink, sound: CompletionSound) {
+    // Helper: a sine tone with a linear fade-out over its tail so no variant
+    // ends with a hard click.
+    let tone = |freq: f32, ms: u64, amp: f32| {
+        let mut t = SineWave::new(freq).take_duration(Duration::from_millis(ms));
+        t.set_filter_fadeout();
+        t.amplify(amp).fade_in(Duration::from_millis(8))
+    };
+    // Silence gap (zero-amplitude sine) between notes for the beep pattern.
+    let gap = |ms: u64| {
+        SineWave::new(1.0)
+            .take_duration(Duration::from_millis(ms))
+            .amplify(0.0)
+    };
+    match sound {
+        CompletionSound::Classic => {
+            // C5 → E5 two-note "ding" (the historical default).
+            sink.append(tone(523.25, 220, 0.55));
+            sink.append(tone(659.26, 360, 0.55));
+        }
+        CompletionSound::Chime => {
+            // C5 → E5 → G5 ascending triad; brighter, more celebratory.
+            sink.append(tone(523.25, 180, 0.50));
+            sink.append(tone(659.26, 180, 0.50));
+            sink.append(tone(783.99, 420, 0.50));
+        }
+        CompletionSound::Bell => {
+            // Struck-bell feel: fundamental + audible upper partial, long decay.
+            sink.append(tone(880.0, 700, 0.45));
+            sink.append(tone(1760.0, 260, 0.18));
+        }
+        CompletionSound::Beep => {
+            // Crisp digital double-beep — cuts through busy environments.
+            sink.append(tone(1000.0, 120, 0.50));
+            sink.append(gap(70));
+            sink.append(tone(1000.0, 120, 0.50));
+        }
+        CompletionSound::Soft => {
+            // Single mellow A4 with a long tail — gentle, unobtrusive.
+            sink.append(tone(440.0, 600, 0.38));
         }
     }
 }
@@ -115,6 +201,7 @@ impl AudioEngine {
                 };
                 let mut volume = initial.volume.clamp(0.0, 1.0);
                 let mut muted = initial.muted;
+                let mut sound = initial.sound;
                 let mut ambient_volume = initial.ambient_volume.clamp(0.0, 1.0);
                 sink.set_volume(volume);
                 ambient_sink.set_volume(if muted { 0.0 } else { ambient_volume });
@@ -137,6 +224,9 @@ impl AudioEngine {
                                 ambient_sink.set_volume(ambient_volume);
                             }
                         }
+                        AudioCmd::SetSound(s) => {
+                            sound = s;
+                        }
                         AudioCmd::AmbientStart(kind) => {
                             // Clear any previously queued ambient source then
                             // append a fresh infinite generator. Sink keeps
@@ -155,17 +245,7 @@ impl AudioEngine {
                             }
                         }
                         AudioCmd::Completion if !muted => {
-                            // C5 → E5 two-note "ding", each with a short fade.
-                            let a = SineWave::new(523.25)
-                                .take_duration(Duration::from_millis(220))
-                                .amplify(0.55)
-                                .fade_in(Duration::from_millis(20));
-                            let b = SineWave::new(659.26)
-                                .take_duration(Duration::from_millis(360))
-                                .amplify(0.55)
-                                .fade_in(Duration::from_millis(20));
-                            sink.append(a);
-                            sink.append(b);
+                            append_completion(&sink, sound);
                         }
                         AudioCmd::Click if !muted => {
                             let s = SineWave::new(880.0)
@@ -199,6 +279,11 @@ impl AudioEngine {
     pub fn set_muted(&self, m: bool) {
         self.settings.lock().muted = m;
         let _ = self.tx.send(AudioCmd::SetMuted(m));
+    }
+
+    pub fn set_sound(&self, s: CompletionSound) {
+        self.settings.lock().sound = s;
+        let _ = self.tx.send(AudioCmd::SetSound(s));
     }
 
     pub fn snapshot(&self) -> AudioSettings {

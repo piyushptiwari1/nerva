@@ -65,10 +65,12 @@ export function StickyNote({ noteId }: { noteId: string }) {
       });
       setNote(saved);
       // Notify the main window (and any other sticky on the same note)
-      // so its NotesPanel re-fetches without polling.
+      // so its NotesPanel re-fetches without polling. Tagged with our
+      // window label so we can ignore our own echo.
       try {
         const { emit } = await import("@tauri-apps/api/event");
-        await emit("note:saved", { id: saved.id });
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await emit("note:saved", { id: saved.id, src: getCurrentWindow().label });
       } catch {
         /* event bus unavailable — best effort */
       }
@@ -88,15 +90,37 @@ export function StickyNote({ noteId }: { noteId: string }) {
 
   // Cross-window awareness: if the underlying note is deleted from the main
   // window, close this sticky so the user doesn't keep editing a ghost. If
+  // the note is *saved* from another window (main NotesPanel editing the
+  // same note), refresh our copy — this is the main→sticky direction that
+  // was historically missing (sticky→main worked, the reverse didn't). If
   // the active workspace switches, update our captured workspace id so the
   // next save lands in the right place.
   useEffect(() => {
     let unlistenDeleted: (() => void) | undefined;
+    let unlistenSaved: (() => void) | undefined;
     let unlistenWs: (() => void) | undefined;
     let cancelled = false;
     (async () => {
       try {
         const { listen } = await import("@tauri-apps/api/event");
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const me = getCurrentWindow().label;
+        unlistenSaved = await listen<{ id: string; src?: string }>("note:saved", async (ev) => {
+          if (ev.payload?.id !== noteId) return;
+          // Ignore our own echo, and never clobber in-flight local edits.
+          if (ev.payload?.src === me || pending.current) return;
+          try {
+            const n = await ipc.noteGet(noteId);
+            // Re-check after the await — a keystroke may have landed.
+            if (n && !pending.current) {
+              setNote(n);
+              setTitle((prev) => (prev === n.title ? prev : n.title));
+              setBody((prev) => (prev === n.body ? prev : n.body));
+            }
+          } catch {
+            /* ignore */
+          }
+        });
         unlistenDeleted = await listen<{ id: string }>("note:deleted", async (ev) => {
           if (ev.payload?.id !== noteId) return;
           // Drop pending edits so the close path doesn't recreate the row.
@@ -117,6 +141,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
         });
         if (cancelled) {
           unlistenDeleted?.();
+          unlistenSaved?.();
           unlistenWs?.();
         }
       } catch {
@@ -126,6 +151,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
     return () => {
       cancelled = true;
       unlistenDeleted?.();
+      unlistenSaved?.();
       unlistenWs?.();
     };
   }, [noteId]);

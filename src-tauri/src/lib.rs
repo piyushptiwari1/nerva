@@ -239,6 +239,7 @@ pub fn run() {
             ipc::audio_state,
             ipc::audio_set_volume,
             ipc::audio_set_muted,
+            ipc::audio_set_sound,
             ipc::audio_test,
             ipc::ambient_set,
             ipc::ambient_set_volume,

@@ -39,6 +39,19 @@ export function TimerWidget() {
     if (active.status === "running") await ipc.timerPause(active.id);
     else if (active.status === "paused") await ipc.timerResume(active.id);
     else if (active.status === "idle") await ipc.timerStart(active.id);
+    // A completed/cancelled timer restarts from the top on click — the
+    // widget used to dead-end here with no way to run the timer again.
+    else await restart();
+  }
+
+  async function restart() {
+    if (!active) return;
+    try {
+      await ipc.timerReset(active.id);
+      await ipc.timerStart(active.id);
+    } catch {
+      /* ignore — next tick re-syncs state */
+    }
   }
 
   async function close() {
@@ -133,12 +146,32 @@ export function TimerWidget() {
             </div>
             <div className="text-[11px] text-ink-400 mt-0.5 truncate max-w-full">
               {active.name} · {active.status}
+              {active.status === "completed" ? " — click to restart" : ""}
             </div>
           </>
         ) : (
           <div className="text-xs text-ink-400">No timer</div>
         )}
       </button>
+
+      {active && (
+        <footer className="h-8 px-2 flex items-center justify-center gap-1 border-t border-ink-700 bg-ink-900/60">
+          <button
+            onClick={() => void toggle()}
+            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded hover:bg-ink-800 text-ink-300"
+            title={active.status === "running" ? "Pause" : "Start / resume"}
+          >
+            {active.status === "running" ? "⏸ Pause" : "▶ Start"}
+          </button>
+          <button
+            onClick={() => void restart()}
+            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded hover:bg-ink-800 text-ink-300"
+            title="Restart this timer from the top"
+          >
+            ↻ Restart
+          </button>
+        </footer>
+      )}
     </div>
   );
 }

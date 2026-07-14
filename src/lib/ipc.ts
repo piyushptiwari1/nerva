@@ -102,12 +102,15 @@ export interface SemanticHit {
 
 export type AmbientKind = "white" | "pink" | "brown";
 
+export type CompletionSound = "classic" | "chime" | "bell" | "beep" | "soft";
+
 export interface AudioState {
   volume: number;
   muted: boolean;
   available: boolean;
   ambient: AmbientKind | null;
   ambient_volume: number;
+  sound: CompletionSound;
 }
 
 export interface FocusState {
@@ -213,6 +216,7 @@ export const ipc = {
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
+  audioSetSound: (sound: CompletionSound) => invoke<AudioState>("audio_set_sound", { sound }),
   audioTest: () => invoke<void>("audio_test"),
   ambientSet: (kind: AmbientKind | null) =>
     invoke<AudioState>("ambient_set", { args: { kind } }),

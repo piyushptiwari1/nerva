@@ -282,11 +282,20 @@ function AudioTab() {
   const audio = useApp((s) => s.audio);
   const setVolume = useApp((s) => s.setVolume);
   const setMuted = useApp((s) => s.setMuted);
+  const setSound = useApp((s) => s.setSound);
   const testAudio = useApp((s) => s.testAudio);
   const setAmbient = useApp((s) => s.setAmbient);
   const setAmbientVolume = useApp((s) => s.setAmbientVolume);
 
   if (!audio) return <div className="text-xs text-ink-500">audio engine unavailable</div>;
+
+  const sounds: { id: import("@/lib/ipc").CompletionSound; label: string; hint: string }[] = [
+    { id: "classic", label: "Classic", hint: "two-note ding — the original" },
+    { id: "chime", label: "Chime", hint: "ascending triad — bright, celebratory" },
+    { id: "bell", label: "Bell", hint: "struck bell with a long decay" },
+    { id: "beep", label: "Beep", hint: "crisp double-beep — cuts through noise" },
+    { id: "soft", label: "Soft", hint: "single mellow tone — unobtrusive" },
+  ];
 
   const kinds: { id: "white" | "pink" | "brown"; label: string; hint: string }[] = [
     { id: "pink", label: "Pink", hint: "balanced, warm — best for focus" },
@@ -296,6 +305,29 @@ function AudioTab() {
 
   return (
     <section className="flex flex-col gap-4 text-sm">
+      <Field
+        label="Completion sound"
+        help="Pick the ding that plays when a timer reaches zero. Selecting one plays a preview."
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {sounds.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => {
+                void setSound(s.id).then(() => testAudio());
+              }}
+              title={s.hint}
+              className={`text-[11px] px-2 py-1 rounded border ${
+                audio.sound === s.id
+                  ? "bg-accent/20 border-accent text-accent-glow"
+                  : "border-ink-700 hover:bg-ink-800 text-ink-200"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </Field>
       <Field label="Completion ding volume" help="Plays when a timer reaches zero.">
         <div className="flex items-center gap-2">
           <input

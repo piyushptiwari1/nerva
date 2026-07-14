@@ -921,9 +921,9 @@ pub async fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
         "index.html?widget=timer",
         "Nerva Timer",
         280.0,
-        130.0,
+        160.0,
         220.0,
-        100.0,
+        130.0,
     )
     .map_err(|e| NervaError::Invalid(format!("open timer widget: {e}")))
 }
@@ -1206,6 +1206,7 @@ pub struct AudioState {
     pub available: bool,
     pub ambient: Option<crate::audio::AmbientKind>,
     pub ambient_volume: f32,
+    pub sound: crate::audio::CompletionSound,
 }
 
 #[tauri::command]
@@ -1217,6 +1218,7 @@ pub fn audio_state(state: State) -> Result<AudioState> {
         available: s.available,
         ambient: s.ambient,
         ambient_volume: s.ambient_volume,
+        sound: s.sound,
     })
 }
 
@@ -1241,6 +1243,13 @@ pub fn audio_set_muted(state: State, muted: bool) -> Result<AudioState> {
 pub fn audio_test(state: State) -> Result<()> {
     state.audio.play_completion();
     Ok(())
+}
+
+#[tauri::command]
+pub fn audio_set_sound(state: State, sound: crate::audio::CompletionSound) -> Result<AudioState> {
+    state.audio.set_sound(sound);
+    state.store.meta_set("audio.sound", sound.label())?;
+    audio_state(state)
 }
 
 // ---------- ambient noise ----------

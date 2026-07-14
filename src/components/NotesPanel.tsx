@@ -6,6 +6,23 @@ import { renderMarkdown } from "@/lib/markdown";
 type Mode = "edit" | "view";
 
 /**
+ * Resolve this webview's Tauri window label once. Used to tag outgoing
+ * `note:saved` events so listeners can ignore their own echoes — Tauri
+ * `emit` broadcasts to every window *including the sender*, and reacting to
+ * our own save is what used to clobber in-flight keystrokes (the controlled
+ * textarea reset its value mid-typing, dropping letters and jumping the
+ * cursor to the end).
+ */
+async function windowLabel(): Promise<string> {
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    return getCurrentWindow().label;
+  } catch {
+    return "main";
+  }
+}
+
+/**
  * Persistent notes panel — autosaves on every keystroke (debounced 250ms),
  * renders Markdown in view mode, and supports FTS5 search + an always-on-top
  * sticky-note window for the current note.
@@ -131,10 +148,14 @@ export function NotesPanel() {
     let cancelled = false;
     (async () => {
       try {
+        const me = await windowLabel();
         const { listen } = await import("@tauri-apps/api/event");
-        unlistenSaved = await listen<{ id: string }>("note:saved", async (ev) => {
+        unlistenSaved = await listen<{ id: string; src?: string }>("note:saved", async (ev) => {
           const id = ev.payload?.id;
           if (!id) return;
+          // Our own save event — the list is already refreshed by the save
+          // path and re-fetching would race the user's next keystrokes.
+          if (ev.payload?.src === me) return;
           // Refresh the sidebar list regardless of which note changed.
           refreshNotes();
           // If the changed note is the one we're editing, reload it — but
@@ -143,9 +164,12 @@ export function NotesPanel() {
           if (id === currentIdRef.current && !pending.current) {
             try {
               const n = await ipc.noteGet(id);
-              if (n) {
-                setTitle(n.title ?? "");
-                setBody(n.body);
+              // Re-check after the await: a keystroke may have landed while
+              // the fetch was in flight. Never overwrite live edits, and
+              // skip no-op state sets so the textarea keeps its cursor.
+              if (n && id === currentIdRef.current && !pending.current) {
+                setTitle((prev) => (prev === (n.title ?? "") ? prev : n.title ?? ""));
+                setBody((prev) => (prev === n.body ? prev : n.body));
               }
             } catch {
               /* ignore */
@@ -227,16 +251,18 @@ export function NotesPanel() {
           workspace_id: active?.id,
         });
         // Successful persist — clear pending so cross-window refresh can
-        // re-fetch without fearing it'll clobber local edits.
-        pending.current = null;
+        // re-fetch without fearing it'll clobber local edits. Only clear if
+        // no newer keystroke re-armed the debounce while we awaited the IPC.
+        if (!saveTimer.current) pending.current = null;
         setCurrentId(saved.id);
         currentIdRef.current = saved.id;
         setSavedAt(Date.now());
         refreshNotes();
         // Tell any other window (sticky popup on the same note) to refresh.
+        // Tag with our window label so we can ignore our own echo.
         try {
           const { emit } = await import("@tauri-apps/api/event");
-          await emit("note:saved", { id: saved.id });
+          await emit("note:saved", { id: saved.id, src: await windowLabel() });
         } catch {
           /* event bus unavailable */
         }
@@ -335,7 +361,8 @@ export function NotesPanel() {
           </button>
           <button
             onClick={newNote}
-            className="text-xs px-2 py-1 rounded-md hairline hover:bg-ink-700"
+            className="text-xs font-semibold px-2.5 py-1 rounded-md bg-accent text-ink-950 hover:bg-accent-glow shadow-glow transition-colors"
+            title="Create a new note (starts blank)"
           >
             + New
           </button>
@@ -436,24 +463,37 @@ export function NotesPanel() {
           )}
 
           {notes.length > 0 && (
-            <div className="border-t border-ink-700/40 max-h-32 overflow-auto p-2">
-              <h4 className="text-[10px] uppercase tracking-wider text-ink-500 px-1 mb-1">
-                Recent
-              </h4>
-              <div className="flex flex-col">
+            <div className="shrink-0 border-t-2 border-ink-700/70 bg-ink-900/50 max-h-36 overflow-auto p-2 rounded-b-xl">
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <h4 className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">
+                  All notes
+                </h4>
+                <span className="text-[10px] text-ink-500 tnum">
+                  {notes.filter((n) => !active || n.workspace_id === active.id).length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
                 {notes
                   .filter((n) => !active || n.workspace_id === active.id)
                   .slice(0, 8)
                   .map((n) => (
                     <div
                       key={n.id}
-                      className={`group flex items-center gap-1 rounded-md hover:bg-ink-800/60 ${
-                        n.id === currentId ? "text-ink-100" : "text-ink-300"
+                      className={`group flex items-center gap-1 rounded-md transition-colors ${
+                        n.id === currentId
+                          ? "bg-accent/15 text-accent-glow"
+                          : "text-ink-300 hover:bg-ink-800/80"
                       }`}
                     >
+                      <span
+                        className={`w-1 self-stretch my-1 ml-1 rounded-full shrink-0 ${
+                          n.id === currentId ? "bg-accent" : "bg-transparent"
+                        }`}
+                        aria-hidden
+                      />
                       <button
                         onClick={() => loadNote(n.id)}
-                        className="flex-1 min-w-0 text-left text-xs px-2 py-1 truncate"
+                        className="flex-1 min-w-0 text-left text-xs px-1.5 py-1 truncate"
                         title={n.title || "Untitled"}
                       >
                         {n.title || "Untitled"}

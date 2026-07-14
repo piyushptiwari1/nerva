@@ -8,8 +8,16 @@ import { ipc } from "@/lib/ipc";
  * and a "pop up timer" button.
  */
 export function FocusMenu() {
-  const { audio, focus, setVolume, setMuted, testAudio, setDnd } = useApp();
+  const { audio, focus, setVolume, setMuted, setSound, testAudio, setDnd } = useApp();
   const [open, setOpen] = useState(false);
+
+  const sounds: { id: import("@/lib/ipc").CompletionSound; label: string }[] = [
+    { id: "classic", label: "Classic" },
+    { id: "chime", label: "Chime" },
+    { id: "bell", label: "Bell" },
+    { id: "beep", label: "Beep" },
+    { id: "soft", label: "Soft" },
+  ];
 
   return (
     <div className="relative">
@@ -67,6 +75,23 @@ export function FocusMenu() {
                 >
                   Test
                 </button>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {sounds.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => void setSound(s.id).then(() => testAudio())}
+                    disabled={!audio?.available || audio?.muted}
+                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors disabled:opacity-40 ${
+                      audio?.sound === s.id
+                        ? "bg-accent/20 border-accent text-accent-glow"
+                        : "border-ink-700 hover:bg-ink-800 text-ink-300"
+                    }`}
+                    title={`Use the “${s.label}” completion sound (plays a preview)`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
             </div>
 
