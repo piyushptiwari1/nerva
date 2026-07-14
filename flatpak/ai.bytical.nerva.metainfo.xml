@@ -93,6 +93,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.11" date="2026-07-15">
+      <description>
+        <p>Privacy and insight release.</p>
+        <ul>
+          <li>Optional anonymous usage stats — strictly opt-in via a one-time consent dialog, weekly, feature counts only, toggle in Settings</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.10" date="2026-07-15">
       <description>
         <p>Quality and security release.</p>
