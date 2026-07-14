@@ -26,7 +26,7 @@
       Parallel timers that survive sleep and reboot, sticky markdown
       notes that float above any window, a year-long habit heatmap,
       and tasks with priority and due times. Offline-first.
-      No telemetry. No account.
+      Telemetry off by default (anonymous usage stats are opt-in). No account.
     </p>
     <p>What Nerva does:</p>
     <ul>
@@ -93,6 +93,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.10" date="2026-07-15">
+      <description>
+        <p>Quality and security release.</p>
+        <ul>
+          <li>Notes: cross-window sync both directions; typing no longer drops letters</li>
+          <li>Pop-out timer gains start/restart controls</li>
+          <li>Five selectable timer completion sounds</li>
+          <li>Clearer notes list and new-note button</li>
+          <li>Rebuilt against updated Ubuntu security archive (libsoup USN-8523-1)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.1" date="2026-05-28">
       <description>
         <p>Bug-fix release.</p>

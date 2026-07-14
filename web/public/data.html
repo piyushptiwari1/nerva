@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Nerva — data</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0a0b0d;color:#ecf0f6;font:14px/1.6 Inter,system-ui,sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
+    .wrap{width:100%;max-width:880px}
+    h1{font-size:20px;margin-bottom:4px}
+    .sub{color:#8a93a6;font-size:12px;margin-bottom:24px}
+    .card{background:#15171c;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px;margin-bottom:16px}
+    input[type=password]{background:#1c1f26;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#ecf0f6;padding:10px 12px;font-size:14px;width:260px}
+    button{background:#7c9cff;color:#0a0b0d;border:0;border-radius:8px;padding:10px 18px;font-weight:600;font-size:14px;cursor:pointer;margin-left:8px}
+    button:hover{background:#a8bdff}
+    .err{color:#f47d7d;font-size:12px;margin-top:8px;min-height:16px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+    th{color:#8a93a6;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+    td.num{text-align:right;font-variant-numeric:tabular-nums}
+    th.num{text-align:right}
+    .kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    .kpi{background:#1c1f26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 18px;min-width:130px}
+    .kpi .v{font-size:24px;font-weight:700;color:#a8bdff}
+    .kpi .l{font-size:11px;color:#8a93a6;text-transform:uppercase;letter-spacing:.06em}
+    .note{color:#5a6273;font-size:11px;margin-top:16px}
+    #dash{display:none}
+    h2{font-size:13px;color:#8a93a6;text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Nerva — download &amp; usage data</h1>
+    <div class="sub">Private dashboard. Not linked anywhere; noindex.</div>
+
+    <div class="card" id="gate">
+      <form id="pwform">
+        <label for="pw" style="display:block;margin-bottom:8px;color:#8a93a6;font-size:12px">Password</label>
+        <input type="password" id="pw" autocomplete="current-password" autofocus />
+        <button type="submit">Unlock</button>
+        <div class="err" id="err"></div>
+      </form>
+    </div>
+
+    <div id="dash">
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2 style="margin-top:0">Totals by platform / format</h2>
+        <table id="totals"><thead><tr><th>Platform</th><th>Format</th><th class="num">Downloads</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Per release</h2>
+        <table id="rel"><thead><tr><th>Version</th><th>Asset</th><th>Platform</th><th class="num">Downloads</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="note" id="note"></div>
+      <div class="note">
+        Sources: direct downloads = GitHub release assets (also served via nerva.bytical.ai/download/*).
+        Snap installs → <a href="https://snapcraft.io/nerva/metrics" style="color:#7c9cff">snapcraft.io metrics</a>.
+        Website traffic + in-app weekly usage pings (opt-in) → Segment workspace, event <code>app_weekly_ping</code>.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    $("#pwform").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("#err").textContent = "";
+      const res = await fetch("/api/stats", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: $("#pw").value }),
+      });
+      if (!res.ok) {
+        $("#err").textContent = res.status === 401 ? "Wrong password." : "Error " + res.status;
+        return;
+      }
+      const data = await res.json();
+      render(data);
+      $("#gate").style.display = "none";
+      $("#dash").style.display = "block";
+    });
+
+    function render(d) {
+      let grand = 0, linux = 0, windows = 0;
+      const tbody = $("#totals tbody");
+      tbody.innerHTML = "";
+      for (const [platform, formats] of Object.entries(d.totals)) {
+        for (const [format, count] of Object.entries(formats)) {
+          grand += count;
+          if (platform === "linux") linux += count;
+          if (platform === "windows") windows += count;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${platform}</td><td>${format}</td><td class="num">${count.toLocaleString()}</td>`;
+          tbody.appendChild(tr);
+        }
+      }
+      $("#kpis").innerHTML = `
+        <div class="kpi"><div class="v">${grand.toLocaleString()}</div><div class="l">Total downloads</div></div>
+        <div class="kpi"><div class="v">${linux.toLocaleString()}</div><div class="l">Linux</div></div>
+        <div class="kpi"><div class="v">${windows.toLocaleString()}</div><div class="l">Windows</div></div>`;
+      const rt = $("#rel tbody");
+      rt.innerHTML = "";
+      for (const r of d.releases) {
+        for (const a of r.assets) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${r.tag}</td><td>${a.name}</td><td>${a.platform}</td><td class="num">${a.downloads.toLocaleString()}</td>`;
+          rt.appendChild(tr);
+        }
+      }
+      $("#note").textContent = "Generated " + d.generated_at + " · " + (d.note || "");
+    }
+  </script>
+</body>
+</html>

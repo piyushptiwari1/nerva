@@ -99,9 +99,9 @@ modules:
     sources:
       - type: extra-data
         filename: nerva.deb
-        url: https://github.com/piyushptiwari1/nerva/releases/download/v0.1.1/Nerva_0.1.1_amd64.deb
-        sha256: 45171d0c3fbd19081cd3d3ddbe0ebf34a4de01bcd6a58ab59a627e39956036c9
-        size: 8374472
+        url: https://github.com/piyushptiwari1/nerva/releases/download/v0.1.10/Nerva_0.1.10_amd64.deb
+        sha256: 23484f288443e01caf9f7fbd70d46d2d63fe12015ec6ac92efbcf1b8543a365d
+        size: 8990164
       - type: script
         dest-filename: nerva-install.sh
         commands:

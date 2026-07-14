@@ -5,6 +5,10 @@ import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai } from "@/lib/ai";
 import { ipc } from "@/lib/ipc";
+import {
+  consentState as telemetryConsentState,
+  setConsent as setTelemetryConsent,
+} from "@/lib/telemetry";
 
 type Tab = "ai" | "timers" | "audio" | "focus" | "diag" | "about";
 
@@ -726,6 +730,16 @@ function AboutTab() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const version: string = (globalThis as any).__APP_VERSION__ ?? "dev";
 
+  // Opt-in anonymous usage stats — read once, then track locally. The
+  // telemetry module owns persistence (localStorage).
+  const [telemetryOn, setTelemetryOn] = useState(
+    () => telemetryConsentState() === "granted",
+  );
+  function toggleTelemetry(v: boolean) {
+    setTelemetryConsent(v);
+    setTelemetryOn(v);
+  }
+
   type UpdateState =
     | { kind: "idle" }
     | { kind: "checking" }
@@ -783,13 +797,30 @@ function AboutTab() {
       <header className="space-y-1">
         <h3 className="text-sm font-medium text-ink-100">Nerva</h3>
         <p className="text-ink-400">
-          The focus workspace that never forgets. Native, offline-first, no
-          telemetry. Apache-2.0.
+          The focus workspace that never forgets. Native, offline-first.
+          Apache-2.0. Usage stats are opt-in, anonymous, and never include
+          your content.
         </p>
         <p className="text-ink-500">
           v{version} · © 2026 Bytical Solutions Private Limited
         </p>
       </header>
+
+      {/* Privacy — anonymous usage stats opt-in/out. */}
+      <div className="space-y-2">
+        <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Privacy</h4>
+        <Toggle
+          label="Share anonymous usage stats (weekly)"
+          on={telemetryOn}
+          onChange={toggleTelemetry}
+        />
+        <p className="text-[10px] text-ink-500 leading-relaxed">
+          When on, Nerva sends one anonymous ping per week: app version, OS,
+          locale, and feature counts (e.g. “12 notes, 3 timers”). Never the
+          contents of notes, tasks, or anything you type. Off = zero outbound
+          calls except update checks.
+        </p>
+      </div>
 
       {/* Updates — manual check. The app also auto-checks 4 s after launch. */}
       <div className="space-y-2">

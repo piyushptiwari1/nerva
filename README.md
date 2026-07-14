@@ -5,7 +5,7 @@
 A native desktop focus workspace built for deep work. Parallel timers that
 survive sleep and reboot, sticky markdown notes that float above any window,
 a year-long habit heatmap, and tasks with priority and due times.
-Offline-first. No telemetry. No account.
+Offline-first. Telemetry off by default (anonymous stats are strictly opt-in). No account.
 
 **Six things, done properly:**
 

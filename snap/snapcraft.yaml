@@ -6,7 +6,7 @@ description: |
   Nerva is a native desktop focus workspace built for deep work. Parallel
   timers that survive sleep and reboot, sticky markdown notes that float
   above any window, a year-long habit heatmap, and tasks with priority and
-  due times. Offline-first. No telemetry. No account.
+  due times. Offline-first. Telemetry off by default (opt-in only). No account.
 
   The six things Nerva does properly:
    * Parallel focus timers - wall-clock math. Survives sleep, suspend, reboot.

@@ -396,7 +396,7 @@ fn all_time_completion(
     let Some(map) = map else {
         return (0, 0);
     };
-    for (_, e) in map.iter() {
+    for e in map.values() {
         if e.skipped {
             continue;
         }

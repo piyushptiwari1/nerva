@@ -8,7 +8,7 @@
 # correct and submit. Subsequent releases auto-PR.
 
 PackageIdentifier: Bytical.Nerva
-PackageVersion: 0.1.1
+PackageVersion: 0.1.10
 PackageLocale: en-US
 Publisher: Bytical Solutions Private Limited
 PublisherUrl: https://bytical.ai
@@ -25,7 +25,7 @@ Description: |-
   Nerva is a native desktop focus workspace built for deep work. Parallel
   timers that survive sleep and reboot, sticky markdown notes that float
   above any window, a year-long habit heatmap, and tasks with priority
-  and due times. Offline-first. No telemetry. No account. Apache-2.0.
+  and due times. Offline-first. Telemetry off by default (opt-in only). No account. Apache-2.0.
 Moniker: nerva
 Tags:
   - productivity
@@ -39,7 +39,7 @@ Tags:
   - markdown
   - habit-tracker
   - command-palette
-  - no-telemetry
+  - privacy-first
 ReleaseNotesUrl: https://github.com/piyushptiwari1/nerva/releases
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

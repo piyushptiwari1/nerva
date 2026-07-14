@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Nerva — The focus workspace that never forgets | Deep-work timer, notes, habits, tasks</title>
-  <meta name="description" content="Nerva is a persistent desktop focus workspace for deep work. Parallel timers that survive sleep & reboot, sticky markdown notes, year-long habit heatmap, and tasks. Offline-first. No telemetry. Apache-2.0." />
+  <meta name="description" content="Nerva is a persistent desktop focus workspace for deep work. Parallel timers that survive sleep & reboot, sticky markdown notes, year-long habit heatmap, and tasks. Offline-first. Privacy-first. Apache-2.0." />
   <meta name="keywords" content="focus app, deep work timer, pomodoro alternative, multi-timer desktop, persistent timer, markdown sticky notes, habit tracker, offline productivity app, native productivity app, linux focus app, windows focus timer, tauri productivity, no telemetry app, command palette" />
   <meta name="author" content="Bytical Solutions Private Limited" />
   <meta name="theme-color" content="#0a0b0d" />
@@ -26,7 +26,7 @@
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Nerva — focus workspace for deep work" />
-  <meta name="twitter:description" content="Multi-timer engine + sticky markdown notes + habit heatmap + tasks. Native, offline-first, no telemetry." />
+  <meta name="twitter:description" content="Multi-timer engine + sticky markdown notes + habit heatmap + tasks. Native, offline-first, privacy-first." />
   <meta name="twitter:image" content="https://nerva.bytical.ai/og.png" />
 
   <script type="application/ld+json">
@@ -50,7 +50,7 @@
       "Tasks with priority and due times",
       "Command palette and global shortcuts",
       "Crash-safe event-sourced local SQLite store",
-      "Offline-first, no telemetry, no account"
+      "Offline-first, privacy-first (telemetry opt-in only), no account"
     ]
   }
   </script>
@@ -62,7 +62,7 @@
     "mainEntity": [
       {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source. There is no paid tier."}},
       {"@type":"Question","name":"Does Nerva work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no cloud component. All data lives in a local SQLite database on your machine."}},
-      {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"No. Nerva makes zero outbound network calls except when you explicitly check for updates."}},
+      {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"Not unless you opt in. By default the app makes zero outbound network calls except update checks. Anonymous weekly usage stats (feature counts only, never your content) are strictly opt-in and can be disabled anytime in Settings."}},
       {"@type":"Question","name":"Why don't my timers drift after sleep?","acceptedAnswer":{"@type":"Answer","text":"Nerva uses wall-clock math, not interval ticks. When the machine wakes, each timer recomputes elapsed time as now minus started_at, so it stays accurate across sleep, suspend, and reboot."}},
       {"@type":"Question","name":"Will my notes survive a crash?","acceptedAnswer":{"@type":"Answer","text":"Yes. Notes autosave every 250 ms into an append-only event log. On next launch the app replays the log and restores your exact state."}},
       {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}}
@@ -217,7 +217,7 @@
       <a href="#downloads" class="btn btn-primary">Download free →</a>
       <a href="https://github.com/piyushptiwari1/nerva" class="btn btn-ghost" rel="noopener">★ Star on GitHub</a>
     </div>
-    <div class="trust"><strong>No account.</strong> No telemetry. No cloud. Native Rust core. ≈ 80 MB RAM idle.</div>
+    <div class="trust"><strong>No account.</strong> No cloud. Telemetry off by default (opt-in, anonymous). Native Rust core. ≈ 80 MB RAM idle.</div>
 
     <div class="hero-mockup" aria-label="Nerva dashboard preview">
       <svg viewBox="0 0 980 580" xmlns="http://www.w3.org/2000/svg">
@@ -730,8 +730,8 @@
       </div>
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
-        <h4>Zero telemetry</h4>
-        <p>The app makes no outbound calls. No usage tracking, no error reporting unless you explicitly enable it.</p>
+        <h4>Private by default</h4>
+        <p>The app makes no outbound calls out of the box. Anonymous usage stats (feature counts only — never your content) are strictly opt-in and can be turned off anytime in Settings.</p>
       </div>
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18"/></svg></div>
@@ -815,7 +815,7 @@
       </details>
       <details>
         <summary>Does Nerva send any telemetry?</summary>
-        <p>No. The app makes zero outbound network calls unless you explicitly check for updates from the menu.</p>
+        <p>Not unless you say so. Out of the box the app makes zero outbound network calls except update checks. On first launch it asks whether you'd like to share <em>anonymous</em> weekly usage stats — app version, OS, and feature counts (e.g. “12 notes”), never the contents of your notes or tasks. Decline once and it never asks again; change your mind anytime in Settings → About.</p>
       </details>
       <details>
         <summary>Why don't my timers drift after sleep?</summary>

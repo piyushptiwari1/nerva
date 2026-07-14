@@ -16,6 +16,8 @@ import { SettingsPane } from "@/components/SettingsPane";
 import { HabitsPane } from "@/components/HabitsPane";
 import { Tutorial, tutorialShouldAutoOpen } from "@/components/Tutorial";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { TelemetryConsent } from "@/components/TelemetryConsent";
+import { initTelemetry } from "@/lib/telemetry";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
@@ -34,6 +36,10 @@ export default function App() {
   useEffect(() => {
     if (ready && tutorialShouldAutoOpen()) showTutorial();
   }, [ready, showTutorial]);
+
+  // Opt-in weekly usage ping (no-op unless the user granted consent).
+  // Main window only — popups render their own roots and never reach here.
+  useEffect(() => initTelemetry(), []);
 
   // 250ms tick — wall-clock math means we just need UI refresh cadence.
   useEffect(() => {
@@ -81,6 +87,7 @@ export default function App() {
       <ErrorBoundary scope="Tutorial">
         <Tutorial open={tutorialOpen} onClose={hideTutorial} />
       </ErrorBoundary>
+      <ErrorBoundary scope="TelemetryConsent"><TelemetryConsent /></ErrorBoundary>
     </div>
   );
 }
