@@ -12,7 +12,7 @@
 pkgname=nerva-bin
 pkgver=0.1.11
 pkgrel=1
-pkgdesc="Persistent focus workspace for deep work \u2014 timers, notes, habits, tasks"
+pkgdesc="Persistent focus workspace for deep work — timers, notes, habits, tasks"
 arch=('x86_64')
 url="https://nerva.bytical.ai"
 license=('Apache-2.0')
