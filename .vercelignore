@@ -1,0 +1,8 @@
+# Vercel uploads from the repo root (Root Directory = web in project settings).
+# Exclude everything that isn't the website so deploys don't upload gigabytes
+# of Rust build artifacts and app source.
+*
+!web
+!web/**
+web/node_modules
+!vercel.json

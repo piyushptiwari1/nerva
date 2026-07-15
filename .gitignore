@@ -38,3 +38,5 @@ secrets/
 *.key
 tauri-updater.key*
 bytical-codesign.*
+.vercel
+.env*
