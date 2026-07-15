@@ -9,9 +9,9 @@
 # source. This keeps the binary on Flathub bit-for-bit identical to the
 # one on GitHub releases (same Bytical code signature for tray-icon
 # DBus name continuity), and avoids dragging the full Rust/Tauri/Node
-# toolchain into the Flathub build pipeline (Flathub bans network
-# access during build; building Tauri from source would require a
-# vendored cargo + offline npm tarball — significant ongoing cost).
+# toolchain into the Flathub build pipeline. The .deb is a normal
+# build-time source (Nerva is Apache-2.0, freely redistributable), so
+# flatpak-builder downloads and sha256-verifies it up front.
 #
 # Submission flow (one-time): fork github.com/flathub/flathub, create
 # a `new-pr/ai.bytical.nerva` branch, copy this manifest + the
@@ -26,9 +26,11 @@
 # extra-data source, regenerate metainfo.xml releases block.
 
 app-id: ai.bytical.nerva
-runtime: org.freedesktop.Platform
-runtime-version: "23.08"
-sdk: org.freedesktop.Sdk
+# GNOME runtime: ships webkit2gtk-4.1, which the Tauri binary links against
+# (the freedesktop runtime does not — the app would fail to start).
+runtime: org.gnome.Platform
+runtime-version: "46"
+sdk: org.gnome.Sdk
 command: nerva
 
 finish-args:
@@ -89,37 +91,36 @@ modules:
           url-template: https://github.com/AyatanaIndicators/libayatana-appindicator/archive/refs/tags/$version.tar.gz
 
   # The Nerva binary, repacked from the signed upstream .deb.
-  # `extra-data` downloads the .deb at install time (not build time),
-  # which Flathub permits even under its no-network build rule.
+  # Nerva is Apache-2.0 (fully redistributable), so the .deb is a normal
+  # build-time source — flatpak-builder downloads + verifies it before the
+  # sandboxed build starts (extra-data is only for non-redistributable
+  # payloads and is NOT available during build-commands).
   - name: nerva
     buildsystem: simple
     build-commands:
-      - install -Dm755 nerva-install.sh /app/bin/nerva-install.sh
-      - /app/bin/nerva-install.sh
+      # .deb = ar archive: control.tar.*, data.tar.*. binutils' ar + tar are
+      # both in the SDK; dpkg-deb is not, so unpack manually.
+      - ar x nerva.deb
+      - mkdir -p nerva-root && tar -xf data.tar.* -C nerva-root
+      - install -Dm755 nerva-root/usr/bin/nerva /app/bin/nerva
+      - mkdir -p /app/share/icons
+      - cp -r nerva-root/usr/share/icons/* /app/share/icons/
+      - install -Dm644 nerva-root/usr/share/applications/Nerva.desktop /app/share/applications/ai.bytical.nerva.desktop
+      # Patch the .desktop so Icon= resolves to the Flatpak app id
+      - sed -i 's/^Icon=.*/Icon=ai.bytical.nerva/' /app/share/applications/ai.bytical.nerva.desktop
+      # Rename icon files to the app id per the freedesktop spec
+      - |
+        for sz in 32x32 128x128 256x256; do
+          src="/app/share/icons/hicolor/$sz/apps/nerva.png"
+          dst="/app/share/icons/hicolor/$sz/apps/ai.bytical.nerva.png"
+          [ -f "$src" ] && mv "$src" "$dst" || true
+        done
+      - install -Dm644 ai.bytical.nerva.metainfo.xml /app/share/metainfo/ai.bytical.nerva.metainfo.xml
     sources:
-      - type: extra-data
-        filename: nerva.deb
+      - type: file
+        dest-filename: nerva.deb
         url: https://github.com/piyushptiwari1/nerva/releases/download/v0.1.11/Nerva_0.1.11_amd64.deb
         sha256: 542180d5e916f2c4e5cb92e2b0817778de46aac6899efb8d42bc86a84f176610
-        size: 8989288
-      - type: script
-        dest-filename: nerva-install.sh
-        commands:
-          - set -eu
-          - cd /app
-          - dpkg-deb -x /app/extra/nerva.deb /app/nerva-root
-          # Lift the desktop tree into /app where Flatpak expects it
-          - mkdir -p /app/bin /app/share /app/share/applications /app/share/icons
-          - install -Dm755 /app/nerva-root/usr/bin/nerva /app/bin/nerva
-          - cp -r /app/nerva-root/usr/share/icons/* /app/share/icons/ || true
-          - install -Dm644 /app/nerva-root/usr/share/applications/Nerva.desktop /app/share/applications/ai.bytical.nerva.desktop
-          # Patch the .desktop so Icon= resolves to the Flatpak app id
-          - sed -i 's/^Icon=.*/Icon=ai.bytical.nerva/' /app/share/applications/ai.bytical.nerva.desktop
-          # Rename icon files to the app id for the freedesktop spec
-          - for sz in 32x32 128x128 256x256; do
-              src="/app/share/icons/hicolor/$sz/apps/nerva.png";
-              dst="/app/share/icons/hicolor/$sz/apps/ai.bytical.nerva.png";
-              [ -f "$src" ] && mv "$src" "$dst" || true;
-            done
-          - install -Dm644 /app/nerva-root/usr/share/metainfo/ai.bytical.nerva.metainfo.xml /app/share/metainfo/ai.bytical.nerva.metainfo.xml || true
-          - rm -rf /app/nerva-root
+        only-arches: [x86_64]
+      - type: file
+        path: ai.bytical.nerva.metainfo.xml
