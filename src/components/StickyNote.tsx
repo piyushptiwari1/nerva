@@ -227,21 +227,24 @@ export function StickyNote({ noteId }: { noteId: string }) {
     <div className="h-screen w-screen flex flex-col bg-amber-50 text-stone-900 font-sans">
       <header
         data-tauri-drag-region
-        className="px-3 py-2 flex items-center justify-between bg-amber-200 border-b border-amber-300 cursor-grab active:cursor-grabbing select-none"
+        className="px-3 py-2 flex items-center justify-between bg-amber-200 border-b border-amber-300 cursor-grab active:cursor-grabbing select-none overflow-hidden"
         title="Drag to move"
       >
-        <span data-tauri-drag-region className="text-stone-700 text-sm leading-none pointer-events-none mr-2">⋮⋮</span>
+        <span data-tauri-drag-region className="text-stone-700 text-sm leading-none pointer-events-none mr-2 shrink-0">⋮⋮</span>
         <input
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
             scheduleSave(e.target.value, body);
           }}
-          className="bg-transparent text-stone-900 text-sm font-semibold focus:outline-none flex-1 mr-2 placeholder:text-amber-700/50"
+          className="bg-transparent text-stone-900 text-sm font-semibold focus:outline-none flex-1 min-w-0 mr-2 placeholder:text-amber-700/50"
           placeholder="Note title…"
           aria-label="Sticky note title"
         />
-        <div className="flex items-center gap-1">
+        {/* shrink-0 keeps the controls (especially × close) on-screen at any
+            window width — previously a long title pushed them past the edge
+            and the user had to scroll to reach the close button. */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
             className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-stone-900 transition-colors"

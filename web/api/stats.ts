@@ -15,6 +15,8 @@
 
 export const config = { runtime: "edge" };
 
+import { readEvents } from "./_lib/metrics";
+
 const REPO = "piyushptiwari1/nerva";
 // sha256("Bytical@1") — override via env DATA_PASSWORD_SHA256.
 const DEFAULT_PW_SHA256 =
@@ -110,13 +112,86 @@ export default async function handler(req: Request): Promise<Response> {
     return { tag: r.tag_name, published_at: r.published_at, assets };
   });
 
+  // ---- tracked events (last 30 days, from the private metrics store) ----
+  const [dlEvents, pingEvents] = await Promise.all([
+    readEvents("downloads", 30),
+    readEvents("pings", 30),
+  ]);
+
+  // Downloads: by day, by country, by platform (tracked window only).
+  const byDay: Record<string, number> = {};
+  const byCountry: Record<string, number> = {};
+  const byPlatform30: Record<string, number> = {};
+  for (const e of dlEvents) {
+    const day = String(e.ts ?? "").slice(0, 10);
+    if (day) byDay[day] = (byDay[day] ?? 0) + 1;
+    const c = String(e.country ?? "??");
+    byCountry[c] = (byCountry[c] ?? 0) + 1;
+    const p = String(e.platform ?? "?") + "/" + String(e.format ?? "?");
+    byPlatform30[p] = (byPlatform30[p] ?? 0) + 1;
+  }
+
+  // Usage: fold pings into one row per pseudonymous user (latest ping wins
+  // for the property snapshot; first/last seen + ping count aggregated).
+  interface UserRow {
+    user: string;
+    country: string;
+    first_seen: string;
+    last_seen: string;
+    pings: number;
+    props: Record<string, unknown>;
+  }
+  const users = new Map<string, UserRow>();
+  for (const e of pingEvents) {
+    const key = String(e.user ?? e.anonymousId ?? "unknown");
+    const ts = String(e.ts ?? "");
+    const { ts: _t, user: _u, anonymousId: _a, country, city: _c, ...props } =
+      e as Record<string, unknown>;
+    const row = users.get(key);
+    if (!row) {
+      users.set(key, {
+        user: key,
+        country: String(country ?? "??"),
+        first_seen: ts,
+        last_seen: ts,
+        pings: 1,
+        props,
+      });
+    } else {
+      row.pings += 1;
+      if (ts < row.first_seen) row.first_seen = ts;
+      if (ts > row.last_seen) {
+        row.last_seen = ts;
+        row.props = props;
+        row.country = String(country ?? row.country);
+      }
+    }
+  }
+
   return new Response(
     JSON.stringify({
       generated_at: new Date().toISOString(),
-      source: "github-releases",
-      note: "Snap installs: see snapcraft.io/nerva/metrics. App usage pings: see Segment workspace (event app_weekly_ping).",
+      source: "github-releases + nerva-metrics(30d)",
+      note: "Tracked downloads/pings start 2026-07-15 (older downloads exist only in the GitHub cumulative totals). Snap installs: snapcraft.io/nerva/metrics. Per-user timer/habit/note detail ships with the next app release.",
       totals,
       releases: perRelease,
+      tracked: {
+        window_days: 30,
+        downloads_total: dlEvents.length,
+        downloads_by_day: byDay,
+        downloads_by_country: byCountry,
+        downloads_by_platform: byPlatform30,
+        recent_downloads: dlEvents
+          .sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
+          .slice(0, 50),
+      },
+      usage: {
+        window_days: 30,
+        active_users: users.size,
+        users: [...users.values()].sort((a, b) =>
+          b.last_seen.localeCompare(a.last_seen),
+        ),
+      },
     }),
     {
       status: 200,

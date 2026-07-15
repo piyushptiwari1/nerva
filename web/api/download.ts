@@ -24,6 +24,8 @@
 
 export const config = { runtime: "edge" };
 
+import { appendEvent, geoOf, segmentTrack } from "./_lib/metrics";
+
 const REPO = "piyushptiwari1/nerva";
 
 // Filename templates per platform/format. `{v}` is replaced with the
@@ -74,7 +76,10 @@ async function getLatestRelease(): Promise<Release> {
   return data;
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: Request,
+  ctx?: { waitUntil?: (p: Promise<unknown>) => void },
+): Promise<Response> {
   const url = new URL(req.url);
   const platform = (url.searchParams.get("p") || "").toLowerCase();
   const format = (url.searchParams.get("f") || "").toLowerCase();
@@ -115,6 +120,28 @@ export default async function handler(req: Request): Promise<Response> {
       `Asset ${filename} not found in release ${release.tag_name}.\n`,
       { status: 404 },
     );
+  }
+
+  // Internal analytics: record the download with coarse geo (country/city
+  // from Vercel edge headers — no IP stored) + referrer. Fire-and-forget via
+  // waitUntil so it never delays the byte stream. Cert downloads excluded.
+  if (platform !== "cert") {
+    const { country, city } = geoOf(req);
+    const ev = {
+      ts: new Date().toISOString(),
+      platform,
+      format: fileKey,
+      version,
+      country,
+      city,
+      ref: req.headers.get("referer") ?? "",
+    };
+    const log = Promise.all([
+      appendEvent("downloads", ev),
+      segmentTrack(crypto.randomUUID(), "app_download", ev),
+    ]);
+    if (ctx?.waitUntil) ctx.waitUntil(log);
+    else void log;
   }
 
   // Stream the binary through. `Content-Disposition: attachment` makes the

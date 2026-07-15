@@ -8,7 +8,7 @@
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#0a0b0d;color:#ecf0f6;font:14px/1.6 Inter,system-ui,sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
-    .wrap{width:100%;max-width:880px}
+    .wrap{width:100%;max-width:1080px}
     h1{font-size:20px;margin-bottom:4px}
     .sub{color:#8a93a6;font-size:12px;margin-bottom:24px}
     .card{background:#15171c;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px;margin-bottom:16px}
@@ -17,17 +17,26 @@
     button:hover{background:#a8bdff}
     .err{color:#f47d7d;font-size:12px;margin-top:8px;min-height:16px}
     table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{text-align:left;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+    th,td{text-align:left;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap}
     th{color:#8a93a6;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-    td.num{text-align:right;font-variant-numeric:tabular-nums}
-    th.num{text-align:right}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
     .kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
     .kpi{background:#1c1f26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 18px;min-width:130px}
     .kpi .v{font-size:24px;font-weight:700;color:#a8bdff}
     .kpi .l{font-size:11px;color:#8a93a6;text-transform:uppercase;letter-spacing:.06em}
     .note{color:#5a6273;font-size:11px;margin-top:16px}
     #dash{display:none}
-    h2{font-size:13px;color:#8a93a6;text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px}
+    h2{font-size:13px;color:#8a93a6;text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:800px){.cols{grid-template-columns:1fr}}
+    .bars{display:flex;align-items:flex-end;gap:3px;height:110px;padding-top:6px}
+    .bar{flex:1;background:#7c9cff;border-radius:3px 3px 0 0;min-height:2px;position:relative}
+    .bar:hover{background:#a8bdff}
+    .bar .tip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#1c1f26;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 8px;font-size:10px;white-space:nowrap;margin-bottom:4px;z-index:2}
+    .bar:hover .tip{display:block}
+    .scroll{max-height:320px;overflow:auto}
+    .pill{display:inline-block;background:#1c1f26;border:1px solid rgba(255,255,255,.10);border-radius:99px;padding:1px 8px;font-size:11px;color:#a8bdff}
+    a{color:#7c9cff}
   </style>
 </head>
 <body>
@@ -46,19 +55,51 @@
 
     <div id="dash">
       <div class="kpis" id="kpis"></div>
+
       <div class="card">
-        <h2 style="margin-top:0">Totals by platform / format</h2>
-        <table id="totals"><thead><tr><th>Platform</th><th>Format</th><th class="num">Downloads</th></tr></thead><tbody></tbody></table>
+        <h2>Downloads per day — last 30 days (tracked via nerva.bytical.ai)</h2>
+        <div class="bars" id="daychart"></div>
       </div>
+
+      <div class="cols">
+        <div class="card">
+          <h2>Downloads by country (30d)</h2>
+          <div class="scroll"><table id="bycountry"><thead><tr><th>Country</th><th class="num">Downloads</th><th class="num">Share</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="card">
+          <h2>Downloads by platform (30d tracked · all-time GitHub)</h2>
+          <div class="scroll"><table id="byplatform"><thead><tr><th>Platform / format</th><th class="num">30d</th><th class="num">All-time</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
       <div class="card">
-        <h2 style="margin-top:0">Per release</h2>
-        <table id="rel"><thead><tr><th>Version</th><th>Asset</th><th>Platform</th><th class="num">Downloads</th></tr></thead><tbody></tbody></table>
+        <h2>App usage — active installations (opt-in weekly pings, 30d)</h2>
+        <div class="scroll">
+          <table id="users"><thead><tr>
+            <th>User</th><th>Country</th><th>Version</th><th>OS</th>
+            <th class="num">Focus h/7d</th><th class="num">Timers done/7d</th><th class="num">Tasks done/7d</th>
+            <th class="num">Notes</th><th class="num">Tasks</th><th class="num">Habits</th><th class="num">Timers</th>
+            <th>Last seen</th><th class="num">Pings</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="note">Pseudonymous — “user” is a stable name derived from each installation's random anonymous id. Per-user timer/habit/note <em>detail</em> (what &amp; when) ships with the next app release.</div>
       </div>
+
+      <div class="card">
+        <h2>Recent downloads</h2>
+        <div class="scroll"><table id="recent"><thead><tr><th>When (UTC)</th><th>Platform</th><th>Version</th><th>Country</th><th>City</th><th>Referrer</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div class="card">
+        <h2>Per release (all-time, GitHub)</h2>
+        <div class="scroll"><table id="rel"><thead><tr><th>Version</th><th>Asset</th><th>Platform</th><th class="num">Downloads</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
       <div class="note" id="note"></div>
       <div class="note">
-        Sources: direct downloads = GitHub release assets (also served via nerva.bytical.ai/download/*).
-        Snap installs → <a href="https://snapcraft.io/nerva/metrics" style="color:#7c9cff">snapcraft.io metrics</a>.
-        Website traffic + in-app weekly usage pings (opt-in) → Segment workspace, event <code>app_weekly_ping</code>.
+        Other sources: Snap installs → <a href="https://snapcraft.io/nerva/metrics">snapcraft.io metrics</a> ·
+        AUR votes/popularity → <a href="https://aur.archlinux.org/packages/nerva-desktop-bin">aur.archlinux.org</a> ·
+        raw events also mirror to Segment (<span class="pill">app_download</span> <span class="pill">app_weekly_ping</span>).
       </div>
     </div>
   </div>
@@ -77,39 +118,87 @@
         $("#err").textContent = res.status === 401 ? "Wrong password." : "Error " + res.status;
         return;
       }
-      const data = await res.json();
-      render(data);
+      render(await res.json());
       $("#gate").style.display = "none";
       $("#dash").style.display = "block";
     });
 
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const n = (v) => (typeof v === "number" ? v.toLocaleString() : "—");
+
     function render(d) {
+      // ---- KPIs ----
       let grand = 0, linux = 0, windows = 0;
-      const tbody = $("#totals tbody");
-      tbody.innerHTML = "";
       for (const [platform, formats] of Object.entries(d.totals)) {
-        for (const [format, count] of Object.entries(formats)) {
+        for (const count of Object.values(formats)) {
           grand += count;
           if (platform === "linux") linux += count;
           if (platform === "windows") windows += count;
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${platform}</td><td>${format}</td><td class="num">${count.toLocaleString()}</td>`;
-          tbody.appendChild(tr);
         }
       }
+      const t = d.tracked ?? {};
+      const u = d.usage ?? {};
+      const countries = Object.keys(t.downloads_by_country ?? {}).length;
       $("#kpis").innerHTML = `
-        <div class="kpi"><div class="v">${grand.toLocaleString()}</div><div class="l">Total downloads</div></div>
+        <div class="kpi"><div class="v">${grand.toLocaleString()}</div><div class="l">All-time downloads</div></div>
         <div class="kpi"><div class="v">${linux.toLocaleString()}</div><div class="l">Linux</div></div>
-        <div class="kpi"><div class="v">${windows.toLocaleString()}</div><div class="l">Windows</div></div>`;
-      const rt = $("#rel tbody");
-      rt.innerHTML = "";
-      for (const r of d.releases) {
-        for (const a of r.assets) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${r.tag}</td><td>${a.name}</td><td>${a.platform}</td><td class="num">${a.downloads.toLocaleString()}</td>`;
-          rt.appendChild(tr);
-        }
+        <div class="kpi"><div class="v">${windows.toLocaleString()}</div><div class="l">Windows</div></div>
+        <div class="kpi"><div class="v">${(t.downloads_total ?? 0).toLocaleString()}</div><div class="l">Downloads 30d</div></div>
+        <div class="kpi"><div class="v">${countries}</div><div class="l">Countries 30d</div></div>
+        <div class="kpi"><div class="v">${(u.active_users ?? 0).toLocaleString()}</div><div class="l">Active installs 30d</div></div>`;
+
+      // ---- day chart (last 30 days, oldest → newest) ----
+      const byDay = t.downloads_by_day ?? {};
+      const days = [];
+      for (let i = 29; i >= 0; i--) {
+        const day = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        days.push([day, byDay[day] ?? 0]);
       }
+      const max = Math.max(1, ...days.map((x) => x[1]));
+      $("#daychart").innerHTML = days
+        .map(([day, c]) => `<div class="bar" style="height:${Math.max(2, (c / max) * 100)}%"><span class="tip">${day}: ${c}</span></div>`)
+        .join("");
+
+      // ---- country table ----
+      const bc = Object.entries(t.downloads_by_country ?? {}).sort((a, b) => b[1] - a[1]);
+      const bcTotal = bc.reduce((s, x) => s + x[1], 0) || 1;
+      $("#bycountry tbody").innerHTML = bc
+        .map(([c, v]) => `<tr><td>${esc(c)}</td><td class="num">${v.toLocaleString()}</td><td class="num">${((v / bcTotal) * 100).toFixed(0)}%</td></tr>`)
+        .join("") || `<tr><td colspan="3" style="color:#5a6273">No tracked downloads yet — collection started 2026-07-15.</td></tr>`;
+
+      // ---- platform table (30d tracked + all-time) ----
+      const allTime = {};
+      for (const [platform, formats] of Object.entries(d.totals))
+        for (const [f, v] of Object.entries(formats)) allTime[`${platform}/${f}`] = v;
+      const keys = [...new Set([...Object.keys(allTime), ...Object.keys(t.downloads_by_platform ?? {})])].sort();
+      $("#byplatform tbody").innerHTML = keys
+        .map((k) => `<tr><td>${esc(k)}</td><td class="num">${n((t.downloads_by_platform ?? {})[k] ?? 0)}</td><td class="num">${n(allTime[k] ?? 0)}</td></tr>`)
+        .join("");
+
+      // ---- usage table ----
+      const rows = (u.users ?? []).map((r) => {
+        const p = r.props ?? {};
+        const focusH = typeof p.focus_ms_7d === "number" ? (p.focus_ms_7d / 3600000).toFixed(1) : "—";
+        return `<tr>
+          <td><span class="pill">${esc(r.user)}</span></td>
+          <td>${esc(r.country)}</td><td>${esc(p.app_version)}</td><td>${esc(p.os)}</td>
+          <td class="num">${focusH}</td><td class="num">${n(p.completed_timers_7d)}</td><td class="num">${n(p.completed_tasks_7d)}</td>
+          <td class="num">${n(p.n_notes)}</td><td class="num">${n(p.n_tasks)}</td><td class="num">${n(p.n_habits)}</td><td class="num">${n(p.n_timers)}</td>
+          <td>${esc(String(r.last_seen).slice(0, 16).replace("T", " "))}</td><td class="num">${r.pings}</td>
+        </tr>`;
+      });
+      $("#users tbody").innerHTML = rows.join("") || `<tr><td colspan="13" style="color:#5a6273">No pings yet — users must be on v0.1.11+ and opt in; first data appears within a week of installs.</td></tr>`;
+
+      // ---- recent downloads ----
+      $("#recent tbody").innerHTML = (t.recent_downloads ?? [])
+        .map((e) => `<tr><td>${esc(String(e.ts).slice(0, 19).replace("T", " "))}</td><td>${esc(e.platform)}/${esc(e.format)}</td><td>${esc(e.version)}</td><td>${esc(e.country)}</td><td>${esc(e.city)}</td><td>${esc(e.ref)}</td></tr>`)
+        .join("") || `<tr><td colspan="6" style="color:#5a6273">No tracked downloads yet.</td></tr>`;
+
+      // ---- per release ----
+      $("#rel tbody").innerHTML = d.releases
+        .flatMap((r) => r.assets.map((a) => `<tr><td>${esc(r.tag)}</td><td>${esc(a.name)}</td><td>${esc(a.platform)}</td><td class="num">${a.downloads.toLocaleString()}</td></tr>`))
+        .join("");
+
       $("#note").textContent = "Generated " + d.generated_at + " · " + (d.note || "");
     }
   </script>

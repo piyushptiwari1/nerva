@@ -17,6 +17,8 @@
 
 export const config = { runtime: "edge" };
 
+import { appendEvent, dummyName, geoOf } from "./_lib/metrics";
+
 const SEGMENT_WRITE_KEY = "TCz9WfbBHAUOuOYYrfgbcGGDBfLRBlqR";
 
 // Whitelist: property name → validator.
@@ -38,7 +40,10 @@ const ALLOWED: Record<string, (v: unknown) => boolean> = {
   ai_enabled: (v) => typeof v === "boolean",
 };
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: Request,
+  ctx?: { waitUntil?: (p: Promise<unknown>) => void },
+): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(null, { status: 405 });
   }
@@ -63,6 +68,23 @@ export default async function handler(req: Request): Promise<Response> {
     if (k in properties && validate(properties[k])) clean[k] = properties[k];
   }
 
+  // Internal enrichment: coarse geo (country/city headers — IP never stored)
+  // and a deterministic pseudonym so the /data dashboard can follow one
+  // installation over time without any real identity.
+  const { country, city } = geoOf(req);
+  const user = dummyName(anonymousId);
+  const stored = {
+    ts: new Date().toISOString(),
+    user,
+    anonymousId,
+    country,
+    city,
+    ...clean,
+  };
+  const log = appendEvent("pings", stored);
+  if (ctx?.waitUntil) ctx.waitUntil(log);
+  else void log;
+
   const res = await fetch("https://api.segment.io/v1/track", {
     method: "POST",
     headers: {
@@ -72,7 +94,7 @@ export default async function handler(req: Request): Promise<Response> {
     body: JSON.stringify({
       anonymousId,
       event: "app_weekly_ping",
-      properties: clean,
+      properties: { ...clean, user, country },
       timestamp: new Date().toISOString(),
     }),
   });
