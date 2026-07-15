@@ -4,12 +4,16 @@
 # Releases so Arch users get the exact same bits as Debian/Ubuntu
 # users (same tray-icon DBus name, same crash-report fingerprint).
 #
+# Named `nerva-desktop-bin` because `nerva-bin` on the AUR is an
+# unrelated network-fingerprinting CLI (praetorian-inc/nerva) that
+# also installs /usr/bin/nerva — hence the conflicts entry below.
+#
 # Why not a source package (`nerva`)? Tauri 2 + the Rust toolchain
 # pull ~3 GB of build deps and ~30 min of CPU on a clean machine.
 # We track upstream releases; users who want from-source are pointed
 # at `cargo install --path src-tauri` in the README.
 
-pkgname=nerva-bin
+pkgname=nerva-desktop-bin
 pkgver=0.1.11
 pkgrel=1
 pkgdesc="Persistent focus workspace for deep work — timers, notes, habits, tasks"
@@ -26,8 +30,8 @@ depends=(
 optdepends=(
   'libsecret: keyring storage for AI provider tokens'
 )
-provides=('nerva')
-conflicts=('nerva')
+provides=('nerva-desktop')
+conflicts=('nerva' 'nerva-bin')
 options=('!strip' '!emptydirs')
 
 # Repack the official .deb so /usr/bin/nerva is the same binary

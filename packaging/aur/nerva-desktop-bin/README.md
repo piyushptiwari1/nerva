@@ -1,6 +1,13 @@
-# AUR package — `nerva-bin`
+# AUR package — `nerva-desktop-bin`
 
-This directory tracks the [Arch User Repository](https://aur.archlinux.org/) submission for Nerva.
+This directory tracks the [Arch User Repository](https://aur.archlinux.org/packages/nerva-desktop-bin) submission for Nerva.
+
+> **Why not `nerva-bin`?** That name is taken by an unrelated network
+> fingerprinting CLI (praetorian-inc/nerva) which also installs
+> `/usr/bin/nerva` — our PKGBUILD declares `conflicts=('nerva' 'nerva-bin')`.
+>
+> **Status**: submitted 2026-07-15 (v0.1.11) under account `piyushptiwari`,
+> SSH key `~/.ssh/aur`.
 
 ## Files
 - [`PKGBUILD`](PKGBUILD) — repacks the upstream signed `.deb` (Arch users get the bit-for-bit identical binary).
@@ -24,12 +31,12 @@ cat ~/.ssh/aur.pub
 
 # 3. Clone the (empty) AUR repo and copy our files in
 cd /tmp
-git clone ssh://aur@aur.archlinux.org/nerva-bin.git
-cp packaging/aur/nerva-bin/PKGBUILD nerva-bin/
-cp packaging/aur/nerva-bin/.SRCINFO nerva-bin/
-cd nerva-bin
+git clone ssh://aur@aur.archlinux.org/nerva-desktop-bin.git
+cp packaging/aur/nerva-desktop-bin/PKGBUILD nerva-desktop-bin/
+cp packaging/aur/nerva-desktop-bin/.SRCINFO nerva-desktop-bin/
+cd nerva-desktop-bin
 git add PKGBUILD .SRCINFO
-git commit -m "Initial import of nerva-bin 0.1.1"
+git commit -m "Initial import of nerva-desktop-bin 0.1.11"
 git push origin master
 ```
 
