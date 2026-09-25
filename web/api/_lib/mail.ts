@@ -62,15 +62,20 @@ export function mailConfigured(): boolean {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
+const SITE = "https://nerva.bytical.ai";
+
 function shell(title: string, bodyHtml: string): string {
   return `<!doctype html><html><body style="margin:0;background:#0a0b0d;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:#ecf0f6">
 <div style="max-width:560px;margin:0 auto;padding:32px 20px">
-  <div style="font-size:13px;color:#8a93a6;margin-bottom:18px"><span style="display:inline-block;width:22px;height:22px;border-radius:6px;background:#7c9cff;color:#0a0b0d;text-align:center;line-height:22px;font-weight:700;font-size:12px;margin-right:8px">N</span>Nerva <span style="color:#5a6273">by Bytical</span></div>
+  <div style="background:#071B34;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
+    <img src="${SITE}/brand/bytical-wordmark-on-dark-h80-2x.png" alt="Bytical" height="28" style="height:28px;display:block"/>
+    <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9fb3c8">Nerva by Bytical</span>
+  </div>
   <div style="background:#15171c;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:28px">
     <h1 style="font-size:20px;margin:0 0 14px;letter-spacing:-.01em">${esc(title)}</h1>
     ${bodyHtml}
   </div>
-  <p style="font-size:11px;color:#5a6273;margin-top:18px;line-height:1.6">Bytical Solutions Private Limited · <a href="https://nerva.bytical.ai" style="color:#7c9cff">nerva.bytical.ai</a> · You received this because you bought or asked about Nerva Pro. Reply to this email for support.</p>
+  <p style="font-size:11px;color:#5a6273;margin-top:18px;line-height:1.6">Bytical Solutions Private Limited · GSTIN 06AAMCB3963E1ZN · Udyog Vihar Phase 1, Gurugram, Haryana 122016, India · <a href="${SITE}" style="color:#7c9cff">nerva.bytical.ai</a> · <a href="https://bytical.ai" style="color:#7c9cff">bytical.ai</a><br/>You received this because you bought or asked about Nerva Pro. Reply to this email for support.</p>
 </div></body></html>`;
 }
 

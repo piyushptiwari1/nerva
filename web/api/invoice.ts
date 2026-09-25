@@ -24,6 +24,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!rec) return new Response("Invoice not found yet — try again in a minute.", { status: 404 });
 
   const env = (globalThis as { process?: { env?: Record<string, string> } }).process?.env ?? {};
+  const origin = new URL(req.url).origin;
   const gstin = env.BYTICAL_GSTIN ?? "";
   const address = env.BYTICAL_ADDRESS ?? "India";
   const plan = String(rec.plan) as Plan;
@@ -38,7 +39,10 @@ export default async function handler(req: Request): Promise<Response> {
 <meta name="robots" content="noindex"/>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:#111;margin:0;padding:40px;background:#f4f5f8}
-.sheet{max-width:720px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.sheet{max-width:720px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow:hidden}
+.brand{background:#071B34;padding:22px 40px;display:flex;justify-content:space-between;align-items:center}
+.brand img{height:34px;display:block}.brand .tag{color:#9fb3c8;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.inner{padding:32px 40px 40px}
 h1{font-size:22px;margin:0}.muted{color:#666;font-size:13px}
 table{width:100%;border-collapse:collapse;margin-top:24px}th,td{padding:10px 8px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
 td.num,th.num{text-align:right}.tot td{font-weight:600;border-bottom:0}
@@ -46,9 +50,11 @@ td.num,th.num{text-align:right}.tot td{font-weight:600;border-bottom:0}
 @media print{body{background:#fff;padding:0}.sheet{box-shadow:none}.noprint{display:none}}
 button{background:#111;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer}
 </style></head><body><div class="sheet">
+<div class="brand"><img src="${esc(origin)}/brand/bytical-wordmark-on-dark-h80-2x.png" alt="Bytical"/><span class="tag">Nerva by Bytical</span></div>
+<div class="inner">
 <div style="display:flex;justify-content:space-between;align-items:flex-start">
   <div><h1>Tax Invoice</h1><div class="muted">${esc(invNo)} · ${esc(date)}</div></div>
-  <div style="text-align:right"><strong>Nerva by Bytical</strong><div class="muted">Bytical Solutions Private Limited<br/>${esc(address)}${gstin ? `<br/>GSTIN: ${esc(gstin)}` : ""}<br/>hello@bytical.ai</div></div>
+  <div style="text-align:right"><strong>Bytical Solutions Private Limited</strong><div class="muted">${esc(address)}${gstin ? `<br/>GSTIN: ${esc(gstin)}` : ""}<br/>hello@bytical.ai · bytical.ai</div></div>
 </div>
 <div class="row">
   <div><div class="muted">Billed to</div><strong>${esc(rec.name || "Customer")}</strong><br/><span class="muted">${esc(rec.email)}</span></div>
@@ -63,6 +69,6 @@ button{background:#111;color:#fff;border:0;padding:10px 16px;border-radius:8px;c
 </table>
 <p class="muted" style="margin-top:24px">This is a computer-generated invoice and does not require a signature. For international customers the card issuer converts INR to your local currency at their rate. Refunds within 14 days of purchase on request via hello@bytical.ai.</p>
 <p class="noprint" style="margin-top:20px"><button onclick="window.print()">Print / Save as PDF</button></p>
-</div></body></html>`;
+</div></div></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" } });
 }

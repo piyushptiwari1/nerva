@@ -3,7 +3,7 @@
 ## Payments (PayU)
 
 - Gateway: **PayU India** (`PAYU_KEY` / `PAYU_SALT` / `PAYU_BASE_URL` — identical values to the Bytical platform backend's `.env.production`). Hash algorithm mirrors `routes/payment_endpoints.py` exactly.
-- **International cards:** PayU India accepts foreign-issued Visa / Mastercard / Amex and settles to us in INR ("International Payments" must be **enabled on the merchant account** — PayU support ticket + KYC; it is off by default on new accounts). The cardholder's bank converts INR → local currency. PayU also offers multi-currency pricing (135+ currencies, DCC) on request — we show ≈ USD equivalents on the site and charge INR.
+- **International cards: VERIFIED ACTIVE** on the live merchant (MID 12772712 → Settings → Payment Methods → International Payments → "International Cards: Active", checked 2026-09-26). Foreign-issued Visa / Mastercard / Amex work today; PayU settles to us in INR and the cardholder's bank converts. PayPal is the only inactive international rail (self-serve "Link PayPal" in the same screen if ever wanted). PayU also offers multi-currency pricing (135+ currencies, DCC) on request — we show ≈ USD equivalents on the site and charge INR.
 - UPI / net-banking are India-only; cards are the international path. If PayU declines a foreign card, the failure page tells the buyer to use a card and offers the feedback form.
 - Prices (INR, GST-inclusive, SAC 997331): Monthly ₹249 · Yearly ₹1,999 · Lifetime ₹4,999. Single source: `web/api/_lib/license.ts → PLANS`; the `#pro` section on the site mirrors it manually.
 - No auto-renew. Reminder emails invite a manual renewal; a renewal issues a fresh key.
@@ -37,7 +37,7 @@ Rust core `license_status` re-verifies signature + device + expiry on every call
 | T-7 days / T-1 day / expiry (monthly, yearly) | `reminderMail` | Renew CTA, no auto-renew reassurance — daily cron `/api/cron-reminders` (09:00 UTC), state in `licenses/reminders.json` |
 | "Lost your key" | `recoveryMail` | All keys for that email with plan + expiry |
 
-Invoice: `/api/invoice?txnid=…&sig=…` — printable tax invoice (GST 18 % breakdown, SAC 997331). Fill `BYTICAL_GSTIN` and `BYTICAL_ADDRESS` in Vercel env to print them.
+Invoice: `/api/invoice?txnid=…&sig=…` — printable tax invoice (GST 18 % breakdown, SAC 997331) with the Bytical wordmark header. `BYTICAL_GSTIN` = 06AAMCB3963E1ZN and `BYTICAL_ADDRESS` (Udyog Vihar Phase 1, Gurugram 122016) are set in Vercel env. Brand assets come from `scripts/fetch-brand.sh` (bytical.ai/brand-v4, white-on-transparent — always on navy #071B34).
 
 ## How Pro looks in the app
 
