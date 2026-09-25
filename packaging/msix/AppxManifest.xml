@@ -23,7 +23,7 @@
   <Identity
     Name="__REPLACE_PACKAGE_IDENTITY_NAME__"
     Publisher="__REPLACE_PUBLISHER_CN__"
-    Version="0.1.11.0"
+    Version="0.1.12.0"
     ProcessorArchitecture="x64" />
 
   <Properties>

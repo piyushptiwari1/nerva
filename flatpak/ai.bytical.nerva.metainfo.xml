@@ -93,6 +93,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.12" date="2026-09-25">
+      <description>
+        <p>Focus release.</p>
+        <ul>
+          <li>Pomodoro auto-structure: timers of 30 min or more get 25/5 focus/break phases inside one session, with distinct sound cues</li>
+          <li>Bring your own LLM key: OpenAI, Anthropic, Gemini, OpenRouter or any OpenAI-compatible endpoint next to local Ollama</li>
+          <li>World clocks, customisable sidebar layout, in-app feedback and ratings, What's new dialog</li>
+          <li>Nerva Pro licence (optional) with multi-device activation</li>
+          <li>Fixed sticky pop-outs spawning off-screen on HiDPI and multi-monitor setups; habits rail refresh; light-theme timer digits</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.11" date="2026-07-15">
       <description>
         <p>Privacy and insight release.</p>
