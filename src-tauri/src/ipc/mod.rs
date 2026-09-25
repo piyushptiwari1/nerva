@@ -47,6 +47,18 @@ pub struct CreateTimerArgs {
     pub workspace_id: Option<String>,
     /// Optional task to bind: completing the timer marks the task done.
     pub task_id: Option<String>,
+    /// Structure the session with pomodoro focus/break phases. `None` →
+    /// use the persisted default (`timer.auto_breaks`, on by default).
+    /// Has no effect below 30 minutes (see `timers::plan_phases`).
+    pub auto_breaks: Option<bool>,
+}
+
+/// Persisted default for `CreateTimerArgs::auto_breaks`.
+fn read_auto_breaks(state: &State) -> bool {
+    match state.store.meta_get("timer.auto_breaks") {
+        Ok(Some(v)) => v != "false",
+        _ => true,
+    }
 }
 
 #[tauri::command]
@@ -58,6 +70,15 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
     let workspace_id = args
         .workspace_id
         .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let auto_breaks = args.auto_breaks.unwrap_or_else(|| read_auto_breaks(&state));
+    let phases = if auto_breaks {
+        crate::timers::plan_phases(args.duration_ms)
+    } else {
+        vec![crate::timers::Phase {
+            kind: crate::timers::PhaseKind::Focus,
+            duration_ms: args.duration_ms,
+        }]
+    };
     let payload = serde_json::json!({
         "id": id,
         "name": args.name,
@@ -65,6 +86,7 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
         "color": args.color.unwrap_or_else(|| "#7c9cff".into()),
         "workspace_id": workspace_id,
         "task_id": args.task_id,
+        "phases": phases,
     });
     let evt_id = state.store.append_event("timer.created", &payload)?;
     let ev = StoredEvent {
@@ -119,6 +141,7 @@ pub fn timer_pause(state: State, id: String) -> Result<Timer> {
 #[tauri::command]
 pub fn timer_resume(state: State, id: String) -> Result<Timer> {
     append_and_apply(&state, "timer.resumed", &id)?;
+    state.audio.play_resume();
     state
         .timers
         .lock()
@@ -148,11 +171,12 @@ pub fn timer_list(state: State) -> Result<Vec<Timer>> {
     Ok(state.timers.lock().list())
 }
 
-/// Lightweight pure-read tick: recompute & report timers that just completed.
+/// Lightweight pure-read tick: recompute & report timers that just completed
+/// or crossed a focus↔break boundary.
 #[tauri::command]
 pub fn timer_tick(state: State) -> Result<TickReport> {
     let mut engine = state.timers.lock();
-    let completed = engine.tick();
+    let (completed, phase_changes) = engine.tick();
     // Resolve linked task ids up front while we hold the engine lock; we'll
     // release the engine lock before touching the tasks projection to avoid
     // any nested-lock pattern.
@@ -170,6 +194,13 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
     }
     if !completed.is_empty() {
         state.audio.play_completion();
+    } else if let Some(ch) = phase_changes.first() {
+        // Distinct cues so the user can tell "break time" from "back to
+        // work" without looking. One cue per batch, like completion.
+        match ch.to {
+            crate::timers::PhaseKind::Break => state.audio.play_break_start(),
+            crate::timers::PhaseKind::Focus => state.audio.play_focus_start(),
+        }
     }
     drop(engine);
 
@@ -201,6 +232,7 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
 
     Ok(TickReport {
         completed,
+        phase_changes,
         timers: state.timers.lock().list(),
     })
 }
@@ -208,6 +240,7 @@ pub fn timer_tick(state: State) -> Result<TickReport> {
 #[derive(Debug, Serialize)]
 pub struct TickReport {
     pub completed: Vec<String>,
+    pub phase_changes: Vec<crate::timers::PhaseChange>,
     pub timers: Vec<Timer>,
 }
 
@@ -901,7 +934,7 @@ pub async fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
         &app,
         &label,
         &url,
-        "Nerva Sticky",
+        "Nerva by Bytical — Sticky",
         360.0,
         420.0,
         240.0,
@@ -919,7 +952,7 @@ pub async fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
         &app,
         "timer-widget",
         "index.html?widget=timer",
-        "Nerva Timer",
+        "Nerva by Bytical — Timer",
         280.0,
         160.0,
         220.0,
@@ -936,7 +969,7 @@ pub async fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
         &app,
         "habits-widget",
         "index.html?widget=habits",
-        "Nerva Habits",
+        "Nerva by Bytical — Habits",
         320.0,
         420.0,
         260.0,
@@ -953,13 +986,41 @@ pub async fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
         &app,
         "tasks-widget",
         "index.html?widget=tasks",
-        "Nerva Tasks",
+        "Nerva by Bytical — Tasks",
         320.0,
         460.0,
         260.0,
         300.0,
     )
     .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
+}
+
+/// Axis-aligned rectangle in *logical* pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LogicalRect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+/// Where to place a `w × h` popup relative to the main window.
+///
+/// Anchors the popup 40 px inside the main window's right edge and 60 px
+/// below its top, then clamps it fully inside `monitor` (work area) when
+/// known. Pure function so the DPI/multi-monitor placement logic is
+/// unit-testable without a display server.
+pub fn popup_origin(main: LogicalRect, monitor: Option<LogicalRect>, w: f64, h: f64) -> (f64, f64) {
+    let mut x = main.x + main.w - w - 40.0;
+    let mut y = main.y + 60.0;
+    if let Some(m) = monitor {
+        // If the popup is larger than the monitor, pin to its origin.
+        let max_x = (m.x + m.w - w).max(m.x);
+        let max_y = (m.y + m.h - h).max(m.y);
+        x = x.clamp(m.x, max_x);
+        y = y.clamp(m.y, max_y);
+    }
+    (x.round(), y.round())
 }
 
 /// Shared popup creator. Builds an undecorated, *non*-always-on-top window
@@ -1021,33 +1082,36 @@ fn spawn_popup(
         .skip_taskbar(false);
 
     if let Some(main) = app.get_webview_window("main") {
-        if let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) {
-            // Place popup 40 px inside the right edge, 60 px below the top.
-            let mut x = pos.x + (size.width as i32).saturating_sub(width as i32 + 40);
-            let mut y = pos.y + 60;
-            // Clamp to the current monitor's work area so the popup never
-            // spawns off-screen — happens if the user moved the main window
-            // partially off the edge, dragged across monitors, or unplugged
-            // a display since the previous launch.
-            if let Ok(Some(mon)) = main.current_monitor() {
-                let m_pos = mon.position();
-                let m_size = mon.size();
-                let max_x = m_pos.x + m_size.width as i32 - width as i32;
-                let max_y = m_pos.y + m_size.height as i32 - height as i32;
-                if x < m_pos.x {
-                    x = m_pos.x;
+        if let (Ok(pos), Ok(size), Ok(scale)) = (
+            main.outer_position(),
+            main.outer_size(),
+            main.scale_factor(),
+        ) {
+            // `outer_position/size` and monitor rects are PHYSICAL pixels,
+            // but `inner_size` and `position` on the builder are LOGICAL.
+            // Mixing them (the historical bug) placed the popup 25–100 %
+            // too far right/down on any display with scale ≠ 1.0, so the
+            // header (and its × button) landed on the next monitor or
+            // off-screen entirely. Do all the math in logical units.
+            let main_rect = LogicalRect {
+                x: pos.x as f64 / scale,
+                y: pos.y as f64 / scale,
+                w: size.width as f64 / scale,
+                h: size.height as f64 / scale,
+            };
+            let monitor_rect = main.current_monitor().ok().flatten().map(|mon| {
+                // Work area excludes taskbar/dock so the popup never hides
+                // behind them.
+                let wa = mon.work_area();
+                LogicalRect {
+                    x: wa.position.x as f64 / scale,
+                    y: wa.position.y as f64 / scale,
+                    w: wa.size.width as f64 / scale,
+                    h: wa.size.height as f64 / scale,
                 }
-                if y < m_pos.y {
-                    y = m_pos.y;
-                }
-                if x > max_x {
-                    x = max_x;
-                }
-                if y > max_y {
-                    y = max_y;
-                }
-            }
-            builder = builder.position(x as f64, y as f64);
+            });
+            let (x, y) = popup_origin(main_rect, monitor_rect, width, height);
+            builder = builder.position(x, y);
         }
     }
 
@@ -1242,6 +1306,19 @@ pub fn audio_set_muted(state: State, muted: bool) -> Result<AudioState> {
 #[tauri::command]
 pub fn audio_test(state: State) -> Result<()> {
     state.audio.play_completion();
+    Ok(())
+}
+
+/// Preview one of the phase cues from Settings. `cue` ∈ completion | break | focus | resume.
+#[tauri::command]
+pub fn audio_test_cue(state: State, cue: String) -> Result<()> {
+    match cue.as_str() {
+        "completion" => state.audio.play_completion(),
+        "break" => state.audio.play_break_start(),
+        "focus" => state.audio.play_focus_start(),
+        "resume" => state.audio.play_resume(),
+        other => return Err(NervaError::Invalid(format!("unknown cue: {other}"))),
+    }
     Ok(())
 }
 
@@ -1478,17 +1555,37 @@ pub fn ai_history(state: State, limit: Option<i64>) -> Result<Vec<AiExchange>> {
 
 #[derive(Debug, Serialize)]
 pub struct AiSettings {
+    pub provider: crate::intelligence::Provider,
     pub endpoint: String,
     pub model: String,
+    /// Whether a key is stored. The key itself never leaves the backend.
+    pub has_api_key: bool,
+    /// Last 4 chars of the key so the user can tell which one is stored.
+    pub api_key_hint: Option<String>,
+    pub needs_key: bool,
+    pub default_endpoint: String,
+}
+
+fn ai_settings_from(cfg: &crate::intelligence::OllamaConfig) -> AiSettings {
+    let key = cfg.api_key.as_deref().unwrap_or("");
+    AiSettings {
+        provider: cfg.provider,
+        endpoint: cfg.endpoint.clone(),
+        model: cfg.model.clone(),
+        has_api_key: !key.is_empty(),
+        api_key_hint: if key.len() >= 8 {
+            Some(format!("…{}", &key[key.len() - 4..]))
+        } else {
+            None
+        },
+        needs_key: cfg.provider.needs_key(),
+        default_endpoint: cfg.provider.default_endpoint().to_string(),
+    }
 }
 
 #[tauri::command]
 pub fn ai_settings_get(state: State) -> Result<AiSettings> {
-    let cfg = state.ai.snapshot();
-    Ok(AiSettings {
-        endpoint: cfg.endpoint,
-        model: cfg.model,
-    })
+    Ok(ai_settings_from(&state.ai.snapshot()))
 }
 
 #[tauri::command]
@@ -1499,11 +1596,78 @@ pub fn ai_set_model(state: State, model: String) -> Result<AiSettings> {
     }
     state.ai.set_model(m);
     state.store.meta_set("ai.model", m)?;
+    Ok(ai_settings_from(&state.ai.snapshot()))
+}
+
+/// Switch LLM provider. Endpoint + model reset to the provider's defaults;
+/// the stored key is kept only if it belongs to the same provider (we key
+/// the persisted value by provider so switching back restores it).
+#[tauri::command]
+pub fn ai_set_provider(state: State, provider: String) -> Result<AiSettings> {
+    let p = crate::intelligence::Provider::from_label(&provider)
+        .ok_or_else(|| NervaError::Invalid(format!("unknown provider: {provider}")))?;
+    // Remember the current provider's key before switching.
+    let cur = state.ai.snapshot();
+    if let Some(k) = cur.api_key.as_deref() {
+        state
+            .store
+            .meta_set(&format!("ai.api_key.{}", cur.provider.label()), k)?;
+    }
+    let restored_key = state
+        .store
+        .meta_get(&format!("ai.api_key.{}", p.label()))
+        .ok()
+        .flatten();
+    let restored_model = state
+        .store
+        .meta_get(&format!("ai.model.{}", p.label()))
+        .ok()
+        .flatten();
+    let restored_endpoint = state
+        .store
+        .meta_get(&format!("ai.endpoint.{}", p.label()))
+        .ok()
+        .flatten();
+    // Stash current model/endpoint per provider too.
+    state
+        .store
+        .meta_set(&format!("ai.model.{}", cur.provider.label()), &cur.model)?;
+    state.store.meta_set(
+        &format!("ai.endpoint.{}", cur.provider.label()),
+        &cur.endpoint,
+    )?;
+
+    state
+        .ai
+        .set_provider(p, restored_endpoint.as_deref(), restored_model.as_deref());
+    state.ai.set_api_key(restored_key.as_deref());
     let cfg = state.ai.snapshot();
-    Ok(AiSettings {
-        endpoint: cfg.endpoint,
-        model: cfg.model,
-    })
+    state.store.meta_set("ai.provider", p.label())?;
+    state.store.meta_set("ai.endpoint", &cfg.endpoint)?;
+    state.store.meta_set("ai.model", &cfg.model)?;
+    state
+        .store
+        .meta_set("ai.api_key", cfg.api_key.as_deref().unwrap_or(""))?;
+    Ok(ai_settings_from(&cfg))
+}
+
+/// Store (or clear, with an empty string) the API key for the current
+/// provider. Device-local SQLite only — never synced, never telemetered.
+#[tauri::command]
+pub fn ai_set_api_key(state: State, key: String) -> Result<AiSettings> {
+    let k = key.trim();
+    if k.len() > 512 {
+        return Err(NervaError::Invalid("key too long".into()));
+    }
+    state
+        .ai
+        .set_api_key(if k.is_empty() { None } else { Some(k) });
+    let cfg = state.ai.snapshot();
+    state.store.meta_set("ai.api_key", k)?;
+    state
+        .store
+        .meta_set(&format!("ai.api_key.{}", cfg.provider.label()), k)?;
+    Ok(ai_settings_from(&cfg))
 }
 
 #[tauri::command]
@@ -1518,20 +1682,27 @@ pub fn ai_set_endpoint(state: State, endpoint: String) -> Result<AiSettings> {
     state.ai.set_endpoint(&e);
     state.store.meta_set("ai.endpoint", &e)?;
     let cfg = state.ai.snapshot();
-    Ok(AiSettings {
-        endpoint: cfg.endpoint,
-        model: cfg.model,
-    })
+    if cfg.provider == crate::intelligence::Provider::Ollama {
+        state.store.meta_set("ai.ollama_endpoint", &e)?;
+    }
+    Ok(ai_settings_from(&cfg))
 }
 
 // ---------- settings (unified bundle) ----------
 
 #[derive(Debug, Serialize)]
 pub struct SettingsBundle {
+    pub ai_provider: crate::intelligence::Provider,
     pub ai_endpoint: String,
     pub ai_model: String,
+    pub ai_has_api_key: bool,
+    pub ai_api_key_hint: Option<String>,
+    pub ai_needs_key: bool,
+    pub ai_available: bool,
+    pub ai_error: Option<String>,
     pub installed_models: Vec<String>,
     pub timer_presets_min: Vec<u32>,
+    pub timer_auto_breaks: bool,
     pub audio_volume: f32,
     pub audio_muted: bool,
     pub focus_dnd: Option<bool>,
@@ -1558,17 +1729,25 @@ fn read_timer_presets(state: &State) -> Vec<u32> {
 #[tauri::command]
 pub async fn settings_get(state: State<'_>) -> Result<SettingsBundle> {
     let cfg = state.ai.snapshot();
-    // Health probe is best-effort; if Ollama isn't reachable we still return
-    // the rest of the bundle so the pane can render.
-    let installed = state.ai.health().await.installed_models;
+    // Health probe is best-effort; if the provider isn't reachable we still
+    // return the rest of the bundle so the pane can render.
+    let health = state.ai.health().await;
     let audio = state.audio.snapshot();
     let dnd = crate::focus::get_dnd().ok().flatten();
     let supported = crate::focus::get_dnd().ok().flatten().is_some();
+    let ai = ai_settings_from(&cfg);
     Ok(SettingsBundle {
-        ai_endpoint: cfg.endpoint,
-        ai_model: cfg.model,
-        installed_models: installed,
+        ai_provider: ai.provider,
+        ai_endpoint: ai.endpoint,
+        ai_model: ai.model,
+        ai_has_api_key: ai.has_api_key,
+        ai_api_key_hint: ai.api_key_hint,
+        ai_needs_key: ai.needs_key,
+        ai_available: health.available,
+        ai_error: health.error,
+        installed_models: health.installed_models,
         timer_presets_min: read_timer_presets(&state),
+        timer_auto_breaks: read_auto_breaks(&state),
         audio_volume: audio.volume,
         audio_muted: audio.muted,
         focus_dnd: dnd,
@@ -1600,6 +1779,153 @@ pub fn timer_presets_set(state: State, args: TimerPresetsArgs) -> Result<Vec<u32
         .join(",");
     state.store.meta_set("timer.presets_min", &joined)?;
     Ok(cleaned)
+}
+
+/// Persist the default for structuring new timers into focus/break phases.
+#[tauri::command]
+pub fn timer_auto_breaks_set(state: State, enabled: bool) -> Result<bool> {
+    state
+        .store
+        .meta_set("timer.auto_breaks", if enabled { "true" } else { "false" })?;
+    Ok(enabled)
+}
+
+// ---------- generic frontend prefs ----------
+//
+// Small string values the frontend wants to survive a localStorage wipe
+// (licence key, etc.). Namespaced under `pref.` so the frontend can never
+// touch backend-owned meta keys like `ai.api_key`.
+
+fn pref_key(key: &str) -> Result<String> {
+    let k = key.trim();
+    if k.is_empty()
+        || k.len() > 64
+        || !k
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+    {
+        return Err(NervaError::Invalid("bad pref key".into()));
+    }
+    Ok(format!("pref.{k}"))
+}
+
+#[tauri::command]
+pub fn pref_get(state: State, key: String) -> Result<Option<String>> {
+    state.store.meta_get(&pref_key(&key)?)
+}
+
+#[tauri::command]
+pub fn pref_set(state: State, key: String, value: String) -> Result<()> {
+    if value.len() > 8 * 1024 {
+        return Err(NervaError::Invalid("pref value too large".into()));
+    }
+    state.store.meta_set(&pref_key(&key)?, &value)
+}
+
+// ---------- Nerva Pro licence ----------
+//
+// The frontend talks to nerva.bytical.ai to turn a licence key into a
+// device token; the token is handed here, verified against the compiled-in
+// public key, and only then persisted. `license_status` is the single
+// source of truth for "is Pro active" — it re-verifies on every call.
+
+const META_DEVICE_ID: &str = "device.id";
+const META_LICENSE_TOKEN: &str = "license.token";
+const META_LICENSE_KEY: &str = "license.key";
+
+/// Stable per-installation id (UUID v4, created on first use).
+#[tauri::command]
+pub fn device_id(state: State) -> Result<String> {
+    if let Some(id) = state.store.meta_get(META_DEVICE_ID)? {
+        if !id.is_empty() {
+            return Ok(id);
+        }
+    }
+    let id = Uuid::new_v4().to_string();
+    state.store.meta_set(META_DEVICE_ID, &id)?;
+    Ok(id)
+}
+
+fn status_from(device: String, token: Option<String>, now: i64) -> crate::license::LicenseStatus {
+    use crate::license::{verify_token, LicenseStatus};
+    let Some(tok) = token.filter(|t| !t.is_empty()) else {
+        return LicenseStatus {
+            active: false,
+            plan: None,
+            license_id: None,
+            email_hint: None,
+            license_exp: None,
+            token_exp: None,
+            device_id: device,
+            reason: None,
+        };
+    };
+    match verify_token(&tok, &device, now) {
+        Ok(t) => LicenseStatus {
+            active: true,
+            plan: Some(t.p),
+            license_id: Some(t.t),
+            email_hint: Some(t.h),
+            license_exp: Some(t.lexp),
+            token_exp: Some(t.exp),
+            device_id: device,
+            reason: None,
+        },
+        Err(e) => LicenseStatus {
+            active: false,
+            plan: None,
+            license_id: None,
+            email_hint: None,
+            license_exp: None,
+            token_exp: None,
+            device_id: device,
+            reason: Some(e.label().to_string()),
+        },
+    }
+}
+
+#[tauri::command]
+pub fn license_status(state: State) -> Result<crate::license::LicenseStatus> {
+    let device = device_id(state.clone())?;
+    let token = state.store.meta_get(META_LICENSE_TOKEN)?;
+    Ok(status_from(device, token, crate::store::now_ms() / 1000))
+}
+
+/// Store a freshly issued device token (after verifying it) together with
+/// the licence key it came from (needed for silent refresh / deactivate).
+#[tauri::command]
+pub fn license_set_token(
+    state: State,
+    token: String,
+    key: String,
+) -> Result<crate::license::LicenseStatus> {
+    if token.len() > 4096 || key.len() > 2048 {
+        return Err(NervaError::Invalid("licence data too large".into()));
+    }
+    let device = device_id(state.clone())?;
+    let now = crate::store::now_ms() / 1000;
+    crate::license::verify_token(&token, &device, now)
+        .map_err(|e| NervaError::Invalid(format!("licence token rejected: {}", e.label())))?;
+    state.store.meta_set(META_LICENSE_TOKEN, &token)?;
+    state.store.meta_set(META_LICENSE_KEY, key.trim())?;
+    Ok(status_from(device, Some(token), now))
+}
+
+/// The stored licence key (needed by the frontend to refresh/deactivate).
+#[tauri::command]
+pub fn license_key(state: State) -> Result<Option<String>> {
+    Ok(state
+        .store
+        .meta_get(META_LICENSE_KEY)?
+        .filter(|k| !k.is_empty()))
+}
+
+#[tauri::command]
+pub fn license_clear(state: State) -> Result<crate::license::LicenseStatus> {
+    state.store.meta_set(META_LICENSE_TOKEN, "")?;
+    state.store.meta_set(META_LICENSE_KEY, "")?;
+    let device = device_id(state)?;
+    Ok(status_from(device, None, 0))
 }
 
 /// Build the Ollama message list. The system prompt is short, opinionated, and
@@ -1938,4 +2264,75 @@ pub fn habit_stats(state: State, args: StatsArgs) -> Result<HabitStats> {
         .lock()
         .stats(&args.habit_id, &args.today)
         .ok_or_else(|| NervaError::NotFound(args.habit_id))
+}
+
+#[cfg(test)]
+mod popup_tests {
+    use super::{popup_origin, LogicalRect};
+
+    const W: f64 = 360.0;
+    const H: f64 = 420.0;
+
+    fn rect(x: f64, y: f64, w: f64, h: f64) -> LogicalRect {
+        LogicalRect { x, y, w, h }
+    }
+
+    #[test]
+    fn anchors_inside_main_window_right_edge() {
+        let main = rect(100.0, 50.0, 1280.0, 800.0);
+        let mon = rect(0.0, 0.0, 1920.0, 1040.0);
+        let (x, y) = popup_origin(main, Some(mon), W, H);
+        assert_eq!((x, y), (100.0 + 1280.0 - W - 40.0, 110.0));
+    }
+
+    #[test]
+    fn clamps_when_main_hugs_right_monitor_edge() {
+        // Main window's right edge is 60 px past the monitor edge; the
+        // popup must be pulled back so it is fully visible.
+        let main = rect(700.0, 0.0, 1280.0, 800.0);
+        let mon = rect(0.0, 0.0, 1920.0, 1040.0);
+        let (x, _) = popup_origin(main, Some(mon), W, H);
+        assert_eq!(x, 1920.0 - W);
+    }
+
+    #[test]
+    fn clamps_on_secondary_monitor_with_negative_origin() {
+        // Monitor to the LEFT of primary (negative x). Main window sits at
+        // its far-left; the popup must not be pushed onto the primary.
+        let mon = rect(-1920.0, 0.0, 1920.0, 1080.0);
+        let main = rect(-1920.0, 0.0, 300.0, 600.0);
+        let (x, y) = popup_origin(main, Some(mon), W, H);
+        assert_eq!(x, -1920.0);
+        assert_eq!(y, 60.0);
+    }
+
+    #[test]
+    fn hidpi_values_are_already_logical_so_no_double_scaling() {
+        // Simulates a 1.5× display: caller divided physical by scale first.
+        // 2880×1620 physical → 1920×1080 logical. Main fills the screen.
+        let mon = rect(0.0, 0.0, 1920.0, 1080.0);
+        let main = rect(0.0, 0.0, 1920.0, 1080.0);
+        let (x, y) = popup_origin(main, Some(mon), W, H);
+        assert!(
+            x + W <= 1920.0 && y + H <= 1080.0,
+            "popup must fit: {x},{y}"
+        );
+        assert_eq!(x, 1920.0 - W - 40.0);
+    }
+
+    #[test]
+    fn popup_larger_than_monitor_pins_to_origin() {
+        let mon = rect(0.0, 0.0, 300.0, 300.0);
+        let main = rect(0.0, 0.0, 300.0, 300.0);
+        assert_eq!(popup_origin(main, Some(mon), W, H), (0.0, 0.0));
+    }
+
+    #[test]
+    fn no_monitor_info_falls_back_to_unclamped_anchor() {
+        let main = rect(10.0, 20.0, 1000.0, 700.0);
+        assert_eq!(
+            popup_origin(main, None, W, H),
+            (10.0 + 1000.0 - W - 40.0, 80.0)
+        );
+    }
 }

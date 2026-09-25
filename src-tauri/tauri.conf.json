@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Nerva",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "identifier": "ai.bytical.nerva",
   "build": {
     "frontendDist": "../dist",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Nerva",
+        "title": "Nerva by Bytical",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -59,8 +59,8 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "Persistent focus workspace for deep work",
-    "longDescription": "Nerva is a persistent focus workspace. Multi-timer engine, smart notes, workspace memory, and cognitive-state continuity across reboots and crashes. Native-first, GPU-light, offline-first.",
+    "shortDescription": "Nerva by Bytical — persistent focus workspace for deep work",
+    "longDescription": "Nerva by Bytical is a persistent focus workspace. Multi-timer engine with automatic pomodoro breaks, sticky markdown notes, habits, tasks, workspace memory, and cognitive-state continuity across reboots and crashes. Native-first, GPU-light, offline-first.",
     "linux": {
       "deb": {
         "depends": [

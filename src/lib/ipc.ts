@@ -27,6 +27,23 @@ async function mutate<T>(cmd: string, args: unknown, event: string): Promise<T> 
 
 // ---- types (mirror Rust) ----
 export type TimerStatus = "idle" | "running" | "paused" | "completed" | "cancelled";
+export type PhaseKind = "focus" | "break";
+
+export interface Phase {
+  kind: PhaseKind;
+  duration_ms: number;
+}
+
+/** A running timer crossed a focus↔break boundary during the last tick. */
+export interface PhaseChange {
+  id: string;
+  name: string;
+  from: PhaseKind;
+  to: PhaseKind;
+  phase_index: number;
+  phase_count: number;
+  phase_duration_ms: number;
+}
 
 export interface Timer {
   id: string;
@@ -41,7 +58,13 @@ export interface Timer {
   parent_id: string | null;
   group_id: string | null;
   task_id: string | null;
+  /** Session structure; single focus phase for plain timers. */
+  phases: Phase[];
   remaining_ms: number;
+  phase_index: number;
+  phase_kind: PhaseKind;
+  phase_remaining_ms: number;
+  phase_duration_ms: number;
 }
 
 export interface Workspace {
@@ -81,6 +104,7 @@ export interface RuntimeInfo {
 
 export interface TickReport {
   completed: string[];
+  phase_changes: PhaseChange[];
   timers: Timer[];
 }
 
@@ -178,8 +202,15 @@ export const ipc = {
   ping: () => invoke<string>("ping"),
   runtime: () => invoke<RuntimeInfo>("get_runtime_info"),
   // timers
-  timerCreate: (args: { name: string; duration_ms: number; color?: string; workspace_id?: string; task_id?: string }) =>
-    invoke<Timer>("timer_create", { args }),
+  timerCreate: (args: {
+    name: string;
+    duration_ms: number;
+    color?: string;
+    workspace_id?: string;
+    task_id?: string;
+    /** Structure into pomodoro focus/break phases (≥30 min). Omit → user default. */
+    auto_breaks?: boolean;
+  }) => invoke<Timer>("timer_create", { args }),
   timerStart: (id: string) => invoke<Timer>("timer_start", { id }),
   timerPause: (id: string) => invoke<Timer>("timer_pause", { id }),
   timerResume: (id: string) => invoke<Timer>("timer_resume", { id }),
@@ -218,6 +249,8 @@ export const ipc = {
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
   audioSetSound: (sound: CompletionSound) => invoke<AudioState>("audio_set_sound", { sound }),
   audioTest: () => invoke<void>("audio_test"),
+  audioTestCue: (cue: "completion" | "break" | "focus" | "resume") =>
+    invoke<void>("audio_test_cue", { cue }),
   ambientSet: (kind: AmbientKind | null) =>
     invoke<AudioState>("ambient_set", { args: { kind } }),
   ambientSetVolume: (volume: number) =>
@@ -284,4 +317,40 @@ export function formatRemaining(ms: number): string {
   const sec = s % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+/**
+ * Mirror of `timers::plan_phases` for previewing a session structure in the
+ * new-timer form before the backend creates it. Keep in sync with Rust.
+ */
+export function planPhases(totalMs: number): Phase[] {
+  const MIN = 60_000;
+  if (totalMs < 30 * MIN) return [{ kind: "focus", duration_ms: Math.max(0, totalMs) }];
+  const out: Phase[] = [];
+  let remaining = totalMs;
+  let blocks = 0;
+  while (remaining > 0) {
+    const focus = Math.min(25 * MIN, remaining);
+    out.push({ kind: "focus", duration_ms: focus });
+    remaining -= focus;
+    blocks += 1;
+    if (remaining <= 0) break;
+    const brk = blocks % 4 === 0 ? 15 * MIN : 5 * MIN;
+    if (remaining - brk < 10 * MIN) {
+      out[out.length - 1].duration_ms += remaining;
+      break;
+    }
+    out.push({ kind: "break", duration_ms: brk });
+    remaining -= brk;
+  }
+  return out;
+}
+
+/** Human label for a timer's current phase, e.g. "Focus 2/4" or "Break". */
+export function phaseLabel(t: Pick<Timer, "phases" | "phase_index" | "phase_kind">): string | null {
+  if (!t.phases || t.phases.length <= 1) return null;
+  if (t.phase_kind === "break") return "Break";
+  const focusTotal = t.phases.filter((p) => p.kind === "focus").length;
+  const focusIdx = t.phases.slice(0, t.phase_index + 1).filter((p) => p.kind === "focus").length;
+  return `Focus ${focusIdx}/${focusTotal}`;
 }

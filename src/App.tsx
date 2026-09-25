@@ -17,7 +17,11 @@ import { HabitsPane } from "@/components/HabitsPane";
 import { Tutorial, tutorialShouldAutoOpen } from "@/components/Tutorial";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TelemetryConsent } from "@/components/TelemetryConsent";
+import { RatingPrompt } from "@/components/Feedback";
+import { WhatsNew } from "@/components/WhatsNew";
 import { initTelemetry } from "@/lib/telemetry";
+import { flushFeedbackQueue, markInstalled } from "@/lib/feedback";
+import { useLicense } from "@/lib/license";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
@@ -40,6 +44,19 @@ export default function App() {
   // Opt-in weekly usage ping (no-op unless the user granted consent).
   // Main window only — popups render their own roots and never reach here.
   useEffect(() => initTelemetry(), []);
+
+  // Feedback: remember first launch (drives the day-7 rating nudge) and
+  // retry anything queued while offline.
+  useEffect(() => {
+    markInstalled();
+    const h = window.setTimeout(() => void flushFeedbackQueue(), 15_000);
+    return () => window.clearTimeout(h);
+  }, []);
+
+  // Pro licence: trust cache immediately, re-verify in the background.
+  useEffect(() => {
+    if (ready) void useLicense.getState().load();
+  }, [ready]);
 
   // 250ms tick — wall-clock math means we just need UI refresh cadence.
   useEffect(() => {
@@ -88,6 +105,8 @@ export default function App() {
         <Tutorial open={tutorialOpen} onClose={hideTutorial} />
       </ErrorBoundary>
       <ErrorBoundary scope="TelemetryConsent"><TelemetryConsent /></ErrorBoundary>
+      <ErrorBoundary scope="RatingPrompt"><RatingPrompt /></ErrorBoundary>
+      <ErrorBoundary scope="WhatsNew"><WhatsNew /></ErrorBoundary>
     </div>
   );
 }

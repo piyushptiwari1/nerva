@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Your Nerva Pro licence — Nerva by Bytical</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;
+         background:#0a0b0d;color:#ecf0f6;margin:0;min-height:100vh;
+         display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{max-width:600px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;
+          padding:40px;background:#15171c}
+    h1{font-size:26px;margin:0 0 12px;letter-spacing:-0.02em}
+    p{margin:0 0 12px;color:#a8acb4;line-height:1.6}
+    .key{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;word-break:break-all;
+         background:#0f1115;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px;color:#e8b86d;margin:16px 0 8px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button,.cta{background:#7c9cff;color:#0a0b0d;border:0;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none}
+    button.ghost,.ghost{background:transparent;color:#a8bdff;border:1px solid rgba(255,255,255,.14)}
+    ol{color:#a8acb4;line-height:1.7;padding-left:20px}
+    .txn{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:#5a6273;margin-top:20px}
+    .warn{color:#e8b86d}
+    a{color:#7c9cff}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Welcome to Nerva Pro 🎉</h1>
+    <p id="plan"></p>
+    <div id="haskey">
+      <p>This is your licence key. <strong class="warn">Save it now</strong> — we've also emailed it to you together with your invoice.</p>
+      <div class="key" id="key"></div>
+      <div class="row">
+        <button id="copy">Copy key</button>
+        <a class="ghost cta" id="dl" href="data:," download="nerva-pro-licence.txt">Download as .txt</a>
+        <a class="ghost cta" id="inv" href="#" style="display:none" target="_blank" rel="noopener">Invoice</a>
+      </div>
+      <p style="margin-top:20px"><strong>Activate:</strong></p>
+      <ol>
+        <li>Open Nerva → <code>Ctrl+,</code> (Settings) → <strong>Pro</strong>.</li>
+        <li>Paste the key and press <strong>Activate</strong>. Use the same key on every device you own (Monthly 2 · Yearly 3 · Lifetime 5 at once) — manage devices from that screen.</li>
+        <li>That's it. Pro features (encrypted Google Drive backup &amp; multi-device restore) unlock as they ship — your key already covers them.</li>
+      </ol>
+    </div>
+    <div id="pending" style="display:none">
+      <p class="warn">Payment received, but the licence server is not configured yet. Send the reference below via <a href="/#feedback">the feedback form</a> and we'll issue your key by hand within 24 h.</p>
+    </div>
+    <p>Lost your key? Enter your email in Nerva → Settings → Pro → “Lost your key?”, or on <a href="/#pro">the Pro page</a>, and we'll resend every key registered to it.</p>
+    <a class="cta" href="/">Back to Nerva</a>
+    <p class="txn" id="txn"></p>
+  </main>
+  <script>
+    var p = new URLSearchParams(location.search);
+    var key = p.get("key"), txn = p.get("txnid"), plan = p.get("plan"), inv = p.get("inv");
+    var names = { monthly: "Monthly plan · valid 31 days · no auto-renew", yearly: "Yearly plan · valid 12 months · no auto-renew", lifetime: "Lifetime licence · never expires" };
+    document.getElementById("plan").textContent = names[plan] || "";
+    if (inv && /^https?:\/\/[^/]*bytical\.ai\//.test(inv)) { var a = document.getElementById("inv"); a.href = inv; a.style.display = "inline-block"; }
+    if (key) {
+      document.getElementById("key").textContent = key;
+      document.getElementById("dl").href = "data:text/plain;charset=utf-8," + encodeURIComponent("Nerva Pro licence key\n\n" + key + "\n\nPlan: " + plan + "\nReference: " + txn + "\nActivate in Nerva → Settings → Pro\n");
+      document.getElementById("copy").addEventListener("click", function () {
+        navigator.clipboard.writeText(key).then(function () { document.getElementById("copy").textContent = "Copied ✓"; });
+      });
+    } else {
+      document.getElementById("haskey").style.display = "none";
+      document.getElementById("pending").style.display = "block";
+    }
+    if (txn) document.getElementById("txn").textContent = "Reference: " + txn;
+  </script>
+</body>
+</html>

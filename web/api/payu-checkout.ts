@@ -1,18 +1,20 @@
-// Edge function: build a PayU payment intent for a one-time INR
-// donation to the Nerva project and return an auto-submitting HTML
-// form that posts to PayU's hosted checkout.
+// Edge function: build a PayU payment intent — either a one-time INR
+// donation or a Nerva Pro plan — and return an auto-submitting HTML form
+// that posts to PayU's hosted checkout.
 //
 // PayU credentials live in Vercel env (PAYU_KEY, PAYU_SALT,
-// PAYU_BASE_URL). Hash algorithm mirrors the Bytical platform
-// backend (routes/payment_endpoints.py:generate_payu_hash), namely
-// SHA-512 of:
-//   key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
+// PAYU_BASE_URL) — the same values as the Bytical platform backend's
+// .env (.env.production for live, .env for the PayU sandbox). Hash
+// algorithm mirrors routes/payment_endpoints.py:generate_payu_hash:
+//   SHA-512( key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT )
 //
-// Donations are anonymous-friendly: name/email are user-supplied,
-// not authenticated. No DB writes; the callback handler logs txnid
-// + status into Vercel logs only.
+// Intent is carried in udf2 ("donation" | "pro") and, for Pro, the plan
+// in udf3 ("monthly" | "yearly" | "lifetime") so payu-callback can issue
+// a licence without any database.
 
 export const config = { runtime: "edge" };
+
+import { PLANS, type Plan } from "./_lib/license";
 
 const PRODUCT_INFO = "Nerva donation";
 const ALLOWED_AMOUNTS = [199, 499, 999, 1999, 4999];
@@ -23,6 +25,8 @@ interface CheckoutBody {
   amount?: number | string;
   name?: string;
   email?: string;
+  /** Present → Pro purchase; amount is taken from PLANS, not the body. */
+  plan?: string;
 }
 
 function escapeHtml(s: string): string {
@@ -64,13 +68,19 @@ export default async function handler(req: Request): Promise<Response> {
         amount: form.get("amount")?.toString(),
         name: form.get("name")?.toString(),
         email: form.get("email")?.toString(),
+        plan: form.get("plan")?.toString(),
       };
     }
   } catch {
     return new Response("Bad request body", { status: 400 });
   }
 
-  const amountNum = Number(body.amount);
+  const plan = body.plan && body.plan in PLANS ? (body.plan as Plan) : null;
+  if (body.plan && !plan) {
+    return new Response("Unknown plan.", { status: 400 });
+  }
+
+  const amountNum = plan ? PLANS[plan].amountInr : Number(body.amount);
   if (!Number.isFinite(amountNum) || amountNum < MIN_AMOUNT || amountNum > MAX_AMOUNT) {
     return new Response(`Amount must be between ₹${MIN_AMOUNT} and ₹${MAX_AMOUNT}.`, {
       status: 400,
@@ -78,6 +88,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
   // Round to 2dp; PayU expects a string.
   const amount = amountNum.toFixed(2);
+  const productInfo = plan ? PLANS[plan].label : PRODUCT_INFO;
 
   const name = (body.name || "Friend of Nerva").trim().slice(0, 60) || "Friend of Nerva";
   const email = (body.email || "").trim().slice(0, 100);
@@ -92,10 +103,10 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("PayU not configured on this deploy.", { status: 503 });
   }
 
-  // udf2 = "donation" so the callback handler can branch on intent.
+  // udf2 = intent so the callback handler can branch; udf3 = plan for Pro.
   const udf1 = "";
-  const udf2 = "donation";
-  const udf3 = ALLOWED_AMOUNTS.includes(amountNum) ? "preset" : "custom";
+  const udf2 = plan ? "pro" : "donation";
+  const udf3 = plan ? plan : ALLOWED_AMOUNTS.includes(amountNum) ? "preset" : "custom";
   const udf4 = "nerva-web";
   const udf5 = "";
 
@@ -105,7 +116,7 @@ export default async function handler(req: Request): Promise<Response> {
   const furl = `${origin}/api/payu-callback`;
 
   const hashSeq =
-    `${key}|${txnid}|${amount}|${PRODUCT_INFO}|${name}|${email}` +
+    `${key}|${txnid}|${amount}|${productInfo}|${name}|${email}` +
     `|${udf1}|${udf2}|${udf3}|${udf4}|${udf5}||||||${salt}`;
   const hash = await sha512Hex(hashSeq);
 
@@ -115,7 +126,7 @@ export default async function handler(req: Request): Promise<Response> {
     key,
     txnid,
     amount,
-    productinfo: PRODUCT_INFO,
+    productinfo: productInfo,
     firstname: name,
     email,
     surl,
@@ -153,7 +164,7 @@ export default async function handler(req: Request): Promise<Response> {
   ${inputs}
   <div class="card">
     <h1>Redirecting to PayU…</h1>
-    <p>You're being sent to PayU's secure page to complete a ₹${escapeHtml(amount)} donation. If this page doesn't redirect automatically, tap the button below.</p>
+    <p>You're being sent to PayU's secure page to complete a ₹${escapeHtml(amount)} ${plan ? "Nerva Pro purchase" : "donation"}. If this page doesn't redirect automatically, tap the button below.</p>
     <button type="submit">Continue to PayU</button>
   </div>
 </form>

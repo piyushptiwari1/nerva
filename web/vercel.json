@@ -23,6 +23,12 @@
     { "source": "/download/windows/exe",    "destination": "/api/download?p=windows&f=exe" },
     { "source": "/cert",                    "destination": "/api/download?p=cert&f=crt" },
     { "source": "/support/thanks",          "destination": "/support/thanks.html" },
-    { "source": "/support/failed",          "destination": "/support/failed.html" }
+    { "source": "/support/failed",          "destination": "/support/failed.html" },
+    { "source": "/pro/thanks",              "destination": "/pro/thanks.html" },
+    { "source": "/pro",                     "destination": "/index.html" },
+    { "source": "/changelog",               "destination": "/api/changelog" }
+  ],
+  "crons": [
+    { "path": "/api/cron-reminders", "schedule": "0 9 * * *" }
   ]
 }

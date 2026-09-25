@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
+import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
 
 /**
@@ -107,7 +108,7 @@ export function HabitsWidget() {
     }
   }
 
-  async function close() {
+  const close = useCallback(async () => {
     try {
       const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
       await ipc.windowHide(win.label);
@@ -119,7 +120,8 @@ export function HabitsWidget() {
         /* ignore */
       }
     }
-  }
+  }, []);
+  usePopupClose(close);
 
   useEffect(() => {
     let unlistenClose: (() => void) | undefined;
@@ -160,6 +162,7 @@ export function HabitsWidget() {
           <span className="text-ink-400 text-sm leading-none">⋮⋮</span>
           <span className="text-[10px] uppercase tracking-widest text-ink-300">
             Habits · {todayLabel()}
+            <span className="text-ink-500 normal-case tracking-normal"> · Nerva by Bytical</span>
           </span>
         </span>
         <span className="flex items-center gap-1">

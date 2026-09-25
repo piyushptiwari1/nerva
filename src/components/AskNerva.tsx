@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePalette } from "@/store/palette";
+import { useSettingsUi } from "@/store/settings";
 import { ai, type AiExchange, type AiHealth } from "@/lib/ai";
 
 /**
@@ -212,16 +213,44 @@ export function AskNerva() {
             {/* Health hint */}
             {health && !health.available && (
               <div className="px-4 py-3 text-[12px] text-ink-300 bg-ink-800/40 border-b border-ink-700/40 leading-snug">
-                <div className="text-ink-100 font-medium mb-1">Ollama isn't reachable.</div>
-                <div className="text-ink-400">{health.error}</div>
-                <div className="mt-2 text-ink-400">
-                  Install from{" "}
-                  <span className="text-accent-glow">ollama.com</span>, then run:
-                  <pre className="mt-1 px-2 py-1 rounded bg-ink-900/80 text-ink-200 text-[11px] font-mono">
+                {health.provider === "ollama" ? (
+                  <>
+                    <div className="text-ink-100 font-medium mb-1">Ollama isn't reachable.</div>
+                    <div className="text-ink-400">{health.error}</div>
+                    <div className="mt-2 text-ink-400">
+                      Install from{" "}
+                      <span className="text-accent-glow">ollama.com</span>, then run:
+                      <pre className="mt-1 px-2 py-1 rounded bg-ink-900/80 text-ink-200 text-[11px] font-mono">
 {`ollama serve   # starts the sidecar
 ollama pull ${health.model}`}
-                  </pre>
-                </div>
+                      </pre>
+                      Or use your own OpenAI / Anthropic / Gemini key:{" "}
+                      <button
+                        onClick={() => useSettingsUi.getState().openOn("ai")}
+                        className="text-accent-glow hover:underline"
+                      >
+                        Settings → Nerva AI
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-ink-100 font-medium mb-1">
+                      {health.provider} isn't reachable.
+                    </div>
+                    <div className="text-ink-400">{health.error}</div>
+                    <div className="mt-2 text-ink-400">
+                      Check the key and endpoint in{" "}
+                      <button
+                        onClick={() => useSettingsUi.getState().openOn("ai")}
+                        className="text-accent-glow hover:underline"
+                      >
+                        Settings → Nerva AI
+                      </button>
+                      .
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

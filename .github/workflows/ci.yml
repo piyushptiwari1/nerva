@@ -39,4 +39,17 @@ jobs:
             libasound2-dev
       - run: cd src-tauri && cargo fmt --check
       - run: cd src-tauri && cargo clippy --all-targets -- -D warnings
-      - run: cd src-tauri && cargo check
+      - run: cd src-tauri && cargo test
+
+  changelog-guard:
+    # Every version bump must ship release notes: the in-app "What's new"
+    # dialog and the GitHub release body are both generated from CHANGELOG.md.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: CHANGELOG.md has a section for the current version
+        run: |
+          V=$(node -p "require('./package.json').version")
+          grep -q "^## v${V}" CHANGELOG.md || { echo "::error::CHANGELOG.md is missing '## v${V}'"; exit 1; }
+          grep -q "^version = \"${V}\"" src-tauri/Cargo.toml || { echo "::error::Cargo.toml version != ${V}"; exit 1; }
+          node -e "process.exit(require('./src-tauri/tauri.conf.json').version==='${V}'?0:1)" || { echo "::error::tauri.conf.json version != ${V}"; exit 1; }

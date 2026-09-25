@@ -3,12 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Nerva — The focus workspace that never forgets | Deep-work timer, notes, habits, tasks</title>
-  <meta name="description" content="Nerva is a persistent desktop focus workspace for deep work. Parallel timers that survive sleep & reboot, sticky markdown notes, year-long habit heatmap, and tasks. Offline-first. Privacy-first. Apache-2.0." />
-  <meta name="keywords" content="focus app, deep work timer, pomodoro alternative, multi-timer desktop, persistent timer, markdown sticky notes, habit tracker, offline productivity app, native productivity app, linux focus app, windows focus timer, tauri productivity, no telemetry app, command palette" />
+  <title>Nerva by Bytical — Free Pomodoro &amp; Deep-Work Focus App for Linux and Windows | Timers, Sticky Notes, Habits</title>
+  <meta name="description" content="Nerva by Bytical is a free, offline-first focus app for Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, a year-long habit heatmap, tasks and a command palette. No account, no cloud, Apache-2.0." />
+  <meta name="keywords" content="pomodoro app linux, focus timer windows, deep work app, pomodoro timer that survives reboot, multi timer app, offline habit tracker desktop, sticky notes app, focus app with breaks, free alternative to Session app, flowtime timer, productivity app linux, tauri app, Nerva by Bytical" />
   <meta name="author" content="Bytical Solutions Private Limited" />
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
   <meta name="theme-color" content="#0a0b0d" />
   <link rel="canonical" href="https://nerva.bytical.ai/" />
+  <link rel="alternate" hreflang="en" href="https://nerva.bytical.ai/" />
+  <link rel="alternate" hreflang="en-US" href="https://nerva.bytical.ai/" />
+  <link rel="alternate" hreflang="en-GB" href="https://nerva.bytical.ai/" />
+  <link rel="alternate" hreflang="x-default" href="https://nerva.bytical.ai/" />
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
@@ -16,9 +22,9 @@
   <link rel="mask-icon" href="/favicon.png" color="#0a0b0d" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Nerva" />
-  <meta property="og:title" content="Nerva — The focus workspace that never forgets" />
-  <meta property="og:description" content="Parallel timers that survive reboots. Sticky markdown notes. Habit heatmap. Tasks. Offline-first desktop app for deep work." />
+  <meta property="og:site_name" content="Nerva by Bytical" />
+  <meta property="og:title" content="Nerva by Bytical — the focus workspace that never forgets" />
+  <meta property="og:description" content="Pomodoro timers with automatic breaks that survive reboots. Floating sticky markdown notes. Habit heatmap. Tasks. Free, offline-first desktop app for Linux &amp; Windows." />
   <meta property="og:image" content="https://nerva.bytical.ai/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -33,21 +39,28 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Nerva",
+    "name": "Nerva by Bytical",
+    "alternateName": "Nerva",
     "applicationCategory": "ProductivityApplication",
+    "applicationSubCategory": "Pomodoro timer, habit tracker, sticky notes",
     "operatingSystem": "Linux, Windows",
-    "description": "Persistent desktop focus workspace for deep work. Parallel timers that survive sleep and reboot, sticky markdown notes, year-long habit heatmap, and tasks. Offline-first.",
+    "inLanguage": "en",
+    "isAccessibleForFree": true,
+    "description": "Free, offline-first focus workspace for deep work on Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, year-long habit heatmap, tasks, command palette. No account required.",
     "url": "https://nerva.bytical.ai/",
     "downloadUrl": "https://nerva.bytical.ai/download/linux/deb",
-    "softwareVersion": "0.1.11",
+    "softwareVersion": "0.1.12",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "author": {"@type":"Organization","name":"Bytical Solutions Private Limited","url":"https://bytical.ai"},
     "offers": {"@type":"Offer","price":"0","priceCurrency":"USD"},
     "featureList": [
-      "Parallel focus timers with wall-clock math",
+      "Pomodoro timers with automatic 25/5 breaks inside one session (long timers), wall-clock math that survives sleep and reboot",
+      "Parallel focus timers",
       "Sticky markdown notes that float above any window",
       "Year-long habit heatmap with streaks",
       "Tasks with priority and due times",
+      "World clocks and customisable dashboard",
+      "Ask Nerva: local Ollama or bring-your-own OpenAI / Anthropic / Gemini key",
       "Command palette and global shortcuts",
       "Crash-safe event-sourced local SQLite store",
       "Offline-first, privacy-first (telemetry opt-in only), no account"
@@ -60,12 +73,14 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source. There is no paid tier."}},
+      {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source and everything in the app today stays free. An optional Pro licence funds development and unlocks encrypted cloud backup."}},
       {"@type":"Question","name":"Does Nerva work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no cloud component. All data lives in a local SQLite database on your machine."}},
       {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"Not unless you opt in. By default the app makes zero outbound network calls except update checks. Anonymous weekly usage stats (feature counts only, never your content) are strictly opt-in and can be disabled anytime in Settings."}},
       {"@type":"Question","name":"Why don't my timers drift after sleep?","acceptedAnswer":{"@type":"Answer","text":"Nerva uses wall-clock math, not interval ticks. When the machine wakes, each timer recomputes elapsed time as now minus started_at, so it stays accurate across sleep, suspend, and reboot."}},
       {"@type":"Question","name":"Will my notes survive a crash?","acceptedAnswer":{"@type":"Answer","text":"Yes. Notes autosave every 250 ms into an append-only event log. On next launch the app replays the log and restores your exact state."}},
-      {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}}
+      {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}},
+      {"@type":"Question","name":"Does Nerva do Pomodoro?","acceptedAnswer":{"@type":"Answer","text":"Yes. Any timer of 30 minutes or more is automatically structured into 25-minute focus blocks with 5-minute breaks (15 minutes every fourth) inside one session that always ends on focus, with distinct sounds for break and back-to-work. Timers under 30 minutes are never split. It can be turned off per timer or globally."}},
+      {"@type":"Question","name":"Can I use my own OpenAI, Claude or Gemini API key in Nerva?","acceptedAnswer":{"@type":"Answer","text":"Yes. Ask Nerva uses a local Ollama model by default and can switch to OpenAI, Anthropic, Google Gemini, OpenRouter or any OpenAI-compatible endpoint. Keys are stored only on your device."}}
     ]
   }
   </script>
@@ -200,6 +215,8 @@
     <div class="links">
       <a href="#features">Features</a>
       <a href="#downloads">Download</a>
+      <a href="#pro">Pro</a>
+      <a href="/changelog">Changelog</a>
       <a href="#faq">FAQ</a>
       <a href="/support">Donate</a>
       <a href="https://github.com/piyushptiwari1/nerva" rel="noopener">GitHub</a>
@@ -753,7 +770,23 @@
         <h4>Open source</h4>
         <p>Apache-2.0. The full source — Rust core, React UI, build scripts — is on GitHub. Audit it, fork it, ship your own.</p>
       </div>
+      <div class="tile">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <h4>Pomodoro, automatically</h4>
+        <p>Any timer of 30 min or more gets 25/5 focus-break phases inside one session (15-min break every fourth), always ending on focus. Distinct cues for “break” and “back to work”. Under 30 min? Left alone.</p>
+      </div>
+      <div class="tile">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M5 19l.8 1.7L7.5 21l-1.7.8L5 23l-.8-1.2L2.5 21l1.7-.3z"/></svg></div>
+        <h4>Ask Nerva — your model, your key</h4>
+        <p>Local Ollama by default. Or plug in OpenAI, Anthropic, Gemini, OpenRouter or any OpenAI-compatible server. Keys never leave your machine.</p>
+      </div>
+      <div class="tile">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <h4>Your dashboard, your order</h4>
+        <p>Show, hide and reorder sidebar sections. Add up to six world clocks for the people you work with.</p>
+      </div>
     </div>
+    <p class="section-tag" style="margin-top:28px">New in every release → <a href="/changelog">changelog</a>. The app shows a “What's new” card after each update.</p>
   </div>
 </section>
 
@@ -793,13 +826,66 @@
       </div>
     </div>
     <div class="note">
-      <strong>Latest: v0.1.11 — auto-updating.</strong> From v0.1.2 onward Nerva updates itself silently in the background (signed with minisign, verified locally).
+      <strong>Latest: v0.1.12 — auto-updating.</strong> From v0.1.2 onward Nerva updates itself silently in the background (signed with minisign, verified locally).
       Windows installers carry the Bytical self-signed certificate — first run shows <strong>SmartScreen "Unrecognized app"</strong>;
       click <code>More info → Run anyway</code>, or install the <a href="/cert">Bytical trust certificate</a>
       once to silence the warning forever. The Microsoft Store build (in review) bypasses this.
     </div>
   </div>
 </section>
+
+<section id="pro">
+  <div class="wrap">
+    <div class="section-eyebrow">Optional</div>
+    <h2>Nerva Pro.</h2>
+    <p class="section-tag">Everything you use today stays free, forever. Pro funds development and adds the one thing a local-first app can't give you alone: a copy somewhere else.</p>
+    <div class="downloads" style="margin-top:32px">
+      <div class="dl-card">
+        <h3>Monthly</h3>
+        <p style="font-size:28px;font-weight:700;margin:6px 0 2px">₹249<span style="font-size:13px;color:#8a93a6;font-weight:400"> / month</span></p>
+        <p style="color:#8a93a6;font-size:13px;margin:0 0 14px">≈ $3. No auto-renew — buy again when it lapses.</p>
+        <form method="POST" action="/api/payu-checkout" class="proform"><input type="hidden" name="plan" value="monthly"/><input type="email" name="email" required placeholder="email for the receipt" /><button class="primary" type="submit">Get monthly</button></form>
+      </div>
+      <div class="dl-card" style="border-color:#7c9cff">
+        <h3>Yearly <span class="pill" style="font-size:10px">best value</span></h3>
+        <p style="font-size:28px;font-weight:700;margin:6px 0 2px">₹1,999<span style="font-size:13px;color:#8a93a6;font-weight:400"> / year</span></p>
+        <p style="color:#8a93a6;font-size:13px;margin:0 0 14px">≈ $24. Two months free.</p>
+        <form method="POST" action="/api/payu-checkout" class="proform"><input type="hidden" name="plan" value="yearly"/><input type="email" name="email" required placeholder="email for the receipt" /><button class="primary" type="submit">Get yearly</button></form>
+      </div>
+      <div class="dl-card">
+        <h3>Lifetime</h3>
+        <p style="font-size:28px;font-weight:700;margin:6px 0 2px">₹4,999<span style="font-size:13px;color:#8a93a6;font-weight:400"> once</span></p>
+        <p style="color:#8a93a6;font-size:13px;margin:0 0 14px">≈ $59. Launch price. Never expires.</p>
+        <form method="POST" action="/api/payu-checkout" class="proform"><input type="hidden" name="plan" value="lifetime"/><input type="email" name="email" required placeholder="email for the receipt" /><button class="primary" type="submit">Get lifetime</button></form>
+      </div>
+    </div>
+    <div class="note">
+      <strong>What Pro unlocks:</strong> encrypted Google Drive backup &amp; multi-device restore (shipping in the next releases — your key already covers it), priority on feature requests, and a Pro badge. <strong>Works on all your machines:</strong> one key, Monthly 2 · Yearly 3 · Lifetime 5 devices at once; swap devices any time from Settings → Pro. Payments are processed by PayU in INR — international Visa / Mastercard / Amex are accepted and your bank converts to your currency (≈ $3 / $24 / $59). Key + invoice are emailed instantly. No auto-renew — we only charge when you click. Early-access pricing.
+    </div>
+    <form id="recover" style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;max-width:560px">
+      <span style="color:#8a93a6;font-size:14px">Already bought? Lost your key?</span>
+      <input type="email" required placeholder="email used at checkout" style="flex:1;min-width:220px;padding:9px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1);font:inherit"/>
+      <button type="submit" style="padding:9px 14px;border-radius:8px;background:transparent;color:#a8bdff;border:1px solid rgba(255,255,255,.14);cursor:pointer;font:inherit">Email my keys</button>
+      <span id="recover-status" style="color:#8a93a6;font-size:13px"></span>
+    </form>
+  </div>
+</section>
+<script>
+  document.getElementById('recover').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var st = document.getElementById('recover-status');
+    st.textContent = 'Sending\u2026';
+    try {
+      var r = await fetch('/api/license-recover', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: this.querySelector('input').value.trim() }) });
+      st.textContent = r.status === 204 ? 'If that address has a licence, the email is on its way.' : 'Too many attempts \u2014 try again in an hour.';
+    } catch (_) { st.textContent = 'Network error.'; }
+  });
+</script>
+<style>
+  .proform{display:flex;flex-direction:column;gap:8px}
+  .proform input{padding:10px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1);font:inherit}
+  .proform button{cursor:pointer;font:inherit;font-weight:600}
+</style>
 
 <section id="faq">
   <div class="wrap">
@@ -808,7 +894,7 @@
     <div class="faq" style="margin-top:40px">
       <details open>
         <summary>Is Nerva free?</summary>
-        <p>Yes — Apache-2.0 licensed open source. No paid tier, no upgrade nag.</p>
+        <p>Yes — Apache-2.0 licensed open source, and everything in the app today stays free. There is an <a href="#pro">optional Pro licence</a> that funds development and unlocks encrypted cloud backup as it ships. No upgrade nags.</p>
       </details>
       <details>
         <summary>Does Nerva work offline?</summary>
@@ -835,17 +921,79 @@
         <p>Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11.</p>
       </details>
       <details>
+        <summary>Does Nerva do Pomodoro?</summary>
+        <p>Yes, without making you think about it. Any timer of 30 minutes or more is automatically structured into 25-minute focus blocks with 5-minute breaks (15 minutes every fourth) inside <em>one</em> session that always ends on focus. Start a “2h sprint” and you get 4 focus blocks and 3 breaks with distinct sounds for “break” and “back to work”. Timers under 30 minutes are never split. Turn it off per timer or globally in Settings → Timers.</p>
+      </details>
+      <details>
+        <summary>Can I use my own OpenAI / Claude / Gemini key?</summary>
+        <p>Yes. Ask Nerva runs on a local Ollama model by default; in Settings → Nerva AI you can switch to OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint (LM Studio, Groq…). Keys are stored only on your device and never included in telemetry. Note search always uses local embeddings so your notes are never sent to a third party for indexing.</p>
+      </details>
+      <details>
         <summary>How do I report a bug or request a feature?</summary>
-        <p>Open an issue at <a href="https://github.com/piyushptiwari1/nerva/issues">github.com/piyushptiwari1/nerva/issues</a>. We read every one.</p>
+        <p>Inside the app: <code>Ctrl+K → Send feedback</code> or Settings → Feedback (pre-fills version and OS). Or use the form below, or open an issue at <a href="https://github.com/piyushptiwari1/nerva/issues/new/choose">github.com/piyushptiwari1/nerva/issues</a>. We read every one.</p>
       </details>
     </div>
   </div>
 </section>
 
+<section id="feedback">
+  <div class="wrap">
+    <div class="section-eyebrow">Feedback</div>
+    <h2>Using Nerva? Tell us how it's going.</h2>
+    <p style="color:#8a93a6;max-width:560px">Thirty seconds, no account. Ratings and requests decide what ships next.</p>
+    <form id="fbform" style="margin-top:24px;max-width:560px;display:flex;flex-direction:column;gap:12px">
+      <div id="fbstars" role="radiogroup" aria-label="Rating" style="font-size:28px;letter-spacing:4px;cursor:pointer;user-select:none">
+        <span data-v="1">☆</span><span data-v="2">☆</span><span data-v="3">☆</span><span data-v="4">☆</span><span data-v="5">☆</span>
+      </div>
+      <select id="fbkind" style="padding:10px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1)">
+        <option value="rating">Rating</option>
+        <option value="feature">Feature request</option>
+        <option value="bug">Bug report</option>
+        <option value="other">Something else</option>
+      </select>
+      <textarea id="fbtext" rows="4" maxlength="2000" placeholder="What works? What's missing?" style="padding:10px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1);resize:vertical"></textarea>
+      <input id="fbemail" type="email" placeholder="email (optional, for a reply)" style="padding:10px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1)" />
+      <div class="row" style="gap:12px;align-items:center">
+        <button type="submit" class="btn" style="padding:10px 18px;border-radius:8px;background:#7c9cff;color:#0a0b0d;font-weight:600;border:0;cursor:pointer">Send</button>
+        <span id="fbstatus" style="color:#8a93a6;font-size:14px"></span>
+      </div>
+    </form>
+  </div>
+</section>
+<script>
+  (function () {
+    var stars = document.querySelectorAll('#fbstars span');
+    var value = 0;
+    function paint(n) { stars.forEach(function (s, i) { s.textContent = i < n ? '\u2605' : '\u2606'; s.style.color = i < n ? '#e8b86d' : '#4a5260'; }); }
+    paint(0);
+    stars.forEach(function (s) {
+      s.addEventListener('mouseenter', function () { paint(+s.dataset.v); });
+      s.addEventListener('mouseleave', function () { paint(value); });
+      s.addEventListener('click', function () { value = +s.dataset.v; paint(value); document.getElementById('fbkind').value = 'rating'; });
+    });
+    document.getElementById('fbform').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var kind = document.getElementById('fbkind').value;
+      var text = document.getElementById('fbtext').value.trim();
+      var email = document.getElementById('fbemail').value.trim();
+      var st = document.getElementById('fbstatus');
+      if (kind === 'rating' && !value) { st.textContent = 'Pick a star rating first.'; return; }
+      if (kind !== 'rating' && text.length < 4) { st.textContent = 'Add a sentence or two.'; return; }
+      st.textContent = 'Sending\u2026';
+      try {
+        var res = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ kind: kind, stars: value || undefined, text: text || undefined, email: email || undefined, source: 'web' }) });
+        st.textContent = res.ok ? 'Thank you \u2014 received.' : 'Could not send (' + res.status + '). Try GitHub issues.';
+        if (res.ok) { document.getElementById('fbtext').value = ''; value = 0; paint(0); }
+      } catch (_) { st.textContent = 'Network error \u2014 try again.'; }
+    });
+  })();
+</script>
+
 <footer>
   <div class="wrap row">
-    <span>© 2026 Bytical Solutions Private Limited · Apache-2.0</span>
-    <span><a href="https://github.com/piyushptiwari1/nerva">GitHub</a> · <a href="https://github.com/piyushptiwari1/nerva/releases">Releases</a> · <a href="https://github.com/piyushptiwari1/nerva/issues">Support</a></span>
+    <span>Nerva by Bytical · © 2026 Bytical Solutions Private Limited · Apache-2.0</span>
+    <span><a href="https://github.com/piyushptiwari1/nerva">GitHub</a> · <a href="https://github.com/piyushptiwari1/nerva/releases">Releases</a> · <a href="#feedback">Feedback</a> · <a href="https://github.com/piyushptiwari1/nerva/issues">Support</a> · <a href="/llms.txt">llms.txt</a></span>
   </div>
 </footer>
 

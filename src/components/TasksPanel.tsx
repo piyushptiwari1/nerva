@@ -256,9 +256,13 @@ function TaskRow({ task, onToggle, onDelete, onRename, onCyclePriority, onSetDue
       )}
       <DueChip task={task} onSetDue={onSetDue} />
       <button
-        onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-ink-200 text-xs leading-none"
+        onClick={() => {
+          // Done tasks are cheap to lose; open ones get a confirm.
+          if (isDone || window.confirm(`Delete task "${task.title}"?`)) onDelete();
+        }}
+        className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-ink-500 hover:text-danger text-xs leading-none"
         title="Delete"
+        aria-label={`Delete task ${task.title}`}
       >
         ×
       </button>

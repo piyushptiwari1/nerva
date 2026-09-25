@@ -1,14 +1,50 @@
 import { create } from "zustand";
 import {
   ipc,
+  formatRemaining,
   type AudioState,
   type FocusState,
   type MomentumBucket,
   type NoteMeta,
+  type PhaseChange,
   type Task,
   type Timer,
   type Workspace,
 } from "@/lib/ipc";
+
+let notifyPermission: boolean | null = null;
+
+/** Fire OS notifications for completed timers and phase transitions. */
+async function notifyTimerEvents(timers: Timer[], completed: string[], changes: PhaseChange[]) {
+  try {
+    const n = await import("@tauri-apps/plugin-notification");
+    if (notifyPermission === null) {
+      notifyPermission = await n.isPermissionGranted();
+      if (!notifyPermission) {
+        notifyPermission = (await n.requestPermission()) === "granted";
+      }
+    }
+    if (!notifyPermission) return;
+    for (const id of completed) {
+      const t = timers.find((x) => x.id === id);
+      n.sendNotification({
+        title: `${t?.name ?? "Timer"} — done`,
+        body: "Session complete. Nerva by Bytical",
+      });
+    }
+    for (const ch of changes) {
+      const isBreak = ch.to === "break";
+      n.sendNotification({
+        title: isBreak ? `Break — ${formatRemaining(ch.phase_duration_ms)}` : "Back to focus",
+        body: isBreak
+          ? `${ch.name}: step away, you've earned it.`
+          : `${ch.name}: focus block ${Math.ceil((ch.phase_index + 1) / 2)} starts now.`,
+      });
+    }
+  } catch {
+    /* notification plugin unavailable — silent */
+  }
+}
 
 interface AppStore {
   ready: boolean;
@@ -111,6 +147,12 @@ export const useApp = create<AppStore>((set, get) => ({
     try {
       const rep = await ipc.timerTick();
       set({ timers: rep.timers });
+      // OS notifications for session end + focus/break boundaries. The
+      // main window is the only one calling this on a tick loop, so each
+      // event is announced exactly once. Best-effort: never throws.
+      if (rep.completed.length || rep.phase_changes.length) {
+        void notifyTimerEvents(rep.timers, rep.completed, rep.phase_changes);
+      }
     } catch (e) {
       console.warn("[refreshTimers] failed:", e);
     }

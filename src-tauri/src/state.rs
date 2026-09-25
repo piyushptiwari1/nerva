@@ -93,11 +93,29 @@ impl AppState {
 
         // Resolve LLM config: meta-table override, then env vars, then defaults.
         let mut cfg = OllamaConfig::from_env();
+        if let Ok(Some(p)) = store.meta_get("ai.provider") {
+            if let Some(p) = crate::intelligence::Provider::from_label(&p) {
+                cfg.provider = p;
+                cfg.endpoint = p.default_endpoint().to_string();
+                cfg.model = p.default_model().to_string();
+            }
+        }
         if let Ok(Some(url)) = store.meta_get("ai.endpoint") {
-            cfg.endpoint = url;
+            cfg.endpoint = url.clone();
+            if cfg.provider == crate::intelligence::Provider::Ollama {
+                cfg.ollama_endpoint = url;
+            }
+        }
+        if let Ok(Some(url)) = store.meta_get("ai.ollama_endpoint") {
+            cfg.ollama_endpoint = url;
         }
         if let Ok(Some(m)) = store.meta_get("ai.model") {
             cfg.model = m;
+        }
+        if let Ok(Some(k)) = store.meta_get("ai.api_key") {
+            if !k.is_empty() {
+                cfg.api_key = Some(k);
+            }
         }
         let ai = Arc::new(OllamaClient::new(cfg));
 

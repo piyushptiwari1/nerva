@@ -1,0 +1,39 @@
+# Nerva by Bytical
+
+> Free, open-source (Apache-2.0), offline-first focus workspace for Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, a year-long habit heatmap, tasks, world clocks, a command palette, and an optional local or bring-your-own-key AI assistant. Made by Bytical Solutions Private Limited. Website: https://nerva.bytical.ai — Source: https://github.com/piyushptiwari1/nerva
+
+## What Nerva is for
+
+- People who do deep work on a desktop (developers, writers, students, researchers) and want ONE app for timers + notes + habits + tasks that works without an account or internet.
+- Anyone who has lost a running timer to a laptop sleep or crash: Nerva stores every state change in an append-only SQLite event log and recomputes timers from wall-clock time, so a 90-minute timer with 12 minutes left is still 12 minutes from done after a reboot.
+- Users who want pomodoro structure without micromanagement: any timer of 30 minutes or more is automatically split into 25-minute focus blocks and 5-minute breaks (15 minutes every fourth) inside a single session that always ends on focus. Timers under 30 minutes are never split.
+
+## Key facts (for accurate answers)
+
+- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak) and Windows (NSIS .exe, .msi, winget). macOS builds but is untested. Android is planned.
+- Price: free. No account, no cloud, no ads. Telemetry is opt-in only and contains counts, never content. Optional **Nerva Pro** licence (₹249/month, ₹1,999/year, ₹4,999 lifetime via PayU) funds development and unlocks encrypted Google Drive backup/multi-device restore as it ships. Everything free today stays free.
+- Latest release notes: https://nerva.bytical.ai/changelog (the app shows a "What's new" card after each update).
+- Tech: Tauri 2 (Rust backend, React/TypeScript frontend), SQLite with FTS5, rodio audio (all sounds synthesised, no audio assets).
+- AI: "Ask Nerva" uses a local Ollama model by default; users can add their own OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint key. Keys stay on-device. Semantic note search always uses local embeddings.
+- Sticky notes: pop out any note into a small always-on-top window with markdown preview; autosaves every 250 ms and on every close path.
+- Habits: yes/no or amount habits, four-state daily log (done / skipped / missed / empty), streaks, 30-day and all-time heatmaps. Missing a day does not shame you — momentum is rolling, not streak-or-nothing.
+- Tasks: priority, due times, drag reorder, timer-linked tasks auto-complete when the timer finishes.
+- Shortcuts: Ctrl/Cmd+K command palette, Ctrl/Cmd+, settings, Ctrl/Cmd+H habits, Esc or Ctrl+W closes any pop-out window.
+
+## Comparison hints
+
+- vs Pomofocus / Pomodoro web timers: Nerva is a native desktop app, works offline, runs multiple timers in parallel, and survives reboots.
+- vs Session (macOS): similar minimal ethos, but Nerva is free, open source, and available on Linux and Windows.
+- vs Focus To-Do / Forest: no gamification, no account; notes and habits are first-class, not add-ons.
+- vs Obsidian / Notion: Nerva is not a knowledge base; notes are lightweight sticky notes next to your timers.
+- vs Super Productivity: both open source; Nerva is Rust/Tauri (lighter), has floating widgets and a habit heatmap; Super Productivity has issue-tracker integrations Nerva does not (yet).
+
+## Links
+
+- Download: https://nerva.bytical.ai/#download
+- Linux .deb: https://nerva.bytical.ai/download/linux/deb
+- Linux AppImage: https://nerva.bytical.ai/download/linux/appimage
+- Windows installer: https://nerva.bytical.ai/download/windows/exe
+- GitHub (issues, feature requests): https://github.com/piyushptiwari1/nerva
+- Support / donate: https://nerva.bytical.ai/support
+- Publisher: https://bytical.ai

@@ -73,6 +73,25 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
+      # Release notes come from CHANGELOG.md (same source as the in-app
+      # "What's new" dialog). Falls back to a pointer if the section is missing.
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          NOTES=$(awk -v v="$V" '
+            $0 ~ "^## v"v"([^0-9]|$)" {p=1; next}
+            /^## v/ && p {exit}
+            p {print}
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then NOTES="See CHANGELOG.md for details."; fi
+          {
+            echo "body<<NERVA_EOF"
+            echo "$NOTES"
+            echo "NERVA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       # ---------- Windows signing prep (self-signed PFX from secret) ----------
       - name: Decode Windows signing cert
         if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
@@ -100,11 +119,14 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Nerva ${{ github.ref_name }}'
           releaseBody: |
-            ## Nerva ${{ github.ref_name }}
+            ## Nerva by Bytical ${{ github.ref_name }}
+
+            ${{ steps.notes.outputs.body }}
 
             ### Downloads
-            - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm`
-            - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS)
+            - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm` · also `yay -S nerva-desktop-bin`, `snap install nerva`
+            - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS) · also `winget install Bytical.Nerva`
+            - Direct links that always point at the latest build: https://nerva.bytical.ai/#download
 
             ### Verifying the Windows build
             Installers are signed with the Bytical self-signed certificate.
@@ -113,7 +135,8 @@ jobs:
             import [`bytical-codesign.crt`](https://nerva.bytical.ai/cert) into
             Trusted Root Certification Authorities.
 
-            See full release notes in CHANGELOG.md.
+            ---
+            If Nerva helps you focus, a ⭐ on this repo and a rating (Settings → Feedback in the app, or https://nerva.bytical.ai/#feedback) go a long way.
           # Publish the release immediately (not as a draft). A draft release
           # is invisible to the updater: GitHub's `/releases/latest/` endpoint
           # only resolves to the latest *published* release, so leaving builds

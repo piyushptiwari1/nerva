@@ -6,8 +6,12 @@
 // are appended into one JSON array file per day:
 //   events/downloads/YYYY-MM-DD.json
 //   events/pings/YYYY-MM-DD.json
+//   events/feedback/YYYY-MM-DD.json
+//   events/licenses/YYYY-MM-DD.json
 // Low write volume makes the read-modify-write race window acceptable; a
 // single retry handles the occasional 409 sha conflict.
+
+export type EventKind = "downloads" | "pings" | "feedback" | "licenses";
 
 const METRICS_REPO = "piyushptiwari1/nerva-metrics";
 const SEGMENT_WRITE_KEY = "TCz9WfbBHAUOuOYYrfgbcGGDBfLRBlqR";
@@ -32,7 +36,7 @@ function b64decodeUtf8(s: string): string {
 
 /** Append one event to today's file for `kind`. Best-effort; never throws. */
 export async function appendEvent(
-  kind: "downloads" | "pings",
+  kind: EventKind,
   event: Record<string, unknown>,
 ): Promise<void> {
   const token = (globalThis as { process?: { env?: Record<string, string> } })
@@ -72,9 +76,57 @@ export async function appendEvent(
   }
 }
 
+/** Read a JSON document at `path` in the metrics repo. `null` if missing. */
+export async function readJson<T>(path: string): Promise<{ data: T; sha: string } | null> {
+  const token = (globalThis as { process?: { env?: Record<string, string> } })
+    .process?.env?.GH_METRICS_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${METRICS_REPO}/contents/${path}`, {
+      headers: ghHeaders(token),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { sha: string; content: string };
+    return { data: JSON.parse(b64decodeUtf8(j.content)) as T, sha: j.sha };
+  } catch {
+    return null;
+  }
+}
+
+/** Write (create or replace) a JSON document at `path`. Returns success. */
+export async function writeJson(path: string, data: unknown, message: string, sha?: string): Promise<boolean> {
+  const token = (globalThis as { process?: { env?: Record<string, string> } })
+    .process?.env?.GH_METRICS_TOKEN;
+  if (!token) return false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let cur = sha;
+      if (cur === undefined) {
+        const existing = await readJson<unknown>(path);
+        cur = existing?.sha;
+      }
+      const put = await fetch(`https://api.github.com/repos/${METRICS_REPO}/contents/${path}`, {
+        method: "PUT",
+        headers: ghHeaders(token),
+        body: JSON.stringify({
+          message,
+          content: b64encodeUtf8(JSON.stringify(data)),
+          ...(cur ? { sha: cur } : {}),
+        }),
+      });
+      if (put.ok) return true;
+      if (put.status !== 409) return false;
+      sha = undefined; // conflict → re-read sha and retry once
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 /** Read all events of `kind` for the last `days` days. Missing days skipped. */
 export async function readEvents(
-  kind: "downloads" | "pings",
+  kind: EventKind,
   days: number,
 ): Promise<Record<string, unknown>[]> {
   const token = (globalThis as { process?: { env?: Record<string, string> } })

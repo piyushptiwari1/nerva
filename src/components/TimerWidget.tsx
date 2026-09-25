@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { ipc, formatRemaining, type Timer } from "@/lib/ipc";
+import { useCallback, useEffect, useState } from "react";
+import { ipc, formatRemaining, phaseLabel, type Timer } from "@/lib/ipc";
+import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
 
 /**
@@ -54,7 +55,7 @@ export function TimerWidget() {
     }
   }
 
-  async function close() {
+  const close = useCallback(async () => {
     try {
       const win = (await import("@tauri-apps/api/window")).getCurrentWindow();
       await ipc.windowHide(win.label);
@@ -66,7 +67,8 @@ export function TimerWidget() {
         /* ignore */
       }
     }
-  }
+  }, []);
+  usePopupClose(close);
 
   useEffect(() => {
     let unlistenClose: (() => void) | undefined;
@@ -104,7 +106,7 @@ export function TimerWidget() {
         <span data-tauri-drag-region className="flex items-center gap-2 pointer-events-none">
           <span className="text-ink-400 text-sm leading-none">⋮⋮</span>
           <span className="text-[10px] uppercase tracking-widest text-ink-300">
-            Nerva timer
+            Nerva <span className="text-ink-500 normal-case tracking-normal">by Bytical</span>
           </span>
         </span>
         <span className="flex items-center gap-2">
@@ -137,15 +139,21 @@ export function TimerWidget() {
             <div className="flex items-center gap-2">
               <span
                 className="w-1 h-7 rounded-full"
-                style={{ background: active.color }}
+                style={{ background: active.phase_kind === "break" ? "rgb(var(--rest))" : active.color }}
                 aria-hidden
               />
               <div className="text-3xl font-semibold tnum text-ink-100">
-                {formatRemaining(active.remaining_ms)}
+                {formatRemaining(
+                  (active.phases?.length ?? 1) > 1 ? active.phase_remaining_ms : active.remaining_ms,
+                )}
               </div>
             </div>
             <div className="text-[11px] text-ink-400 mt-0.5 truncate max-w-full">
+              {phaseLabel(active) ? `${phaseLabel(active)} · ` : ""}
               {active.name} · {active.status}
+              {(active.phases?.length ?? 1) > 1 && active.status !== "completed"
+                ? ` · ${formatRemaining(active.remaining_ms)} total`
+                : ""}
               {active.status === "completed" ? " — click to restart" : ""}
             </div>
           </>

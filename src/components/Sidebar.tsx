@@ -1,10 +1,48 @@
 import { useApp } from "@/store/app";
+import { useLayout, type SectionId } from "@/store/layout";
 import { ipc } from "@/lib/ipc";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { TasksPanel } from "@/components/TasksPanel";
 import { HabitsRail } from "@/components/HabitsRail";
+import { WorldClock } from "@/components/WorldClock";
 
 export function Sidebar() {
+  const order = useLayout((s) => s.order);
+  const hidden = useLayout((s) => s.hidden);
+
+  // Sections are user-orderable and hideable (Settings → Layout). The
+  // first visible one has no top divider.
+  const sections: Record<SectionId, ReactNode> = {
+    workspaces: <WorkspacesSection />,
+    tasks: <TasksPanel />,
+    habits: <HabitsRail />,
+    clocks: <WorldClock />,
+    momentum: (
+      <>
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-400 mb-2">Momentum</h3>
+        <Momentum />
+      </>
+    ),
+  };
+  const visible = order.filter((id) => !hidden.includes(id));
+
+  return (
+    <aside className="glass rounded-xl p-3 flex flex-col gap-3 min-h-0 overflow-y-auto">
+      {visible.map((id, i) => (
+        <div key={id} className={i === 0 ? "" : "border-t border-ink-700/40 pt-3"}>
+          {sections[id]}
+        </div>
+      ))}
+      {visible.length === 0 && (
+        <div className="text-xs text-ink-400">
+          All sidebar sections are hidden. Re-enable them in Settings → Layout.
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function WorkspacesSection() {
   const { workspaces, active, activateWorkspace } = useApp();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -18,78 +56,62 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="glass rounded-xl p-3 flex flex-col gap-3 min-h-0 overflow-y-auto">
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-[11px] uppercase tracking-wider text-ink-400">Workspaces</h3>
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-400">Workspaces</h3>
+        <button
+          onClick={() => setCreating((v) => !v)}
+          className="text-ink-400 hover:text-ink-100 text-sm leading-none"
+          title="New workspace"
+          aria-label={creating ? "Cancel new workspace" : "New workspace"}
+        >
+          {creating ? "×" : "+"}
+        </button>
+      </div>
+      {creating && (
+        <div className="mb-2 flex gap-1">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && create()}
+            placeholder="Name…"
+            className="flex-1 min-w-0 bg-ink-800 hairline rounded-md px-2 py-1 text-sm"
+          />
           <button
-            onClick={() => setCreating((v) => !v)}
-            className="text-ink-400 hover:text-ink-100 text-sm leading-none"
-            title="New workspace"
+            onClick={create}
+            className="text-xs px-2 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
           >
-            {creating ? "×" : "+"}
+            Add
           </button>
         </div>
-        {creating && (
-          <div className="mb-2 flex gap-1">
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && create()}
-              placeholder="Name…"
-              className="flex-1 min-w-0 bg-ink-800 hairline rounded-md px-2 py-1 text-sm"
-            />
+      )}
+      <div className="flex flex-col gap-1">
+        {workspaces.map((w) => {
+          const isActive = active?.id === w.id;
+          return (
             <button
-              onClick={create}
-              className="text-xs px-2 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
+              key={w.id}
+              onClick={() => activateWorkspace(w.id)}
+              className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors ${
+                isActive
+                  ? "bg-accent/15 text-ink-100"
+                  : "text-ink-200 hover:bg-ink-800/60"
+              }`}
             >
-              Add
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: w.color }}
+              />
+              <span className="truncate">{w.name}</span>
             </button>
-          </div>
+          );
+        })}
+        {workspaces.length === 0 && (
+          <div className="text-xs text-ink-400">No workspaces yet.</div>
         )}
-        <div className="flex flex-col gap-1">
-          {workspaces.map((w) => {
-            const isActive = active?.id === w.id;
-            return (
-              <button
-                key={w.id}
-                onClick={() => activateWorkspace(w.id)}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors ${
-                  isActive
-                    ? "bg-accent/15 text-ink-100"
-                    : "text-ink-200 hover:bg-ink-800/60"
-                }`}
-              >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: w.color }}
-                />
-                <span className="truncate">{w.name}</span>
-              </button>
-            );
-          })}
-          {workspaces.length === 0 && (
-            <div className="text-xs text-ink-400">No workspaces yet.</div>
-          )}
-        </div>
       </div>
-
-      <div className="border-t border-ink-700/40 pt-3">
-        <TasksPanel />
-      </div>
-
-      <div className="border-t border-ink-700/40 pt-3">
-        <HabitsRail />
-      </div>
-
-      <div className="border-t border-ink-700/40 pt-3">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-400 mb-2">
-          Momentum
-        </h3>
-        <Momentum />
-      </div>
-    </aside>
+    </div>
   );
 }
 

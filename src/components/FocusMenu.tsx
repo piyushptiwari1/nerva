@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/store/app";
 import { ipc } from "@/lib/ipc";
 
@@ -10,6 +10,15 @@ import { ipc } from "@/lib/ipc";
 export function FocusMenu() {
   const { audio, focus, setVolume, setMuted, setSound, testAudio, setDnd } = useApp();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   const sounds: { id: import("@/lib/ipc").CompletionSound; label: string }[] = [
     { id: "classic", label: "Classic" },
@@ -25,6 +34,8 @@ export function FocusMenu() {
         onClick={() => setOpen((v) => !v)}
         className="text-xs px-2 py-1 rounded-md hairline hover:bg-ink-700/60 text-ink-300 flex items-center gap-1.5"
         title="Sound, focus, widgets"
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         <span className="text-base leading-none">{audio?.muted ? "🔇" : "🔔"}</span>
         <span className="hidden md:inline">Focus</span>
@@ -44,6 +55,8 @@ export function FocusMenu() {
                 </span>
                 <button
                   onClick={() => setMuted(!audio?.muted)}
+                  aria-pressed={!!audio?.muted}
+                  aria-label={audio?.muted ? "Unmute completion sounds" : "Mute completion sounds"}
                   className={`text-[10px] px-2 py-0.5 rounded ${
                     audio?.muted
                       ? "bg-rose-500/20 text-rose-200"

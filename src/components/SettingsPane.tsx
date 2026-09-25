@@ -3,14 +3,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
-import { ai } from "@/lib/ai";
+import { ai, AI_PROVIDERS, type AiProvider } from "@/lib/ai";
 import { ipc } from "@/lib/ipc";
 import {
   consentState as telemetryConsentState,
   setConsent as setTelemetryConsent,
 } from "@/lib/telemetry";
+import { ALL_SECTIONS, useLayout } from "@/store/layout";
+import { FeedbackForm } from "@/components/Feedback";
+import { BUY_URL, planLabel, useLicense } from "@/lib/license";
 
-type Tab = "ai" | "timers" | "audio" | "focus" | "diag" | "about";
+type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "pro" | "feedback" | "diag" | "about";
+const TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "pro", "feedback", "diag", "about"];
 
 /**
  * Tabbed settings overlay. Opens via `useSettingsUi.toggle()` — bound to
@@ -35,7 +39,7 @@ export function SettingsPane() {
     // Honor deep-link from the command palette (e.g. "Reset Nerva" opens
     // Settings already focused on Diagnostics so the button is in view).
     const pending = consumePendingTab();
-    if (pending && ["ai", "timers", "audio", "focus", "diag", "about"].includes(pending)) {
+    if (pending && (TABS as string[]).includes(pending)) {
       setTab(pending as Tab);
     }
     setLoading(true);
@@ -77,16 +81,19 @@ export function SettingsPane() {
           >
             <header className="px-4 py-2.5 border-b border-ink-700/40 flex items-center">
               <span className="text-sm font-medium text-ink-100">Settings</span>
+              <span className="ml-2 text-[10px] text-ink-500">Nerva by Bytical</span>
               <span className="ml-auto text-[10px] text-ink-500">
                 <kbd className="border border-ink-700 rounded px-1">Esc</kbd> close
               </span>
             </header>
             <div className="flex-1 min-h-0 flex">
               {/* Tab rail */}
-              <nav className="w-28 border-r border-ink-700/40 py-2 flex flex-col">
-                {((['ai', 'timers', 'audio', 'focus', 'diag', 'about'] as Tab[])).map((t) => (
+              <nav className="w-28 border-r border-ink-700/40 py-2 flex flex-col" role="tablist">
+                {TABS.map((t) => (
                   <button
                     key={t}
+                    role="tab"
+                    aria-selected={tab === t}
                     onClick={() => setTab(t)}
                     className={`text-left text-xs px-3 py-1.5 ${
                       tab === t
@@ -112,6 +119,9 @@ export function SettingsPane() {
                     {tab === "timers" && <TimersTab bundle={bundle} onChange={setBundle} />}
                     {tab === "audio" && <AudioTab />}
                     {tab === "focus" && <FocusTab />}
+                    {tab === "layout" && <LayoutTab />}
+                    {tab === "pro" && <ProTab />}
+                    {tab === "feedback" && <FeedbackForm />}
                     {tab === "diag" && <DiagTab />}
                     {tab === "about" && <AboutTab />}
                   </>
@@ -135,47 +145,188 @@ function AiTab({ bundle, onChange }: TabProps) {
   // write on blur/Enter to avoid spamming the backend on every keystroke.
   const [endpoint, setEndpoint] = useState(bundle.ai_endpoint);
   const [model, setModel] = useState(bundle.ai_model);
-  const [savingEndpoint, setSavingEndpoint] = useState(false);
-  const [savingModel, setSavingModel] = useState(false);
-  const [endpointErr, setEndpointErr] = useState<string | null>(null);
+  const [key, setKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState<"provider" | "endpoint" | "model" | "key" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => { setEndpoint(bundle.ai_endpoint); }, [bundle.ai_endpoint]);
   useEffect(() => { setModel(bundle.ai_model); }, [bundle.ai_model]);
 
+  const providerMeta = AI_PROVIDERS.find((p) => p.id === bundle.ai_provider) ?? AI_PROVIDERS[0];
+
+  async function refreshBundle() {
+    // Re-probe so the health line + model list reflect the new config.
+    const refreshed = await settingsApi.get();
+    onChange(refreshed);
+  }
+
+  async function switchProvider(p: AiProvider) {
+    if (p === bundle.ai_provider) return;
+    setSaving("provider");
+    setErr(null);
+    try {
+      await ai.setProvider(p);
+      await refreshBundle();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setSaving(null);
+    }
+  }
+
   async function commitEndpoint() {
     if (endpoint === bundle.ai_endpoint) return;
-    setSavingEndpoint(true);
-    setEndpointErr(null);
+    setSaving("endpoint");
+    setErr(null);
     try {
-      const next = await ai.setEndpoint(endpoint);
-      // Re-probe installed models after endpoint change so the model picker
-      // reflects what's actually available on the new sidecar.
-      const refreshed = await settingsApi.get();
-      onChange({ ...refreshed, ai_endpoint: next.endpoint });
+      await ai.setEndpoint(endpoint);
+      await refreshBundle();
     } catch (e) {
-      setEndpointErr(String(e));
+      setErr(String(e));
       setEndpoint(bundle.ai_endpoint);
     } finally {
-      setSavingEndpoint(false);
+      setSaving(null);
     }
   }
 
   async function commitModel(next: string) {
     if (!next || next === bundle.ai_model) return;
-    setSavingModel(true);
+    setSaving("model");
     try {
       const updated = await ai.setModel(next);
       onChange({ ...bundle, ai_model: updated.model });
     } finally {
-      setSavingModel(false);
+      setSaving(null);
+    }
+  }
+
+  async function commitKey() {
+    if (!key.trim()) return;
+    setSaving("key");
+    setErr(null);
+    try {
+      await ai.setApiKey(key.trim());
+      setKey("");
+      await refreshBundle();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function clearKey() {
+    setSaving("key");
+    try {
+      await ai.setApiKey("");
+      await refreshBundle();
+    } finally {
+      setSaving(null);
     }
   }
 
   return (
     <section className="flex flex-col gap-4 text-sm">
       <Field
-        label="Ollama endpoint"
-        help="Base URL of your local LLM sidecar. Default http://localhost:11434."
+        label="Provider"
+        help="Ask Nerva runs on a local Ollama model by default. Bring your own key to use a hosted model instead — keys stay on this device (never synced, never included in telemetry)."
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {AI_PROVIDERS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => void switchProvider(p.id)}
+              title={p.hint}
+              disabled={saving === "provider"}
+              className={`text-[11px] px-2 py-1 rounded border ${
+                bundle.ai_provider === p.id
+                  ? "bg-accent/20 border-accent text-accent-glow"
+                  : "border-ink-700 hover:bg-ink-800 text-ink-200"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[11px]">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${bundle.ai_available ? "bg-rest" : "bg-danger"}`}
+            aria-hidden
+          />
+          <span className={bundle.ai_available ? "text-rest" : "text-ink-400"}>
+            {bundle.ai_available
+              ? `Connected · ${bundle.installed_models.length} model${bundle.installed_models.length === 1 ? "" : "s"} available`
+              : bundle.ai_error ?? "Not reachable"}
+          </span>
+        </div>
+      </Field>
+
+      {bundle.ai_needs_key && (
+        <Field
+          label="API key"
+          help={
+            bundle.ai_has_api_key
+              ? `Stored (${bundle.ai_api_key_hint ?? "hidden"}). Paste a new one to replace it.`
+              : "Required for this provider."
+          }
+        >
+          <div className="flex gap-1.5">
+            <input
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void commitKey(); }}
+              type={showKey ? "text" : "password"}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={bundle.ai_has_api_key ? "paste new key to replace…" : "sk-…"}
+              className="flex-1 bg-ink-900 hairline rounded px-2 py-1 text-xs font-mono text-ink-100"
+              aria-label="API key"
+            />
+            <button
+              onClick={() => setShowKey((v) => !v)}
+              className="text-[11px] px-2 rounded hairline hover:bg-ink-800 text-ink-300"
+              title={showKey ? "Hide" : "Show"}
+              aria-label={showKey ? "Hide key" : "Show key"}
+            >
+              {showKey ? "hide" : "show"}
+            </button>
+            <button
+              onClick={() => void commitKey()}
+              disabled={!key.trim() || saving === "key"}
+              className="text-[11px] px-2 rounded bg-accent/20 hover:bg-accent/30 text-accent-glow disabled:opacity-40"
+            >
+              Save
+            </button>
+            {bundle.ai_has_api_key && (
+              <button
+                onClick={() => void clearKey()}
+                className="text-[11px] px-2 rounded hairline hover:bg-danger/20 text-ink-400 hover:text-danger"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          {providerMeta.keyUrl && (
+            <div className="mt-1 text-[10px] text-ink-500">
+              Get a key:{" "}
+              <a href={providerMeta.keyUrl} target="_blank" rel="noopener noreferrer" className="text-accent-glow hover:underline">
+                {providerMeta.keyUrl.replace(/^https?:\/\//, "")}
+              </a>
+            </div>
+          )}
+        </Field>
+      )}
+
+      <Field
+        label={bundle.ai_provider === "ollama" ? "Ollama endpoint" : "Endpoint (base URL)"}
+        help={
+          bundle.ai_provider === "ollama"
+            ? "Base URL of your local LLM sidecar. Default http://localhost:11434."
+            : bundle.ai_provider === "custom"
+              ? "Any OpenAI-compatible server, e.g. http://localhost:1234/v1 (LM Studio) or https://api.groq.com/openai/v1."
+              : "Leave as default unless you use a proxy or regional endpoint."
+        }
       >
         <input
           value={endpoint}
@@ -185,14 +336,14 @@ function AiTab({ bundle, onChange }: TabProps) {
           spellCheck={false}
           className="w-full bg-ink-900 hairline rounded px-2 py-1 text-xs font-mono text-ink-100"
         />
-        <Status saving={savingEndpoint} error={endpointErr} />
+        <Status saving={saving === "endpoint"} error={err} />
       </Field>
       <Field
         label="Model"
         help={
           bundle.installed_models.length
-            ? `${bundle.installed_models.length} installed`
-            : "Sidecar offline — type a model name manually"
+            ? `${bundle.installed_models.length} available`
+            : "Provider offline — type a model name manually"
         }
       >
         {bundle.installed_models.length > 0 ? (
@@ -200,9 +351,10 @@ function AiTab({ bundle, onChange }: TabProps) {
             value={model}
             onChange={(e) => { setModel(e.target.value); commitModel(e.target.value); }}
             className="w-full bg-ink-900 hairline rounded px-2 py-1 text-xs text-ink-100"
+            aria-label="Model"
           >
             {!bundle.installed_models.includes(model) && (
-              <option value={model}>{model} (not installed)</option>
+              <option value={model}>{model} (not listed)</option>
             )}
             {bundle.installed_models.map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -216,10 +368,18 @@ function AiTab({ bundle, onChange }: TabProps) {
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             spellCheck={false}
             className="w-full bg-ink-900 hairline rounded px-2 py-1 text-xs font-mono text-ink-100"
+            aria-label="Model"
           />
         )}
-        <Status saving={savingModel} />
+        <Status saving={saving === "model"} />
       </Field>
+      {bundle.ai_provider !== "ollama" && (
+        <p className="text-[10px] text-ink-500 leading-relaxed">
+          Semantic note search keeps using local Ollama embeddings regardless of the chat provider,
+          so your note text is never sent to a third party for indexing. Ask Nerva prompts (and the
+          workspace context you opt into) are sent to the provider you choose.
+        </p>
+      )}
     </section>
   );
 }
@@ -278,6 +438,23 @@ function TimersTab({ bundle, onChange }: TabProps) {
           ))}
         </div>
       </Field>
+      <Field
+        label="Auto breaks (pomodoro structure)"
+        help="Timers of 30 min or more are split into 25-min focus blocks with 5-min breaks (15 min every 4th) inside ONE timer. Sessions always end on focus. Shorter timers are never split. You can override this per timer."
+      >
+        <Toggle
+          label={bundle.timer_auto_breaks ? "On — new long timers include breaks" : "Off — every timer is one focus block"}
+          on={bundle.timer_auto_breaks}
+          onChange={(v) => {
+            void settingsApi
+              .setTimerAutoBreaks(v)
+              .then((next) => onChange({ ...bundle, timer_auto_breaks: next }));
+          }}
+        />
+        <div className="mt-2 text-[10px] text-ink-500 tnum">
+          e.g. 60m → 25 focus · 5 break · 30 focus &nbsp;│&nbsp; 2h → 25·5·25·5·25·5·30
+        </div>
+      </Field>
     </section>
   );
 }
@@ -294,11 +471,11 @@ function AudioTab() {
   if (!audio) return <div className="text-xs text-ink-500">audio engine unavailable</div>;
 
   const sounds: { id: import("@/lib/ipc").CompletionSound; label: string; hint: string }[] = [
-    { id: "classic", label: "Classic", hint: "two-note ding — the original" },
-    { id: "chime", label: "Chime", hint: "ascending triad — bright, celebratory" },
-    { id: "bell", label: "Bell", hint: "struck bell with a long decay" },
-    { id: "beep", label: "Beep", hint: "crisp double-beep — cuts through noise" },
-    { id: "soft", label: "Soft", hint: "single mellow tone — unobtrusive" },
+    { id: "classic", label: "Classic", hint: "descending three-note chime — warm, resolved" },
+    { id: "chime", label: "Chime", hint: "ascending arpeggio — bright, celebratory" },
+    { id: "bell", label: "Bell", hint: "struck bell, two strikes, long shimmer" },
+    { id: "beep", label: "Beep", hint: "crisp triple-beep — cuts through noise" },
+    { id: "soft", label: "Soft", hint: "slow swell with a long tail — unobtrusive" },
   ];
 
   const kinds: { id: "white" | "pink" | "brown"; label: string; hint: string }[] = [
@@ -359,6 +536,29 @@ function AudioTab() {
         </button>
       </div>
       <Field
+        label="Phase cues"
+        help="Structured sessions play distinct cues so you can tell them apart without looking. All derive from the family you picked above."
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["break", "Break starts", "two descending notes — relax"],
+              ["focus", "Focus resumes", "two ascending notes — go"],
+              ["resume", "Resume / restart", "one short tick"],
+            ] as const
+          ).map(([cue, label, hint]) => (
+            <button
+              key={cue}
+              onClick={() => void ipc.audioTestCue(cue)}
+              title={hint}
+              className="text-[11px] px-2 py-1 rounded border border-ink-700 hover:bg-ink-800 text-ink-200"
+            >
+              ▶ {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field
         label="Ambient noise"
         help="Procedurally generated background hiss. Survives app restart only if you press Play again — Nerva doesn't auto-resume on boot."
       >
@@ -408,6 +608,244 @@ function AudioTab() {
         <div className="text-[11px] text-amber-400">
           Host audio device not detected. Ambient + ding will be no-ops until audio is available.
         </div>
+      )}
+    </section>
+  );
+}
+
+function LayoutTab() {
+  const order = useLayout((s) => s.order);
+  const hidden = useLayout((s) => s.hidden);
+  const move = useLayout((s) => s.move);
+  const setHidden = useLayout((s) => s.setHidden);
+  const reset = useLayout((s) => s.reset);
+  const meta = Object.fromEntries(ALL_SECTIONS.map((s) => [s.id, s]));
+
+  return (
+    <section className="flex flex-col gap-4 text-sm">
+      <Field
+        label="Sidebar sections"
+        help="Show, hide and reorder what lives in the left column. Changes apply instantly and are saved on this device."
+      >
+        <ul className="flex flex-col gap-1">
+          {order.map((id, i) => {
+            const isHidden = hidden.includes(id);
+            return (
+              <li
+                key={id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-ink-900/60 hairline"
+              >
+                <input
+                  type="checkbox"
+                  checked={!isHidden}
+                  onChange={(e) => setHidden(id, !e.target.checked)}
+                  aria-label={`Show ${meta[id].label}`}
+                  className="accent-[rgb(var(--accent))]"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className={`text-xs ${isHidden ? "text-ink-500 line-through" : "text-ink-100"}`}>
+                    {meta[id].label}
+                  </div>
+                  <div className="text-[10px] text-ink-500 truncate">{meta[id].hint}</div>
+                </div>
+                <button
+                  onClick={() => move(id, -1)}
+                  disabled={i === 0}
+                  className="text-ink-400 hover:text-ink-100 disabled:opacity-30 px-1"
+                  aria-label={`Move ${meta[id].label} up`}
+                  title="Move up"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => move(id, 1)}
+                  disabled={i === order.length - 1}
+                  className="text-ink-400 hover:text-ink-100 disabled:opacity-30 px-1"
+                  aria-label={`Move ${meta[id].label} down`}
+                  title="Move down"
+                >
+                  ↓
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <button
+          onClick={reset}
+          className="mt-2 text-[11px] px-2 py-0.5 rounded hairline hover:bg-ink-800 text-ink-300"
+        >
+          Reset to default
+        </button>
+      </Field>
+    </section>
+  );
+}
+
+function ProTab() {
+  const {
+    status, key, devices, limit, busy, error, limitHit, isPro,
+    activate, deactivateDevice, deactivateHere, recover,
+  } = useLicense();
+  const [draft, setDraft] = useState("");
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [recoverState, setRecoverState] = useState<"idle" | "sent" | "fail">("idle");
+
+  async function onActivate() {
+    const ok = await activate(draft);
+    if (ok) setDraft("");
+  }
+
+  const exp = status?.license_exp ?? null;
+  const tokenExp = status?.token_exp ?? null;
+
+  return (
+    <section className="flex flex-col gap-4 text-sm">
+      <div className={`rounded-lg p-3 flex items-start gap-3 ${isPro ? "border border-focus/40 bg-focus/5" : "hairline bg-ink-900/60"}`}>
+        <span
+          className={`mt-0.5 w-6 h-6 rounded-md grid place-items-center text-[11px] font-semibold ${
+            isPro ? "bg-focus/20 border border-focus/40 text-focus" : "bg-ink-800 text-ink-400"
+          }`}
+        >
+          ★
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-ink-100">
+            {isPro ? `Nerva Pro · ${planLabel(status?.plan)}` : "Nerva Free"}
+          </div>
+          <div className="text-[11px] text-ink-400 mt-0.5">
+            {isPro
+              ? `${exp ? `Valid until ${new Date(exp * 1000).toLocaleDateString()}` : "Lifetime licence"}${status?.email_hint ? ` · ${status.email_hint}` : ""}${
+                  tokenExp ? ` · device check renews ${new Date(tokenExp * 1000).toLocaleDateString()}` : ""
+                }`
+              : "Everything you use today stays free forever. Pro adds encrypted Google Drive backup and multi-device restore (shipping next), and helps fund development."}
+            {!isPro && status?.reason && key ? ` · ${status.reason}` : ""}
+          </div>
+        </div>
+      </div>
+
+      {!isPro && (
+        <Field label="Get Nerva Pro" help="Monthly, yearly or lifetime via PayU (INR; international cards accepted). Your key arrives by email and on the purchase page.">
+          <a
+            href={BUY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
+          >
+            See plans → nerva.bytical.ai/#pro
+          </a>
+        </Field>
+      )}
+
+      <Field
+        label={isPro ? "Licence key" : "Already have a key?"}
+        help={
+          isPro
+            ? "This device is registered to your licence. Deactivate to free the slot for another machine."
+            : "Paste the NERVA-… key. The same key works on every device you own, up to the plan limit."
+        }
+      >
+        {isPro && key ? (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate text-[11px] text-ink-300 bg-ink-900 hairline rounded px-2 py-1">
+              {key.slice(0, 18)}…{key.slice(-6)}
+            </code>
+            <button
+              onClick={() => {
+                if (window.confirm("Deactivate Nerva Pro on this device?")) void deactivateHere();
+              }}
+              disabled={busy}
+              className="text-[11px] px-2 py-1 rounded hairline hover:bg-danger/20 text-ink-300 hover:text-danger disabled:opacity-40"
+            >
+              Deactivate here
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void onActivate()}
+              placeholder="NERVA-…"
+              spellCheck={false}
+              className="flex-1 bg-ink-900 hairline rounded px-2 py-1 text-xs font-mono text-ink-100"
+            />
+            <button
+              onClick={() => void onActivate()}
+              disabled={busy || !draft.trim()}
+              className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow disabled:opacity-40"
+            >
+              {busy ? "Checking…" : "Activate"}
+            </button>
+          </div>
+        )}
+        {error && <div className="mt-1 text-[11px] text-danger">{error}</div>}
+      </Field>
+
+      {(isPro || limitHit) && (
+        <Field
+          label={`Devices${limit ? ` · ${devices.length}/${limit}` : ""}`}
+          help={
+            limitHit
+              ? "This licence is already active on the maximum number of devices. Remove one to activate here."
+              : "Monthly 2 · Yearly 3 · Lifetime 5 simultaneous devices. Removing a device frees its slot immediately."
+          }
+        >
+          <ul className="flex flex-col gap-1">
+            {devices.length === 0 && <li className="text-[11px] text-ink-500">Device list loads after the next online check.</li>}
+            {devices.map((d) => (
+              <li key={d.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-ink-900/60 hairline text-xs">
+                <span className="flex-1 min-w-0 truncate text-ink-200">
+                  {d.name}
+                  {d.this_device && <span className="ml-1 text-[10px] text-focus">(this device)</span>}
+                </span>
+                <span className="text-[10px] text-ink-500 tnum">{String(d.last_seen).slice(0, 10)}</span>
+                {!d.this_device && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Remove "${d.name}" from this licence?`)) void deactivateDevice(d.id);
+                    }}
+                    disabled={busy}
+                    className="text-[10px] px-1.5 py-0.5 rounded hairline hover:bg-danger/20 text-ink-400 hover:text-danger disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {limitHit && draft.trim() && (
+            <button
+              onClick={() => void onActivate()}
+              disabled={busy}
+              className="mt-2 text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow disabled:opacity-40"
+            >
+              Retry activation here
+            </button>
+          )}
+        </Field>
+      )}
+
+      {!isPro && (
+        <Field label="Lost your key?" help="We'll email every licence registered to this address. Nothing else is revealed.">
+          <div className="flex items-center gap-2">
+            <input
+              value={recoverEmail}
+              onChange={(e) => setRecoverEmail(e.target.value)}
+              type="email"
+              placeholder="you@example.com"
+              className="flex-1 bg-ink-900 hairline rounded px-2 py-1 text-xs text-ink-100"
+            />
+            <button
+              onClick={async () => setRecoverState((await recover(recoverEmail.trim())) ? "sent" : "fail")}
+              disabled={!/^\S+@\S+\.\S+$/.test(recoverEmail)}
+              className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-800 text-ink-200 disabled:opacity-40"
+            >
+              Email my keys
+            </button>
+          </div>
+          {recoverState === "sent" && <div className="mt-1 text-[11px] text-rest">If that address has a licence, the email is on its way.</div>}
+          {recoverState === "fail" && <div className="mt-1 text-[11px] text-danger">Couldn't reach the server — try again later.</div>}
+        </Field>
       )}
     </section>
   );
@@ -795,7 +1233,9 @@ function AboutTab() {
   return (
     <section className="space-y-4 text-xs">
       <header className="space-y-1">
-        <h3 className="text-sm font-medium text-ink-100">Nerva</h3>
+        <h3 className="text-sm font-medium text-ink-100">
+          Nerva <span className="text-ink-400 font-normal">by Bytical</span>
+        </h3>
         <p className="text-ink-400">
           The focus workspace that never forgets. Native, offline-first.
           Apache-2.0. Usage stats are opt-in, anonymous, and never include

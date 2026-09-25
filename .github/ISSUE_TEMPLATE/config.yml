@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Rate Nerva / quick feedback
+    url: https://nerva.bytical.ai/#feedback
+    about: One-tap rating and a text box — no GitHub account needed.
+  - name: Download & FAQ
+    url: https://nerva.bytical.ai
+    about: Latest builds for Linux and Windows, plus answers to common questions.

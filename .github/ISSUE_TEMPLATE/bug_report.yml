@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Nerva by Bytical is broken or behaves unexpectedly
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. You can also send this from inside the app: **Settings → Feedback → Report a bug** (it pre-fills version and OS).
+  - type: input
+    id: version
+    attributes:
+      label: Nerva version
+      description: Settings → About, or the version in the top bar
+      placeholder: "0.1.12"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Ubuntu / Debian (.deb)
+        - Linux AppImage
+        - Fedora / RHEL (.rpm)
+        - Arch (AUR)
+        - Snap
+        - Flatpak
+        - Windows (NSIS .exe)
+        - Windows (.msi / winget)
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: display
+    attributes:
+      label: Display setup (for window/popup bugs)
+      description: Scaling %, number of monitors, X11 or Wayland
+      placeholder: "150 %, 2 monitors, Wayland"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected, what you got.
+      placeholder: |
+        1. Open a note, click "pop out"
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash log (optional)
+      description: Settings → Diagnostics lists crash files; paste the relevant one.
+      render: text

@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest something Nerva by Bytical should do
+title: "[feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas drive the roadmap — see [docs/WORKLIST.md](../../docs/WORKLIST.md) for what's already planned. You can also send this from **Settings → Feedback → Request a feature** inside the app.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the button. "I lose track of breaks during a 2-hour sprint" beats "add a break timer".
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution (optional)
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Timers / Pomodoro
+        - Notes / sticky notes
+        - Habits
+        - Tasks / Kanban
+        - Workspaces / layout
+        - AI (Ask Nerva, LLM providers)
+        - Sync / backup / Google Drive
+        - Collaboration
+        - Android / mobile
+        - Website / docs
+        - Other
+  - type: dropdown
+    id: pay
+    attributes:
+      label: Would you pay for this in a Pro tier?
+      options:
+        - "Yes"
+        - "Maybe"
+        - "No — should be free"

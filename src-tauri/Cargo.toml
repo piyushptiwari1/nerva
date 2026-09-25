@@ -1,6 +1,6 @@
 [package]
 name = "nerva"
-version = "0.1.11"
+version = "0.1.12"
 description = "Nerva — persistent focus workspace"
 authors = ["Nerva contributors"]
 edition = "2021"
@@ -42,6 +42,9 @@ async-trait = "0.1"
 rodio = { version = "0.19", default-features = false, features = ["wav"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 futures-util = "0.3"
+# Pro licence: verify ECDSA P-256 device tokens issued by nerva.bytical.ai.
+p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"

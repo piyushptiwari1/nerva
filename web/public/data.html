@@ -72,6 +72,19 @@
         </div>
       </div>
 
+      <div class="cols">
+        <div class="card">
+          <h2>Downloads by version (30d tracked) — which build people actually get</h2>
+          <div class="scroll"><table id="byversion"><thead><tr><th>Version</th><th class="num">Downloads 30d</th><th class="num">Share</th><th>Live?</th></tr></thead><tbody></tbody></table></div>
+          <div class="note">/download/* always serves the latest published GitHub release; older versions here mean the download happened before the newer release went live.</div>
+        </div>
+        <div class="card">
+          <h2>Nerva Pro — licences (365d)</h2>
+          <div class="kpis" id="prokpis"></div>
+          <div class="scroll"><table id="pro"><thead><tr><th>When (UTC)</th><th>Plan</th><th class="num">₹</th><th>Country</th><th>Ref</th><th>Key issued</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
       <div class="card">
         <h2>App usage — active installations (opt-in weekly pings, 30d)</h2>
         <div class="scroll">
@@ -83,6 +96,13 @@
           </tr></thead><tbody></tbody></table>
         </div>
         <div class="note">Pseudonymous — “user” is a stable name derived from each installation's random anonymous id. Per-user timer/habit/note <em>detail</em> (what &amp; when) ships with the next app release.</div>
+      </div>
+
+      <div class="card">
+        <h2>Feedback — ratings, feature requests, bugs (90d)</h2>
+        <div class="kpis" id="fbkpis"></div>
+        <div class="scroll"><table id="feedback"><thead><tr><th>When (UTC)</th><th>Kind</th><th>Stars</th><th>Text</th><th>Email</th><th>Version</th><th>OS</th><th>Country</th><th>Source</th><th>User</th></tr></thead><tbody></tbody></table></div>
+        <div class="note">Submitted via Settings → Feedback in the app, the day-7 rating card, or the website form. Email is only present if the user typed one.</div>
       </div>
 
       <div class="card">
@@ -145,7 +165,8 @@
         <div class="kpi"><div class="v">${windows.toLocaleString()}</div><div class="l">Windows</div></div>
         <div class="kpi"><div class="v">${(t.downloads_total ?? 0).toLocaleString()}</div><div class="l">Downloads 30d</div></div>
         <div class="kpi"><div class="v">${countries}</div><div class="l">Countries 30d</div></div>
-        <div class="kpi"><div class="v">${(u.active_users ?? 0).toLocaleString()}</div><div class="l">Active installs 30d</div></div>`;
+        <div class="kpi"><div class="v">${(u.active_users ?? 0).toLocaleString()}</div><div class="l">Active installs 30d</div></div>
+        <div class="kpi"><div class="v">${esc(d.latest_version ?? "—")}</div><div class="l">Live version${d.latest_published_at ? " · " + esc(String(d.latest_published_at).slice(0, 10)) : ""}</div></div>`;
 
       // ---- day chart (last 30 days, oldest → newest) ----
       const byDay = t.downloads_by_day ?? {};
@@ -175,6 +196,24 @@
         .map((k) => `<tr><td>${esc(k)}</td><td class="num">${n((t.downloads_by_platform ?? {})[k] ?? 0)}</td><td class="num">${n(allTime[k] ?? 0)}</td></tr>`)
         .join("");
 
+      // ---- version table ----
+      const bv = Object.entries(t.downloads_by_version ?? {}).sort((a, b) => b[1] - a[1]);
+      const bvTotal = bv.reduce((s, x) => s + x[1], 0) || 1;
+      $("#byversion tbody").innerHTML = bv
+        .map(([v, c]) => `<tr><td>${esc(v)}</td><td class="num">${c.toLocaleString()}</td><td class="num">${((c / bvTotal) * 100).toFixed(0)}%</td><td>${v === d.latest_version ? '<span class="pill">live</span>' : ""}</td></tr>`)
+        .join("") || `<tr><td colspan="4" style="color:#5a6273">No tracked downloads yet.</td></tr>`;
+
+      // ---- pro ----
+      const pro = d.pro ?? {};
+      const plans = pro.by_plan ?? {};
+      $("#prokpis").innerHTML = `
+        <div class="kpi"><div class="v">${n(pro.licences ?? 0)}</div><div class="l">Licences</div></div>
+        <div class="kpi"><div class="v">₹${n(Math.round(pro.revenue_inr ?? 0))}</div><div class="l">Revenue</div></div>
+        <div class="kpi"><div class="v" style="font-size:14px">${Object.entries(plans).map(([p, x]) => `${esc(p)} ${x.n}`).join(" · ") || "—"}</div><div class="l">By plan</div></div>`;
+      $("#pro tbody").innerHTML = (pro.recent ?? [])
+        .map((e) => `<tr><td>${esc(String(e.ts).slice(0, 16).replace("T", " "))}</td><td><span class="pill">${esc(e.plan)}</span></td><td class="num">${esc(e.amount)}</td><td>${esc(e.country)}</td><td>${esc(e.txnid)}</td><td>${e.license_issued ? "✓" : "✗ " + esc(e.error ?? "")}</td></tr>`)
+        .join("") || `<tr><td colspan="6" style="color:#5a6273">No Pro purchases yet.</td></tr>`;
+
       // ---- usage table ----
       const rows = (u.users ?? []).map((r) => {
         const p = r.props ?? {};
@@ -188,6 +227,19 @@
         </tr>`;
       });
       $("#users tbody").innerHTML = rows.join("") || `<tr><td colspan="13" style="color:#5a6273">No pings yet — users must be on v0.1.11+ and opt in; first data appears within a week of installs.</td></tr>`;
+
+      // ---- feedback ----
+      const fb = d.feedback ?? {};
+      const dist = fb.star_distribution ?? {};
+      $("#fbkpis").innerHTML = `
+        <div class="kpi"><div class="v">${fb.avg_stars ? fb.avg_stars.toFixed(2) + " ★" : "—"}</div><div class="l">Avg rating</div></div>
+        <div class="kpi"><div class="v">${n((fb.by_kind ?? {}).rating ?? 0)}</div><div class="l">Ratings</div></div>
+        <div class="kpi"><div class="v">${n((fb.by_kind ?? {}).feature ?? 0)}</div><div class="l">Feature requests</div></div>
+        <div class="kpi"><div class="v">${n((fb.by_kind ?? {}).bug ?? 0)}</div><div class="l">Bug reports</div></div>
+        <div class="kpi"><div class="v" style="font-size:14px">${[5,4,3,2,1].map((s) => `${s}★ ${dist[String(s)] ?? 0}`).join(" · ")}</div><div class="l">Distribution</div></div>`;
+      $("#feedback tbody").innerHTML = (fb.recent ?? [])
+        .map((e) => `<tr><td>${esc(String(e.ts).slice(0, 16).replace("T", " "))}</td><td><span class="pill">${esc(e.kind)}</span></td><td>${e.stars ? "★".repeat(e.stars) : ""}</td><td style="max-width:420px;white-space:pre-wrap">${esc(e.text)}</td><td>${esc(e.email)}</td><td>${esc(e.app_version)}</td><td>${esc(e.os)}</td><td>${esc(e.country)}</td><td>${esc(e.source)}</td><td>${esc(e.user)}</td></tr>`)
+        .join("") || `<tr><td colspan="10" style="color:#5a6273">No feedback yet — in-app feedback ships with v0.1.12.</td></tr>`;
 
       // ---- recent downloads ----
       $("#recent tbody").innerHTML = (t.recent_downloads ?? [])

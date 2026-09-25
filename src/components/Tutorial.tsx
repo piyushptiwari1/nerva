@@ -18,9 +18,9 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    title: "Welcome to Nerva",
+    title: "Welcome to Nerva by Bytical",
     body:
-      "A focus workspace that survives reboots. Timers, tasks and notes are saved per workspace and replayed when you launch the app — nothing is lost on crash.",
+      "A focus workspace that survives reboots. Timers, tasks and notes are saved per workspace and replayed when you launch the app — nothing is lost on crash. Timers of 30 min or more automatically include pomodoro breaks inside one session.",
   },
   {
     title: "Workspaces",

@@ -6,6 +6,25 @@ import { useTutorial } from "@/store/tutorial";
 import { useHabitsUi } from "@/store/habits";
 import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
+import { useLicense, planLabel } from "@/lib/license";
+
+/** Gold "PRO" chip — the visible difference for licensed installs. Click → Settings → Pro. */
+function ProBadge() {
+  const isPro = useLicense((s) => s.isPro);
+  const plan = useLicense((s) => s.status?.plan);
+  const openOn = useSettingsUi((s) => s.openOn);
+  if (!isPro) return null;
+  return (
+    <button
+      onClick={() => openOn("pro")}
+      className="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded bg-focus/15 border border-focus/40 text-focus hover:bg-focus/25 transition-colors"
+      title={`Nerva Pro · ${planLabel(plan)} — manage licence`}
+      aria-label="Nerva Pro active"
+    >
+      ★ Pro
+    </button>
+  );
+}
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
@@ -31,6 +50,8 @@ export function CommandBar() {
           N
         </div>
         <span className="font-semibold tracking-tight">Nerva</span>
+        <span className="text-ink-500 text-[11px] -ml-1">by Bytical</span>
+        <ProBadge />
         <span className="text-ink-400 text-xs">v{info?.version ?? "…"}</span>
       </div>
 

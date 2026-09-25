@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ipc, type Note } from "@/lib/ipc";
 import { renderMarkdown } from "@/lib/markdown";
+import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
 
 /**
@@ -206,7 +207,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
     };
   }, [flushSave]);
 
-  async function closeWin() {
+  const closeWin = useCallback(async () => {
     // Persist before tearing down the webview, otherwise the pending
     // debounce dies with the window and the user loses edits.
     await flushSave();
@@ -221,7 +222,11 @@ export function StickyNote({ noteId }: { noteId: string }) {
         /* ignore */
       }
     }
-  }
+  }, [flushSave]);
+
+  // Esc / Ctrl+W always dismisses — the window may have spawned partly
+  // off-screen (Wayland / HiDPI edge cases) with the × unreachable.
+  usePopupClose(closeWin);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-amber-50 text-stone-900 font-sans">
@@ -249,6 +254,7 @@ export function StickyNote({ noteId }: { noteId: string }) {
             onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
             className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-300 hover:bg-amber-400 text-stone-900 transition-colors"
             title={mode === "edit" ? "Switch to preview" : "Switch to edit"}
+            aria-label={mode === "edit" ? "Switch to preview" : "Switch to edit"}
           >
             {mode === "edit" ? "Preview" : "Edit"}
           </button>
@@ -256,7 +262,8 @@ export function StickyNote({ noteId }: { noteId: string }) {
           <button
             onClick={closeWin}
             className="text-base leading-none px-1 text-stone-700 hover:text-stone-950"
-            title="Close"
+            title="Close (Esc)"
+            aria-label="Close sticky note"
           >
             ×
           </button>

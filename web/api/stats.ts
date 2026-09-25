@@ -113,15 +113,18 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   // ---- tracked events (last 30 days, from the private metrics store) ----
-  const [dlEvents, pingEvents] = await Promise.all([
+  const [dlEvents, pingEvents, fbEvents, licEvents] = await Promise.all([
     readEvents("downloads", 30),
     readEvents("pings", 30),
+    readEvents("feedback", 90),
+    readEvents("licenses", 365),
   ]);
 
-  // Downloads: by day, by country, by platform (tracked window only).
+  // Downloads: by day, by country, by platform, by version (tracked window only).
   const byDay: Record<string, number> = {};
   const byCountry: Record<string, number> = {};
   const byPlatform30: Record<string, number> = {};
+  const byVersion30: Record<string, number> = {};
   for (const e of dlEvents) {
     const day = String(e.ts ?? "").slice(0, 10);
     if (day) byDay[day] = (byDay[day] ?? 0) + 1;
@@ -129,7 +132,13 @@ export default async function handler(req: Request): Promise<Response> {
     byCountry[c] = (byCountry[c] ?? 0) + 1;
     const p = String(e.platform ?? "?") + "/" + String(e.format ?? "?");
     byPlatform30[p] = (byPlatform30[p] ?? 0) + 1;
+    const v = String(e.version ?? "?");
+    byVersion30[v] = (byVersion30[v] ?? 0) + 1;
   }
+  // Which version is live for download right now (GitHub latest, excludes drafts).
+  const latest = releases.find((r) => !(r as { draft?: boolean }).draft && !(r as { prerelease?: boolean }).prerelease);
+  const latestVersion = latest?.tag_name.replace(/^v/, "") ?? null;
+  const latestPublished = latest?.published_at ?? null;
 
   // Usage: fold pings into one row per pseudonymous user (latest ping wins
   // for the property snapshot; first/last seen + ping count aggregated).
@@ -168,10 +177,31 @@ export default async function handler(req: Request): Promise<Response> {
     }
   }
 
+  // Feedback: average stars + distribution + latest items (90-day window).
+  const ratings = fbEvents.filter((e) => e.kind === "rating" && typeof e.stars === "number");
+  const starDist: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+  for (const r of ratings) starDist[String(r.stars)] = (starDist[String(r.stars)] ?? 0) + 1;
+  const avgStars = ratings.length
+    ? ratings.reduce((s, r) => s + Number(r.stars), 0) / ratings.length
+    : null;
+  const byKind: Record<string, number> = {};
+  for (const e of fbEvents) byKind[String(e.kind)] = (byKind[String(e.kind)] ?? 0) + 1;
+
+  // Pro licences (365d): count + revenue by plan.
+  const licByPlan: Record<string, { n: number; inr: number }> = {};
+  for (const e of licEvents) {
+    const p = String(e.plan ?? "?");
+    licByPlan[p] = licByPlan[p] ?? { n: 0, inr: 0 };
+    licByPlan[p].n += 1;
+    licByPlan[p].inr += Number(e.amount ?? 0) || 0;
+  }
+
   return new Response(
     JSON.stringify({
       generated_at: new Date().toISOString(),
-      source: "github-releases + nerva-metrics(30d)",
+      source: "github-releases + nerva-metrics(30d) + feedback(90d) + licenses(365d)",
+      latest_version: latestVersion,
+      latest_published_at: latestPublished,
       note: "Tracked downloads/pings start 2026-07-15 (older downloads exist only in the GitHub cumulative totals). Snap installs: snapcraft.io/nerva/metrics. Per-user timer/habit/note detail ships with the next app release.",
       totals,
       releases: perRelease,
@@ -181,6 +211,7 @@ export default async function handler(req: Request): Promise<Response> {
         downloads_by_day: byDay,
         downloads_by_country: byCountry,
         downloads_by_platform: byPlatform30,
+        downloads_by_version: byVersion30,
         recent_downloads: dlEvents
           .sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
           .slice(0, 50),
@@ -191,6 +222,26 @@ export default async function handler(req: Request): Promise<Response> {
         users: [...users.values()].sort((a, b) =>
           b.last_seen.localeCompare(a.last_seen),
         ),
+      },
+      feedback: {
+        window_days: 90,
+        total: fbEvents.length,
+        by_kind: byKind,
+        avg_stars: avgStars,
+        star_distribution: starDist,
+        recent: fbEvents
+          .sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
+          .slice(0, 50),
+      },
+      pro: {
+        window_days: 365,
+        licences: licEvents.length,
+        by_plan: licByPlan,
+        revenue_inr: Object.values(licByPlan).reduce((s, x) => s + x.inr, 0),
+        recent: licEvents
+          .map(({ email: _e, name: _n, ...rest }) => rest)
+          .sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
+          .slice(0, 50),
       },
     }),
     {

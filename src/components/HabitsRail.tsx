@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
 import { BoolCycleButton, boolState } from "@/components/HabitsWidget";
@@ -22,33 +22,73 @@ export function HabitsRail() {
   const [busy, setBusy] = useState<string | null>(null);
   const openHabits = useHabitsUi((s) => s.show);
 
-  const today = useMemo(() => todayIso(), []);
+  // Recomputed on every refresh (not memoised) so a rail left open across
+  // midnight logs to the right day.
+  const [today, setToday] = useState(() => todayIso());
 
   const refresh = useCallback(async () => {
-    const list = await ipc.habitList();
+    const day = todayIso();
+    setToday(day);
+    let list: Habit[] = [];
+    try {
+      list = await ipc.habitList();
+    } catch (e) {
+      console.warn("[HabitsRail] habitList failed:", e);
+      return;
+    }
     setHabits(list);
     // Fetch today's entry for each habit in parallel.
     const pairs = await Promise.all(
       list
         .filter((h) => !h.archived)
         .map(async (h) => {
-          const entries = await ipc.habitEntries({
-            habit_id: h.id,
-            from_day: today,
-            to_day: today,
-          });
-          return [h.id, entries[0] ?? null] as const;
+          try {
+            const entries = await ipc.habitEntries({
+              habit_id: h.id,
+              from_day: day,
+              to_day: day,
+            });
+            return [h.id, entries[0] ?? null] as const;
+          } catch {
+            return [h.id, null] as const;
+          }
         }),
     );
     setTodayMap(Object.fromEntries(pairs));
-  }, [today]);
+  }, []);
 
   useEffect(() => {
     refresh();
     // Refresh on focus so the rail catches edits made inside HabitsPane.
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    // The bug users saw ("added a habit, rail still empty"): habits are
+    // created in the HabitsPane overlay *in this same window*, so no focus
+    // event ever fires. Every habit mutation emits `habit:changed` (see
+    // ipc.mutate) — subscribe so the rail updates within a frame. Also
+    // re-fetch on workspace switch.
+    let unlistenHabit: (() => void) | undefined;
+    let unlistenWs: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenHabit = await listen("habit:changed", () => refresh());
+        unlistenWs = await listen("workspace:activated", () => refresh());
+        if (cancelled) {
+          unlistenHabit?.();
+          unlistenWs?.();
+        }
+      } catch {
+        /* not in Tauri context */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      unlistenHabit?.();
+      unlistenWs?.();
+    };
   }, [refresh]);
 
   async function quickLog(h: Habit) {
@@ -104,6 +144,7 @@ export function HabitsRail() {
             onClick={() => ipc.openHabitsWidget()}
             className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
             title="Open as a floating always-on-top widget"
+            aria-label="Pop out habits widget"
           >
             ↗ Pop up
           </button>
@@ -111,6 +152,7 @@ export function HabitsRail() {
             onClick={openHabits}
             className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
             title="Open habits tracker (Ctrl+H)"
+            aria-label="Open all habits"
           >
             all →
           </button>

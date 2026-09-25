@@ -13,6 +13,7 @@ pub mod focus;
 pub mod habits;
 pub mod intelligence;
 pub mod ipc;
+pub mod license;
 pub mod notes;
 pub mod state;
 pub mod store;
@@ -241,6 +242,7 @@ pub fn run() {
             ipc::audio_set_muted,
             ipc::audio_set_sound,
             ipc::audio_test,
+            ipc::audio_test_cue,
             ipc::ambient_set,
             ipc::ambient_set_volume,
             // focus / DND
@@ -254,9 +256,20 @@ pub fn run() {
             ipc::ai_settings_get,
             ipc::ai_set_model,
             ipc::ai_set_endpoint,
+            ipc::ai_set_provider,
+            ipc::ai_set_api_key,
             // settings
             ipc::settings_get,
             ipc::timer_presets_set,
+            ipc::timer_auto_breaks_set,
+            ipc::pref_get,
+            ipc::pref_set,
+            // Nerva Pro
+            ipc::device_id,
+            ipc::license_status,
+            ipc::license_set_token,
+            ipc::license_key,
+            ipc::license_clear,
             // diagnostics
             ipc::diag_list_crashes,
             ipc::diag_read_crash,

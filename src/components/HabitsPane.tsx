@@ -697,7 +697,7 @@ function Heatmap({
   function cellFill(day: string | null): string {
     if (!day) return "transparent";
     const e = byDay.get(day);
-    if (!e) return "rgba(255,255,255,0.035)";
+    if (!e) return "var(--heat-empty)";
     if (e.skipped) return "rgba(167,175,190,0.18)";
     const ratio = Math.max(0, Math.min(1, e.value / target));
     if (ratio <= 0) return "rgba(232,125,125,0.14)";
@@ -844,7 +844,7 @@ function Sparkline({
               x2={innerW}
               y1={h - (target / max) * h + 0.5}
               y2={h - (target / max) * h + 0.5}
-              stroke="rgba(255,255,255,0.15)"
+              stroke="var(--heat-guide)"
               strokeDasharray="2 3"
             />
           )}
@@ -898,7 +898,7 @@ function WeekdayBars({ rates, color }: { rates: number[]; color: string }) {
                   y={h + 11}
                   fontSize={9}
                   textAnchor="middle"
-                  fill="#7a8494"
+                  fill="rgb(var(--ink-400))"
                 >
                   {labels[i]}
                 </text>
@@ -1029,7 +1029,7 @@ function YearRow({
     const d = new Date(year, 0, doy);
     const key = iso(d);
     const e = byDay.get(key);
-    if (!e) return "rgba(255,255,255,0.04)";
+    if (!e) return "var(--heat-empty)";
     if (e.skipped) return "rgba(167,175,190,0.18)";
     const ratio = Math.max(0, Math.min(1, e.value / target));
     if (ratio <= 0) return "rgba(232,125,125,0.14)";

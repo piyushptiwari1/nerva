@@ -6,6 +6,9 @@ import { useSettingsUi } from "@/store/settings";
 import { useHabitsUi } from "@/store/habits";
 import { useTutorial } from "@/store/tutorial";
 import { useTheme } from "@/store/theme";
+import { useLayout } from "@/store/layout";
+import { useWhatsNew } from "@/components/WhatsNew";
+import { GITHUB_REPO } from "@/lib/changelog";
 import { ipc } from "@/lib/ipc";
 
 interface Action {
@@ -244,9 +247,67 @@ export function CommandPalette() {
       group: "System",
       glyph: "⚙",
       title: "Settings",
-      subtitle: "AI · timers · audio · focus  ·  Ctrl+,",
-      keywords: "settings preferences config ollama endpoint model audio focus dnd".toLowerCase(),
+      subtitle: "AI · timers · audio · focus · layout  ·  Ctrl+,",
+      keywords: "settings preferences config ollama endpoint model audio focus dnd layout".toLowerCase(),
       run: () => openSettings(true),
+    });
+    out.push({
+      id: "system.feedback",
+      group: "System",
+      glyph: "★",
+      title: "Send feedback · rate Nerva",
+      subtitle: "feature request · bug report · 1–5 stars",
+      keywords: "feedback rate rating review feature request bug report suggest idea contact".toLowerCase(),
+      run: () => useSettingsUi.getState().openOn("feedback"),
+    });
+    out.push({
+      id: "system.whatsnew",
+      group: "System",
+      glyph: "✦",
+      title: "What's new in this version",
+      subtitle: "release notes · changelog",
+      keywords: "whats new changelog release notes version update".toLowerCase(),
+      run: () => useWhatsNew.getState().show(),
+    });
+    out.push({
+      id: "system.pro",
+      group: "System",
+      glyph: "☆",
+      title: "Nerva Pro · licence",
+      subtitle: "activate a key · see plans",
+      keywords: "pro licence license key upgrade buy premium paid drive backup".toLowerCase(),
+      run: () => useSettingsUi.getState().openOn("pro"),
+    });
+    out.push({
+      id: "system.star",
+      group: "System",
+      glyph: "★",
+      title: "Star Nerva on GitHub",
+      subtitle: "github.com/piyushptiwari1/nerva",
+      keywords: "star github repo support open source".toLowerCase(),
+      run: () => {
+        window.open(GITHUB_REPO, "_blank", "noopener");
+      },
+    });
+    out.push({
+      id: "system.layout",
+      group: "System",
+      glyph: "◧",
+      title: "Customise dashboard layout",
+      subtitle: "show / hide / reorder sidebar sections",
+      keywords: "layout dashboard sidebar customize customise reorder hide sections clock".toLowerCase(),
+      run: () => useSettingsUi.getState().openOn("layout"),
+    });
+    out.push({
+      id: "system.clocks",
+      group: "System",
+      glyph: "◷",
+      title: "Show world clocks",
+      subtitle: "multi-time-zone clocks in the sidebar",
+      keywords: "clock clocks time zone timezone world city utc".toLowerCase(),
+      run: () => {
+        useLayout.getState().setHidden("clocks", false);
+      },
     });
     out.push({
       id: "system.habits",

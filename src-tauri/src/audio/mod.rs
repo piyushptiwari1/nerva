@@ -1,12 +1,14 @@
-//! Audio engine — short synthesized tones for timer completions and UI feedback.
+//! Audio engine — short synthesized cues for timer phases and UI feedback.
 //!
 //! All audio I/O happens on a dedicated thread that owns the `OutputStream`
 //! and a persistent `Sink`. The rest of the app talks to it through a
 //! `std::sync::mpsc` channel, so the audio device can never block IPC.
 //!
-//! Sounds are generated in code (no asset files): a two-note "ding" for
-//! completion and a single short click for general UI feedback. This keeps
-//! the bundle small and dependency-free at runtime.
+//! Sounds are generated in code (no asset files) by a tiny additive synth
+//! (see `render`): session-complete, break-start, focus-start and resume
+//! cues are each a distinct musical figure so users can tell them apart
+//! without looking. This keeps the bundle small and dependency-free at
+//! runtime.
 
 use parking_lot::Mutex;
 use rodio::source::{SineWave, Source};
@@ -67,7 +69,14 @@ impl CompletionSound {
 
 #[derive(Debug, Clone, Copy)]
 pub enum AudioCmd {
+    /// Whole session finished.
     Completion,
+    /// A focus phase ended → break begins ("relax" cue).
+    BreakStart,
+    /// A break ended → focus resumes ("go" cue).
+    FocusStart,
+    /// User resumed / restarted a timer (tiny confirmation).
+    Resume,
     Click,
     SetVolume(f32),
     SetMuted(bool),
@@ -106,50 +115,315 @@ impl Default for AudioSettings {
     }
 }
 
-/// Append the chosen completion sound to the one-shot sink. Every variant is
-/// a short synthesized figure so the bundle carries zero audio assets.
-fn append_completion(sink: &Sink, sound: CompletionSound) {
-    // Helper: a sine tone with a linear fade-out over its tail so no variant
-    // ends with a hard click.
-    let tone = |freq: f32, ms: u64, amp: f32| {
-        let mut t = SineWave::new(freq).take_duration(Duration::from_millis(ms));
-        t.set_filter_fadeout();
-        t.amplify(amp).fade_in(Duration::from_millis(8))
-    };
-    // Silence gap (zero-amplitude sine) between notes for the beep pattern.
-    let gap = |ms: u64| {
-        SineWave::new(1.0)
-            .take_duration(Duration::from_millis(ms))
-            .amplify(0.0)
-    };
-    match sound {
-        CompletionSound::Classic => {
-            // C5 → E5 two-note "ding" (the historical default).
-            sink.append(tone(523.25, 220, 0.55));
-            sink.append(tone(659.26, 360, 0.55));
-        }
-        CompletionSound::Chime => {
-            // C5 → E5 → G5 ascending triad; brighter, more celebratory.
-            sink.append(tone(523.25, 180, 0.50));
-            sink.append(tone(659.26, 180, 0.50));
-            sink.append(tone(783.99, 420, 0.50));
-        }
-        CompletionSound::Bell => {
-            // Struck-bell feel: fundamental + audible upper partial, long decay.
-            sink.append(tone(880.0, 700, 0.45));
-            sink.append(tone(1760.0, 260, 0.18));
-        }
-        CompletionSound::Beep => {
-            // Crisp digital double-beep — cuts through busy environments.
-            sink.append(tone(1000.0, 120, 0.50));
-            sink.append(gap(70));
-            sink.append(tone(1000.0, 120, 0.50));
-        }
-        CompletionSound::Soft => {
-            // Single mellow A4 with a long tail — gentle, unobtrusive.
-            sink.append(tone(440.0, 600, 0.38));
+// ---------- additive synth ----------
+//
+// Every cue is rendered offline into a short f32 buffer by summing a handful
+// of exponentially-decaying partials per note. Compared with the previous
+// raw `SineWave` beeps this gives a struck-bell/chime character (a real
+// attack transient, harmonics that die at different rates, overlapping
+// tails between notes) while still shipping zero audio assets and no codec
+// dependencies. Rendering ~1.5 s of audio costs well under a millisecond.
+
+const SR: u32 = 44_100;
+
+/// Which partial recipe a note uses.
+#[derive(Debug, Clone, Copy)]
+enum Timbre {
+    /// Warm harmonic chime — glockenspiel-like, the new default.
+    Chime,
+    /// Inharmonic partials — a real struck bell with a long shimmer.
+    Bell,
+    /// Gentle sine + faint octave, very long tail.
+    Soft,
+    /// Crisp odd-harmonic digital beep, short and flat.
+    Beep,
+}
+
+impl Timbre {
+    /// `(frequency ratio, relative amplitude, decay time-constant seconds)`.
+    fn partials(self) -> &'static [(f32, f32, f32)] {
+        match self {
+            Timbre::Chime => &[
+                (1.0, 1.00, 0.55),
+                (2.0, 0.45, 0.32),
+                (3.0, 0.22, 0.20),
+                (4.0, 0.10, 0.14),
+                (5.4, 0.06, 0.10),
+            ],
+            Timbre::Bell => &[
+                (0.56, 0.35, 1.30),
+                (1.00, 1.00, 1.10),
+                (1.19, 0.30, 0.65),
+                (1.71, 0.28, 0.55),
+                (2.00, 0.26, 0.45),
+                (2.74, 0.18, 0.32),
+                (3.00, 0.10, 0.28),
+                (3.76, 0.06, 0.20),
+            ],
+            Timbre::Soft => &[(1.0, 1.0, 0.75), (2.0, 0.12, 0.40)],
+            Timbre::Beep => &[(1.0, 1.0, 0.09), (3.0, 0.30, 0.07), (5.0, 0.12, 0.05)],
         }
     }
+    /// Attack length in ms — bells ring instantly, soft tones swell.
+    fn attack_ms(self) -> f32 {
+        match self {
+            Timbre::Soft => 18.0,
+            Timbre::Beep => 3.0,
+            _ => 4.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Note {
+    onset_ms: f32,
+    freq: f32,
+    /// Audible length; tail is cut with a short fade so it never clicks.
+    dur_ms: f32,
+    amp: f32,
+    timbre: Timbre,
+}
+
+/// Render a set of possibly-overlapping notes into a mono sample buffer,
+/// peak-normalised to `peak` so louder recipes can't clip.
+fn render(notes: &[Note], peak: f32) -> rodio::buffer::SamplesBuffer<f32> {
+    let total_ms = notes
+        .iter()
+        .map(|n| n.onset_ms + n.dur_ms)
+        .fold(0.0_f32, f32::max)
+        + 30.0;
+    let n_samples = ((total_ms / 1000.0) * SR as f32).ceil() as usize;
+    let mut buf = vec![0.0_f32; n_samples];
+    let two_pi = std::f32::consts::TAU;
+    for n in notes {
+        let start = ((n.onset_ms / 1000.0) * SR as f32) as usize;
+        let len = ((n.dur_ms / 1000.0) * SR as f32) as usize;
+        let attack = ((n.timbre.attack_ms() / 1000.0) * SR as f32).max(1.0);
+        let fade = ((0.025 * SR as f32) as usize).min(len / 2).max(1);
+        for i in 0..len {
+            let idx = start + i;
+            if idx >= buf.len() {
+                break;
+            }
+            let t = i as f32 / SR as f32;
+            let mut s = 0.0_f32;
+            for &(ratio, a, decay) in n.timbre.partials() {
+                s += a * (-t / decay).exp() * (two_pi * n.freq * ratio * t).sin();
+            }
+            let env_in = (i as f32 / attack).min(1.0);
+            let env_out = if i + fade >= len {
+                (len - i) as f32 / fade as f32
+            } else {
+                1.0
+            };
+            buf[idx] += s * n.amp * env_in * env_out;
+        }
+    }
+    let max = buf.iter().fold(0.0_f32, |m, v| m.max(v.abs()));
+    if max > 0.0 {
+        let g = peak / max;
+        for v in buf.iter_mut() {
+            *v *= g;
+        }
+    }
+    rodio::buffer::SamplesBuffer::new(1, SR, buf)
+}
+
+// Note frequencies (Hz).
+const C5: f32 = 523.25;
+const E5: f32 = 659.26;
+const G5: f32 = 783.99;
+const A5: f32 = 880.0;
+const C6: f32 = 1046.5;
+const A4: f32 = 440.0;
+
+/// Map the user's chosen family onto a timbre for the phase cues so a
+/// "bell" user hears bell-flavoured breaks too.
+fn timbre_for(sound: CompletionSound) -> Timbre {
+    match sound {
+        CompletionSound::Classic | CompletionSound::Chime => Timbre::Chime,
+        CompletionSound::Bell => Timbre::Bell,
+        CompletionSound::Beep => Timbre::Beep,
+        CompletionSound::Soft => Timbre::Soft,
+    }
+}
+
+/// Session finished. Each family is a short, resolved musical figure —
+/// descending or landing on the tonic so it reads as "done", not "alert".
+fn append_completion(sink: &Sink, sound: CompletionSound) {
+    let notes: Vec<Note> = match sound {
+        CompletionSound::Classic => vec![
+            // G5 → E5 → C5, tails overlapping into a warm major-chord wash.
+            Note {
+                onset_ms: 0.0,
+                freq: G5,
+                dur_ms: 900.0,
+                amp: 0.9,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 220.0,
+                freq: E5,
+                dur_ms: 900.0,
+                amp: 0.85,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 440.0,
+                freq: C5,
+                dur_ms: 1300.0,
+                amp: 1.0,
+                timbre: Timbre::Chime,
+            },
+        ],
+        CompletionSound::Chime => vec![
+            // Ascending C5 E5 G5 C6 arpeggio — brighter, celebratory.
+            Note {
+                onset_ms: 0.0,
+                freq: C5,
+                dur_ms: 700.0,
+                amp: 0.8,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 150.0,
+                freq: E5,
+                dur_ms: 700.0,
+                amp: 0.8,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 300.0,
+                freq: G5,
+                dur_ms: 800.0,
+                amp: 0.85,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 450.0,
+                freq: C6,
+                dur_ms: 1200.0,
+                amp: 1.0,
+                timbre: Timbre::Chime,
+            },
+        ],
+        CompletionSound::Bell => vec![
+            // Two strikes of a real bell, second softer, long shimmer.
+            Note {
+                onset_ms: 0.0,
+                freq: A5,
+                dur_ms: 1800.0,
+                amp: 1.0,
+                timbre: Timbre::Bell,
+            },
+            Note {
+                onset_ms: 650.0,
+                freq: A5,
+                dur_ms: 1800.0,
+                amp: 0.6,
+                timbre: Timbre::Bell,
+            },
+        ],
+        CompletionSound::Beep => vec![
+            // Triple digital beep — cuts through a noisy room.
+            Note {
+                onset_ms: 0.0,
+                freq: 1000.0,
+                dur_ms: 110.0,
+                amp: 1.0,
+                timbre: Timbre::Beep,
+            },
+            Note {
+                onset_ms: 180.0,
+                freq: 1000.0,
+                dur_ms: 110.0,
+                amp: 1.0,
+                timbre: Timbre::Beep,
+            },
+            Note {
+                onset_ms: 360.0,
+                freq: 1250.0,
+                dur_ms: 220.0,
+                amp: 1.0,
+                timbre: Timbre::Beep,
+            },
+        ],
+        CompletionSound::Soft => vec![
+            // A4 with a faint fifth above, slow swell, long tail.
+            Note {
+                onset_ms: 0.0,
+                freq: A4,
+                dur_ms: 1600.0,
+                amp: 1.0,
+                timbre: Timbre::Soft,
+            },
+            Note {
+                onset_ms: 120.0,
+                freq: E5,
+                dur_ms: 1400.0,
+                amp: 0.35,
+                timbre: Timbre::Soft,
+            },
+        ],
+    };
+    sink.append(render(&notes, 0.85));
+}
+
+/// Focus phase ended → break. Two descending notes ("and… relax"), a touch
+/// quieter than completion so it never startles mid-flow.
+fn append_break_start(sink: &Sink, sound: CompletionSound) {
+    let t = timbre_for(sound);
+    let notes = [
+        Note {
+            onset_ms: 0.0,
+            freq: E5,
+            dur_ms: 700.0,
+            amp: 0.8,
+            timbre: t,
+        },
+        Note {
+            onset_ms: 260.0,
+            freq: C5,
+            dur_ms: 1000.0,
+            amp: 1.0,
+            timbre: t,
+        },
+    ];
+    sink.append(render(&notes, 0.7));
+}
+
+/// Break ended → back to focus. Two ascending notes ("ready, go"), crisp.
+fn append_focus_start(sink: &Sink, sound: CompletionSound) {
+    let t = timbre_for(sound);
+    let notes = [
+        Note {
+            onset_ms: 0.0,
+            freq: C5,
+            dur_ms: 500.0,
+            amp: 0.8,
+            timbre: t,
+        },
+        Note {
+            onset_ms: 200.0,
+            freq: G5,
+            dur_ms: 900.0,
+            amp: 1.0,
+            timbre: t,
+        },
+    ];
+    sink.append(render(&notes, 0.75));
+}
+
+/// Single short, quiet confirmation for resume/restart.
+fn append_resume(sink: &Sink, sound: CompletionSound) {
+    let notes = [Note {
+        onset_ms: 0.0,
+        freq: A5,
+        dur_ms: 260.0,
+        amp: 1.0,
+        timbre: timbre_for(sound),
+    }];
+    sink.append(render(&notes, 0.45));
 }
 
 pub struct AudioEngine {
@@ -247,6 +521,15 @@ impl AudioEngine {
                         AudioCmd::Completion if !muted => {
                             append_completion(&sink, sound);
                         }
+                        AudioCmd::BreakStart if !muted => {
+                            append_break_start(&sink, sound);
+                        }
+                        AudioCmd::FocusStart if !muted => {
+                            append_focus_start(&sink, sound);
+                        }
+                        AudioCmd::Resume if !muted => {
+                            append_resume(&sink, sound);
+                        }
                         AudioCmd::Click if !muted => {
                             let s = SineWave::new(880.0)
                                 .take_duration(Duration::from_millis(45))
@@ -264,6 +547,18 @@ impl AudioEngine {
 
     pub fn play_completion(&self) {
         let _ = self.tx.send(AudioCmd::Completion);
+    }
+
+    pub fn play_break_start(&self) {
+        let _ = self.tx.send(AudioCmd::BreakStart);
+    }
+
+    pub fn play_focus_start(&self) {
+        let _ = self.tx.send(AudioCmd::FocusStart);
+    }
+
+    pub fn play_resume(&self) {
+        let _ = self.tx.send(AudioCmd::Resume);
     }
 
     #[allow(dead_code)]
@@ -417,5 +712,73 @@ impl Source for NoiseSource {
     }
     fn total_duration(&self) -> Option<Duration> {
         None
+    }
+}
+
+#[cfg(test)]
+mod synth_tests {
+    use super::*;
+
+    fn samples(notes: &[Note], peak: f32) -> Vec<f32> {
+        render(notes, peak).collect()
+    }
+
+    #[test]
+    fn render_is_peak_normalised_and_click_free() {
+        let notes = [
+            Note {
+                onset_ms: 0.0,
+                freq: G5,
+                dur_ms: 900.0,
+                amp: 0.9,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 220.0,
+                freq: E5,
+                dur_ms: 900.0,
+                amp: 0.85,
+                timbre: Timbre::Chime,
+            },
+            Note {
+                onset_ms: 440.0,
+                freq: C5,
+                dur_ms: 1300.0,
+                amp: 1.0,
+                timbre: Timbre::Bell,
+            },
+        ];
+        let s = samples(&notes, 0.85);
+        let peak = s.iter().fold(0.0_f32, |m, v| m.max(v.abs()));
+        assert!((peak - 0.85).abs() < 1e-3, "peak {peak}");
+        // First and last samples sit at (near) zero: attack ramp + tail fade.
+        assert!(s[0].abs() < 1e-3);
+        assert!(s.last().unwrap().abs() < 1e-3);
+        // Length covers the last note + 30 ms pad.
+        let expected = ((440.0 + 1300.0 + 30.0) / 1000.0 * SR as f32).ceil() as usize;
+        assert_eq!(s.len(), expected);
+    }
+
+    #[test]
+    fn every_family_renders_for_every_cue() {
+        for sound in [
+            CompletionSound::Classic,
+            CompletionSound::Chime,
+            CompletionSound::Bell,
+            CompletionSound::Beep,
+            CompletionSound::Soft,
+        ] {
+            let t = timbre_for(sound);
+            let n = [Note {
+                onset_ms: 0.0,
+                freq: A5,
+                dur_ms: 200.0,
+                amp: 1.0,
+                timbre: t,
+            }];
+            let s = samples(&n, 0.5);
+            assert!(s.iter().all(|v| v.is_finite() && v.abs() <= 0.5 + 1e-6));
+            assert!(s.iter().any(|v| v.abs() > 0.1), "{sound:?} silent");
+        }
     }
 }

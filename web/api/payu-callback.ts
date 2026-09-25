@@ -6,8 +6,15 @@
 // Hash algorithm mirrors the Bytical platform backend
 // (routes/payment_endpoints.py:verify_payu_response_hash):
 //   SHA-512( SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key )
+//
+// For udf2 == "pro" a licence key is issued (see _lib/license.ts), recorded
+// in the private metrics repo (events/licenses/) and shown on the thanks page.
 
 export const config = { runtime: "edge" };
+
+import { appendEvent, geoOf, segmentTrack } from "./_lib/metrics";
+import { PLANS, expiryFor, issueLicense, invoiceSig, type Plan } from "./_lib/license";
+import { purchaseMail, sendMail } from "./_lib/mail";
 
 async function sha512Hex(input: string): Promise<string> {
   const buf = new TextEncoder().encode(input);
@@ -26,7 +33,10 @@ function constantTimeEqual(a: string, b: string): boolean {
   return res === 0;
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: Request,
+  ctx?: { waitUntil?: (p: Promise<unknown>) => void },
+): Promise<Response> {
   if (req.method !== "POST" && req.method !== "GET") {
     return new Response("POST or GET only", { status: 405 });
   }
@@ -73,7 +83,7 @@ export default async function handler(req: Request): Promise<Response> {
   const ok = constantTimeEqual(expected, receivedHash);
 
   // Log to Vercel runtime logs — useful for debugging / reconciling
-  // donations against PayU dashboard. Never log salt or hash.
+  // payments against PayU dashboard. Never log salt or hash.
   console.log(
     JSON.stringify({
       event: "payu_callback",
@@ -81,12 +91,75 @@ export default async function handler(req: Request): Promise<Response> {
       status,
       amount,
       udf2,
+      udf3,
       hash_ok: ok,
     }),
   );
 
-  const dest =
-    ok && status === "success"
+  const success = ok && status === "success";
+
+  // ---- Nerva Pro: issue a licence ----
+  if (success && udf2 === "pro" && udf3 in PLANS) {
+    const plan = udf3 as Plan;
+    const exp = expiryFor(plan);
+    let license = "";
+    let issueError = "";
+    try {
+      license = await issueLicense({ e: email, p: plan, t: txnid, exp });
+    } catch (e) {
+      issueError = String(e);
+    }
+    const { country } = geoOf(req);
+    const origin = new URL(req.url).origin;
+    const invoiceUrl = `${origin}/api/invoice?txnid=${encodeURIComponent(txnid)}&sig=${await invoiceSig(txnid)}`;
+    const record = {
+      ts: new Date().toISOString(),
+      txnid,
+      plan,
+      amount,
+      email,
+      name: firstname,
+      country,
+      exp,
+      // Stored so /api/license-recover can re-send it. Private repo only.
+      license: license || undefined,
+      license_issued: !!license,
+      error: issueError || undefined,
+    };
+    const mail = purchaseMail({
+      to: email,
+      name: firstname,
+      plan,
+      planLabel: PLANS[plan].label,
+      amountInr: amount,
+      key: license || null,
+      txnid,
+      invoiceUrl,
+      expiresIso: exp ? new Date(exp * 1000).toISOString() : null,
+    });
+    const work = Promise.all([
+      appendEvent("licenses", record),
+      segmentTrack(txnid, "pro_purchased", { plan, amount, country }),
+      sendMail(mail),
+    ]);
+    if (ctx?.waitUntil) ctx.waitUntil(work);
+    else await work;
+    const dest = license
+      ? `/pro/thanks?txnid=${encodeURIComponent(txnid)}&plan=${encodeURIComponent(plan)}&key=${encodeURIComponent(license)}&inv=${encodeURIComponent(invoiceUrl)}`
+      : `/pro/thanks?txnid=${encodeURIComponent(txnid)}&plan=${encodeURIComponent(plan)}&pending=1`;
+    return Response.redirect(new URL(dest, req.url).toString(), 303);
+  }
+  if (udf2 === "pro") {
+    return Response.redirect(
+      new URL(
+        `/support/failed?txnid=${encodeURIComponent(txnid)}&status=${encodeURIComponent(status || "unknown")}&pro=1`,
+        req.url,
+      ).toString(),
+      303,
+    );
+  }
+
+  const dest = success
       ? `/support/thanks?txnid=${encodeURIComponent(txnid)}&amount=${encodeURIComponent(amount)}`
       : `/support/failed?txnid=${encodeURIComponent(txnid)}&status=${encodeURIComponent(status || "unknown")}`;
 
