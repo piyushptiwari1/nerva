@@ -21,6 +21,8 @@
     "global-shortcut:default",
     "notification:default",
     "os:default",
-    "updater:default"
+    "updater:default",
+    "process:allow-restart",
+    "process:allow-exit"
   ]
 }

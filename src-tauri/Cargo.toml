@@ -1,6 +1,6 @@
 [package]
 name = "nerva"
-version = "0.1.12"
+version = "0.1.13"
 description = "Nerva — persistent focus workspace"
 authors = ["Nerva contributors"]
 edition = "2021"
@@ -23,6 +23,8 @@ tauri-plugin-notification = "2.0"
 tauri-plugin-os = "2.0"
 tauri-plugin-single-instance = "2.0"
 tauri-plugin-updater = "2.0"
+# `relaunch()` after a successful update — the JS package alone is not enough.
+tauri-plugin-process = "2.0"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -102,6 +102,7 @@ pub fn run() {
         // "check, prompt user, apply on next launch" — see the JS
         // call in src/main.tsx for the UI side.
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             use tauri::Manager;
             let handle = app.handle().clone();

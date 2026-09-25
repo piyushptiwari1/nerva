@@ -1184,6 +1184,7 @@ function AboutTab() {
     | { kind: "up-to-date" }
     | { kind: "available"; version: string }
     | { kind: "installing" }
+    | { kind: "installed"; version: string }
     | { kind: "error"; message: string };
   const [updateState, setUpdateState] = useState<UpdateState>({ kind: "idle" });
 
@@ -1196,6 +1197,7 @@ function AboutTab() {
    */
   async function checkForUpdates() {
     setUpdateState({ kind: "checking" });
+    let phase: "check" | "install" | "relaunch" = "check";
     try {
       const [{ check }, { relaunch }] = await Promise.all([
         import("@tauri-apps/plugin-updater"),
@@ -1217,11 +1219,22 @@ function AboutTab() {
         setUpdateState({ kind: "idle" });
         return;
       }
+      phase = "install";
       setUpdateState({ kind: "installing" });
       await update.downloadAndInstall();
+      phase = "relaunch";
+      setUpdateState({ kind: "installed", version: update.version });
       await relaunch();
     } catch (err) {
-      setUpdateState({ kind: "error", message: String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[updater] ${phase} failed:`, err);
+      if (phase === "relaunch") {
+        // The update IS installed; only the restart failed. Don't call it a
+        // failure — tell the user to restart by hand.
+        setUpdateState({ kind: "installed", version: "" });
+        return;
+      }
+      setUpdateState({ kind: "error", message: `${phase}: ${message}` });
     }
   }
 
@@ -1285,9 +1298,14 @@ function AboutTab() {
               {updateState.version} available.
             </span>
           )}
+          {updateState.kind === "installed" && (
+            <span className="text-rest">
+              Update installed{updateState.version ? ` (${updateState.version})` : ""} — quit and reopen Nerva to finish.
+            </span>
+          )}
           {updateState.kind === "error" && (
-            <span className="text-red-400 truncate" title={updateState.message}>
-              Check failed — see Diagnostics.
+            <span className="text-red-400 break-all" title={updateState.message}>
+              Update {updateState.message}
             </span>
           )}
         </div>

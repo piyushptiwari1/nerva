@@ -4,6 +4,12 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
+## v0.1.13 — 2026-09-26
+
+### Fixed
+- **Updater showed "Check failed" after a successful update.** The new version was installed correctly, but the automatic relaunch failed because the process plugin was never registered, and the error was reported as a failed check. Relaunch now works; if it ever can't, the app says "Update installed — quit and reopen" instead of pretending the check failed.
+- The real updater error message is now shown inline (and in the console) instead of a generic "see Diagnostics".
+
 ## v0.1.12 — 2026-09-25
 
 ### New

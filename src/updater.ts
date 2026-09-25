@@ -32,21 +32,33 @@ export function scheduleUpdateCheck(): void {
 }
 
 async function runCheck(): Promise<void> {
+  let update: Awaited<ReturnType<typeof check>> = null;
   try {
-    const update = await check();
-    if (!update) return;
-
-    // dialog=true in tauri.conf.json shows a native confirm dialog
-    // before downloading; we don't need to manage UI here. If the
-    // user accepts, downloadAndInstall handles signature verification
-    // + on-disk swap, then we relaunch.
-    await update.downloadAndInstall();
-    await relaunch();
+    update = await check();
   } catch (err) {
-    // Common: 404 on first release (no latest.json yet), offline,
-    // signature mismatch on a tampered artifact. None of these should
-    // crash the app.
+    // Common: offline, GitHub rate-limit, signature mismatch on a tampered
+    // artifact. None of these should crash the app.
     // eslint-disable-next-line no-console
     console.warn("[updater] check failed:", err);
+    return;
+  }
+  if (!update) return;
+  try {
+    // dialog=true in tauri.conf.json shows a native confirm dialog before
+    // downloading; downloadAndInstall verifies the signature and swaps
+    // the binary (dpkg/rpm via pkexec on Linux, NSIS/MSI on Windows).
+    await update.downloadAndInstall();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[updater] install failed:", err);
+    return;
+  }
+  try {
+    await relaunch();
+  } catch (err) {
+    // The update is already on disk; a failed relaunch just means the
+    // user picks it up on their next launch.
+    // eslint-disable-next-line no-console
+    console.warn("[updater] relaunch failed (update installed, restart manually):", err);
   }
 }
