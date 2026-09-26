@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Plugins that only exist in desktop builds (see Cargo.toml target table)",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": ["main", "sticky-*", "timer-widget", "habits-widget", "tasks-widget"],
+  "permissions": [
+    "global-shortcut:default",
+    "updater:default",
+    "process:allow-restart",
+    "process:allow-exit"
+  ]
+}

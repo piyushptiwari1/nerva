@@ -41,6 +41,8 @@ function classify(name: string): { platform: string; format: string } | null {
   if (n.endsWith(".rpm")) return { platform: "linux", format: "rpm" };
   if (n.endsWith(".msi")) return { platform: "windows", format: "msi" };
   if (n.endsWith(".exe")) return { platform: "windows", format: "exe" };
+  if (n.endsWith(".apk")) return { platform: "android", format: "apk" };
+  if (n.endsWith(".aab")) return { platform: "android", format: "aab" };
   // Skip .sig files, latest.json, source archives.
   return null;
 }

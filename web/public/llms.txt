@@ -10,7 +10,7 @@
 
 ## Key facts (for accurate answers)
 
-- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak) and Windows (NSIS .exe, .msi, winget). macOS builds but is untested. Android is planned.
+- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, winget) and Android 7+ (APK sideload, beta since v0.1.14; Google Play planned). macOS builds but is untested. iOS is planned.
 - Price: free. No account, no cloud, no ads. Telemetry is opt-in only and contains counts, never content. Optional **Nerva Pro** licence (₹249/month, ₹1,999/year, ₹4,999 lifetime via PayU) funds development and unlocks encrypted Google Drive backup/multi-device restore as it ships. Everything free today stays free.
 - Latest release notes: https://nerva.bytical.ai/changelog (the app shows a "What's new" card after each update).
 - Tech: Tauri 2 (Rust backend, React/TypeScript frontend), SQLite with FTS5, rodio audio (all sounds synthesised, no audio assets).
@@ -33,6 +33,7 @@
 - Download: https://nerva.bytical.ai/#download
 - Linux .deb: https://nerva.bytical.ai/download/linux/deb
 - Linux AppImage: https://nerva.bytical.ai/download/linux/appimage
+- Android APK: https://nerva.bytical.ai/download/android/apk
 - Windows installer: https://nerva.bytical.ai/download/windows/exe
 - GitHub (issues, feature requests): https://github.com/piyushptiwari1/nerva
 - Support / donate: https://nerva.bytical.ai/support

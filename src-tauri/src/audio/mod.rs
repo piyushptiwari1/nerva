@@ -9,14 +9,30 @@
 //! cues are each a distinct musical figure so users can tell them apart
 //! without looking. This keeps the bundle small and dependency-free at
 //! runtime.
+//!
+//! Mobile (Android/iOS) has no rodio/cpal backend: `AudioEngine` there is a
+//! no-op that reports `available = false`; phase cues arrive as OS
+//! notifications instead. See `mobile.rs`.
 
+#[cfg(mobile)]
+mod mobile;
+#[cfg(mobile)]
+pub use mobile::AudioEngine;
+
+#[cfg(desktop)]
 use parking_lot::Mutex;
+#[cfg(desktop)]
 use rodio::source::{SineWave, Source};
+#[cfg(desktop)]
 use rodio::{OutputStream, Sink};
 use serde::{Deserialize, Serialize};
+#[cfg(desktop)]
 use std::sync::mpsc::{channel, Sender};
+#[cfg(desktop)]
 use std::sync::Arc;
+#[cfg(desktop)]
 use std::thread;
+#[cfg(desktop)]
 use std::time::Duration;
 
 /// Kinds of background noise we synthesize. No audio files shipped — every
@@ -124,9 +140,11 @@ impl Default for AudioSettings {
 // tails between notes) while still shipping zero audio assets and no codec
 // dependencies. Rendering ~1.5 s of audio costs well under a millisecond.
 
+#[cfg(desktop)]
 const SR: u32 = 44_100;
 
 /// Which partial recipe a note uses.
+#[cfg(desktop)]
 #[derive(Debug, Clone, Copy)]
 enum Timbre {
     /// Warm harmonic chime — glockenspiel-like, the new default.
@@ -139,6 +157,7 @@ enum Timbre {
     Beep,
 }
 
+#[cfg(desktop)]
 impl Timbre {
     /// `(frequency ratio, relative amplitude, decay time-constant seconds)`.
     fn partials(self) -> &'static [(f32, f32, f32)] {
@@ -174,6 +193,7 @@ impl Timbre {
     }
 }
 
+#[cfg(desktop)]
 #[derive(Debug, Clone, Copy)]
 struct Note {
     onset_ms: f32,
@@ -186,6 +206,7 @@ struct Note {
 
 /// Render a set of possibly-overlapping notes into a mono sample buffer,
 /// peak-normalised to `peak` so louder recipes can't clip.
+#[cfg(desktop)]
 fn render(notes: &[Note], peak: f32) -> rodio::buffer::SamplesBuffer<f32> {
     let total_ms = notes
         .iter()
@@ -230,15 +251,22 @@ fn render(notes: &[Note], peak: f32) -> rodio::buffer::SamplesBuffer<f32> {
 }
 
 // Note frequencies (Hz).
+#[cfg(desktop)]
 const C5: f32 = 523.25;
+#[cfg(desktop)]
 const E5: f32 = 659.26;
+#[cfg(desktop)]
 const G5: f32 = 783.99;
+#[cfg(desktop)]
 const A5: f32 = 880.0;
+#[cfg(desktop)]
 const C6: f32 = 1046.5;
+#[cfg(desktop)]
 const A4: f32 = 440.0;
 
 /// Map the user's chosen family onto a timbre for the phase cues so a
 /// "bell" user hears bell-flavoured breaks too.
+#[cfg(desktop)]
 fn timbre_for(sound: CompletionSound) -> Timbre {
     match sound {
         CompletionSound::Classic | CompletionSound::Chime => Timbre::Chime,
@@ -250,6 +278,7 @@ fn timbre_for(sound: CompletionSound) -> Timbre {
 
 /// Session finished. Each family is a short, resolved musical figure —
 /// descending or landing on the tonic so it reads as "done", not "alert".
+#[cfg(desktop)]
 fn append_completion(sink: &Sink, sound: CompletionSound) {
     let notes: Vec<Note> = match sound {
         CompletionSound::Classic => vec![
@@ -371,6 +400,7 @@ fn append_completion(sink: &Sink, sound: CompletionSound) {
 
 /// Focus phase ended → break. Two descending notes ("and… relax"), a touch
 /// quieter than completion so it never startles mid-flow.
+#[cfg(desktop)]
 fn append_break_start(sink: &Sink, sound: CompletionSound) {
     let t = timbre_for(sound);
     let notes = [
@@ -393,6 +423,7 @@ fn append_break_start(sink: &Sink, sound: CompletionSound) {
 }
 
 /// Break ended → back to focus. Two ascending notes ("ready, go"), crisp.
+#[cfg(desktop)]
 fn append_focus_start(sink: &Sink, sound: CompletionSound) {
     let t = timbre_for(sound);
     let notes = [
@@ -415,6 +446,7 @@ fn append_focus_start(sink: &Sink, sound: CompletionSound) {
 }
 
 /// Single short, quiet confirmation for resume/restart.
+#[cfg(desktop)]
 fn append_resume(sink: &Sink, sound: CompletionSound) {
     let notes = [Note {
         onset_ms: 0.0,
@@ -426,11 +458,13 @@ fn append_resume(sink: &Sink, sound: CompletionSound) {
     sink.append(render(&notes, 0.45));
 }
 
+#[cfg(desktop)]
 pub struct AudioEngine {
     tx: Sender<AudioCmd>,
     settings: Arc<Mutex<AudioSettings>>,
 }
 
+#[cfg(desktop)]
 impl AudioEngine {
     /// Spawn the audio worker. Returns immediately; if the audio device can't
     /// be opened the engine becomes a no-op (`available = false`).
@@ -614,6 +648,7 @@ impl AudioEngine {
 ///
 /// The PRNG is a tiny xorshift64 — no `rand` dependency, deterministic enough
 /// to never repeat audibly within a focus session.
+#[cfg(desktop)]
 pub struct NoiseSource {
     kind: AmbientKind,
     rng_state: u64,
@@ -630,6 +665,7 @@ pub struct NoiseSource {
     brown_last: f32,
 }
 
+#[cfg(desktop)]
 impl NoiseSource {
     pub fn new(kind: AmbientKind) -> Self {
         Self {
@@ -662,6 +698,7 @@ impl NoiseSource {
     }
 }
 
+#[cfg(desktop)]
 impl Iterator for NoiseSource {
     type Item = f32;
 
@@ -700,6 +737,7 @@ impl Iterator for NoiseSource {
     }
 }
 
+#[cfg(desktop)]
 impl Source for NoiseSource {
     fn current_frame_len(&self) -> Option<usize> {
         None
@@ -715,7 +753,7 @@ impl Source for NoiseSource {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, desktop))]
 mod synth_tests {
     use super::*;
 

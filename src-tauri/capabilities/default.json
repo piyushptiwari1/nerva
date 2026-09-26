@@ -18,11 +18,7 @@
     "core:event:default",
     "core:app:default",
     "core:path:default",
-    "global-shortcut:default",
     "notification:default",
-    "os:default",
-    "updater:default",
-    "process:allow-restart",
-    "process:allow-exit"
+    "os:default"
   ]
 }

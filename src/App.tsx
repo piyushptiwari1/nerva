@@ -22,9 +22,11 @@ import { WhatsNew } from "@/components/WhatsNew";
 import { initTelemetry } from "@/lib/telemetry";
 import { flushFeedbackQueue, markInstalled } from "@/lib/feedback";
 import { useLicense } from "@/lib/license";
+import { useLayout } from "@/store/layout";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
+  const showTimeline = useLayout((s) => s.showTimeline);
   const togglePalette = usePalette((s) => s.toggle);
   const toggleSettings = useSettingsUi((s) => s.toggle);
   const toggleHabits = useHabitsUi((s) => s.toggle);
@@ -90,12 +92,12 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid">
       <ErrorBoundary scope="CommandBar"><CommandBar /></ErrorBoundary>
-      <div className="flex-1 min-h-0 grid grid-cols-[240px_minmax(0,1fr)_360px] gap-3 px-3 pt-2">
+      <div className={`flex-1 min-h-0 grid grid-cols-[240px_minmax(0,1fr)_360px] gap-3 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}>
         <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
         <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
         <ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary>
       </div>
-      <ErrorBoundary scope="TimelineBar"><TimelineBar /></ErrorBoundary>
+      {showTimeline && <ErrorBoundary scope="TimelineBar"><TimelineBar /></ErrorBoundary>}
       <ErrorBoundary scope="CommandPalette"><CommandPalette /></ErrorBoundary>
       <ErrorBoundary scope="AskNerva"><AskNerva /></ErrorBoundary>
       <ErrorBoundary scope="KeyboardCheatsheet"><KeyboardCheatsheet /></ErrorBoundary>

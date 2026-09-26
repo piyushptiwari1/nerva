@@ -12,9 +12,13 @@ import {
 import { ALL_SECTIONS, useLayout } from "@/store/layout";
 import { FeedbackForm } from "@/components/Feedback";
 import { BUY_URL, planLabel, useLicense } from "@/lib/license";
+import { isMobile } from "@/lib/platform";
 
 type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "pro" | "feedback" | "diag" | "about";
-const TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "pro", "feedback", "diag", "about"];
+const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "pro", "feedback", "diag", "about"];
+// No sidebar layout, DND or synthesized audio on phones.
+const MOBILE_TABS: Tab[] = ["timers", "ai", "pro", "feedback", "diag", "about"];
+const TABS: Tab[] = isMobile() ? MOBILE_TABS : DESKTOP_TABS;
 
 /**
  * Tabbed settings overlay. Opens via `useSettingsUi.toggle()` — bound to
@@ -29,7 +33,7 @@ export function SettingsPane() {
   const open = useSettingsUi((s) => s.open);
   const setOpen = useSettingsUi((s) => s.setOpen);
   const consumePendingTab = useSettingsUi((s) => s.consumePendingTab);
-  const [tab, setTab] = useState<Tab>("ai");
+  const [tab, setTab] = useState<Tab>(TABS[0]);
   const [bundle, setBundle] = useState<SettingsBundle | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -77,14 +81,28 @@ export function SettingsPane() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-[680px] max-w-[94vw] h-[460px] glass rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
+            className={
+              isMobile()
+                ? "w-full h-full glass overflow-hidden flex flex-col"
+                : "w-[680px] max-w-[94vw] h-[460px] glass rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
+            }
           >
             <header className="px-4 py-2.5 border-b border-ink-700/40 flex items-center">
               <span className="text-sm font-medium text-ink-100">Settings</span>
               <span className="ml-2 text-[10px] text-ink-500">Nerva by Bytical</span>
-              <span className="ml-auto text-[10px] text-ink-500">
-                <kbd className="border border-ink-700 rounded px-1">Esc</kbd> close
-              </span>
+              {isMobile() ? (
+                <button
+                  onClick={() => setOpen(false)}
+                  className="ml-auto w-9 h-9 grid place-items-center rounded-md text-ink-300 active:bg-ink-800 text-base"
+                  aria-label="Close settings"
+                >
+                  ×
+                </button>
+              ) : (
+                <span className="ml-auto text-[10px] text-ink-500">
+                  <kbd className="border border-ink-700 rounded px-1">Esc</kbd> close
+                </span>
+              )}
             </header>
             <div className="flex-1 min-h-0 flex">
               {/* Tab rail */}
@@ -618,6 +636,8 @@ function LayoutTab() {
   const hidden = useLayout((s) => s.hidden);
   const move = useLayout((s) => s.move);
   const setHidden = useLayout((s) => s.setHidden);
+  const showTimeline = useLayout((s) => s.showTimeline);
+  const setShowTimeline = useLayout((s) => s.setShowTimeline);
   const reset = useLayout((s) => s.reset);
   const meta = Object.fromEntries(ALL_SECTIONS.map((s) => [s.id, s]));
 
@@ -676,6 +696,20 @@ function LayoutTab() {
         >
           Reset to default
         </button>
+      </Field>
+      <Field
+        label="Advanced"
+        help="The event timeline is a raw replay of everything Nerva records (timer started, note saved…). Handy for debugging; most people won't need it."
+      >
+        <label className="flex items-center gap-2 text-xs text-ink-200">
+          <input
+            type="checkbox"
+            checked={showTimeline}
+            onChange={(e) => setShowTimeline(e.target.checked)}
+            className="accent-[rgb(var(--accent))]"
+          />
+          Show event timeline at the bottom of the window
+        </label>
       </Field>
     </section>
   );
@@ -1275,7 +1309,9 @@ function AboutTab() {
         </p>
       </div>
 
-      {/* Updates — manual check. The app also auto-checks 4 s after launch. */}
+      {/* Updates — manual check. The app also auto-checks 4 s after launch.
+          Phones update through the store, so the button is desktop-only. */}
+      {!isMobile() && (
       <div className="space-y-2">
         <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Updates</h4>
         <div className="flex items-center gap-2 flex-wrap">
@@ -1314,6 +1350,7 @@ function AboutTab() {
           builds update through their respective channels.
         </p>
       </div>
+      )}
 
       <div className="space-y-2">
         <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Support development</h4>

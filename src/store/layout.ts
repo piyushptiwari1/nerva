@@ -12,17 +12,20 @@ export const ALL_SECTIONS: { id: SectionId; label: string; hint: string }[] = [
   { id: "tasks", label: "Tasks", hint: "Today's list for the active workspace" },
   { id: "habits", label: "Habits", hint: "One-tap daily log" },
   { id: "clocks", label: "World clocks", hint: "Up to 6 time zones" },
-  { id: "momentum", label: "Momentum", hint: "7-day focus bars" },
+  { id: "momentum", label: "This week", hint: "Focus time, sessions and tasks done vs last week" },
 ];
 
 const DEFAULT_ORDER: SectionId[] = ["workspaces", "tasks", "habits", "clocks", "momentum"];
-const DEFAULT_HIDDEN: SectionId[] = ["clocks"];
+const DEFAULT_HIDDEN: SectionId[] = ["clocks", "momentum"];
 
 interface LayoutState {
   order: SectionId[];
   hidden: SectionId[];
+  /** Bottom event-log strip. Developer-ish; off unless asked for. */
+  showTimeline: boolean;
   move: (id: SectionId, dir: -1 | 1) => void;
   setHidden: (id: SectionId, hidden: boolean) => void;
+  setShowTimeline: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -31,6 +34,7 @@ export const useLayout = create<LayoutState>()(
     (set, get) => ({
       order: DEFAULT_ORDER,
       hidden: DEFAULT_HIDDEN,
+      showTimeline: false,
       move: (id, dir) => {
         const order = [...get().order];
         const i = order.indexOf(id);
@@ -43,11 +47,23 @@ export const useLayout = create<LayoutState>()(
         const cur = get().hidden.filter((h) => h !== id);
         set({ hidden: hidden ? [...cur, id] : cur });
       },
-      reset: () => set({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN }),
+      setShowTimeline: (showTimeline) => set({ showTimeline }),
+      reset: () => set({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, showTimeline: false }),
     }),
     {
       name: "nerva-layout",
-      version: 1,
+      version: 2,
+      // v2 (0.1.14): Momentum and the Timeline strip became opt-in. Existing
+      // users get the same clean default; they can re-enable in Settings → Layout.
+      migrate: (persisted, version) => {
+        const p = (persisted as Partial<LayoutState>) ?? {};
+        if (version < 2) {
+          const hidden = p.hidden ?? [];
+          if (!hidden.includes("momentum")) p.hidden = [...hidden, "momentum"];
+          p.showTimeline = false;
+        }
+        return p as LayoutState;
+      },
       // Tolerate sections added in later versions: append unknown-to-user
       // ids at the end so new features are discoverable.
       merge: (persisted, current) => {

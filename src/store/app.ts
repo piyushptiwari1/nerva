@@ -105,7 +105,7 @@ export const useApp = create<AppStore>((set, get) => ({
       ipc.timerList(),
       ipc.noteList(),
       ipc.taskList(),
-      ipc.momentumSnapshot(7),
+      ipc.momentumSnapshot(14),
       ipc.audioState(),
       ipc.focusState(),
     ]);
@@ -173,7 +173,7 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   async refreshMomentum() {
     try {
-      set({ momentum: await ipc.momentumSnapshot(7) });
+      set({ momentum: await ipc.momentumSnapshot(14) });
     } catch (e) {
       console.warn("[refreshMomentum] failed:", e);
     }

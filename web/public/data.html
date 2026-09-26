@@ -148,12 +148,13 @@
 
     function render(d) {
       // ---- KPIs ----
-      let grand = 0, linux = 0, windows = 0;
+      let grand = 0, linux = 0, windows = 0, android = 0;
       for (const [platform, formats] of Object.entries(d.totals)) {
         for (const count of Object.values(formats)) {
           grand += count;
           if (platform === "linux") linux += count;
           if (platform === "windows") windows += count;
+          if (platform === "android") android += count;
         }
       }
       const t = d.tracked ?? {};
@@ -163,6 +164,7 @@
         <div class="kpi"><div class="v">${grand.toLocaleString()}</div><div class="l">All-time downloads</div></div>
         <div class="kpi"><div class="v">${linux.toLocaleString()}</div><div class="l">Linux</div></div>
         <div class="kpi"><div class="v">${windows.toLocaleString()}</div><div class="l">Windows</div></div>
+        <div class="kpi"><div class="v">${android.toLocaleString()}</div><div class="l">Android</div></div>
         <div class="kpi"><div class="v">${(t.downloads_total ?? 0).toLocaleString()}</div><div class="l">Downloads 30d</div></div>
         <div class="kpi"><div class="v">${countries}</div><div class="l">Countries 30d</div></div>
         <div class="kpi"><div class="v">${(u.active_users ?? 0).toLocaleString()}</div><div class="l">Active installs 30d</div></div>

@@ -16,7 +16,12 @@ dist-ssr
 
 # Rust / Tauri
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/schemas/
+# gen/android IS tracked (Gradle project, manifest permissions, signing
+# config). Its own .gitignore drops build/, .gradle, keystore.properties.
+src-tauri/gen/android/app/keystore.properties
+src-tauri/gen/android/app/*.jks
+src-tauri/gen/android/app/*.keystore
 # Cargo.lock IS tracked — Nerva is an end-user binary, lockfile pins exact
 # builds for reproducibility (this is the cargo-recommended posture for apps).
 

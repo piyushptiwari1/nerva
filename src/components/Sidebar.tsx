@@ -19,8 +19,8 @@ export function Sidebar() {
     clocks: <WorldClock />,
     momentum: (
       <>
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-400 mb-2">Momentum</h3>
-        <Momentum />
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-400 mb-2">This week</h3>
+        <ThisWeek />
       </>
     ),
   };
@@ -115,48 +115,61 @@ function WorkspacesSection() {
   );
 }
 
-function Momentum() {
-  const momentum = useApp((s) => s.momentum);
-  if (!momentum.length) {
-    return <div className="text-xs text-ink-400">Gathering signals…</div>;
+function fmtHours(ms: number): string {
+  const m = Math.round(ms / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem ? `${h}h ${rem}m` : `${h}h`;
+}
+
+/** Plain-language 7-day summary with a week-over-week delta. Buckets arrive
+ *  oldest→newest (14 days); the last 7 are "this week". */
+function ThisWeek() {
+  const buckets = useApp((s) => s.momentum);
+  const week = buckets.slice(-7);
+  const prev = buckets.slice(-14, -7);
+  const sum = (bs: typeof buckets, k: "focus_ms" | "completed_timers" | "completed_tasks") =>
+    bs.reduce((acc, b) => acc + b[k], 0);
+  const focus = sum(week, "focus_ms");
+  const sessions = sum(week, "completed_timers");
+  const tasks = sum(week, "completed_tasks");
+  const prevFocus = sum(prev, "focus_ms");
+
+  if (!buckets.length || (focus === 0 && sessions === 0 && tasks === 0)) {
+    return (
+      <div className="text-xs text-ink-400 leading-snug">
+        Finish a timer or a task and your week shows up here.
+      </div>
+    );
   }
-  const focusMs = momentum.reduce((acc, b) => acc + b.focus_ms, 0);
-  const tasks = momentum.reduce((acc, b) => acc + b.completed_tasks, 0);
-  const peak = Math.max(1, ...momentum.map((b) => b.focus_ms));
-  const hours = (focusMs / 3_600_000).toFixed(focusMs > 36_000_000 ? 0 : 1);
+
+  let delta: string | null = null;
+  if (prevFocus > 0) {
+    const pct = Math.round(((focus - prevFocus) / prevFocus) * 100);
+    if (pct === 0) delta = "same as last week";
+    else delta = `${Math.abs(pct)}% ${pct > 0 ? "more" : "less"} than last week`;
+  } else if (focus > 0) {
+    delta = "first week with focus time";
+  }
+
   return (
     <div className="text-xs text-ink-300">
-      <div className="flex justify-between mb-1">
-        <span>Past 7 days</span>
-        <span className="tnum text-ink-100">{hours}h</span>
+      <div className="grid grid-cols-3 gap-2">
+        <Stat value={fmtHours(focus)} label="focused" />
+        <Stat value={String(sessions)} label={sessions === 1 ? "session" : "sessions"} />
+        <Stat value={String(tasks)} label={tasks === 1 ? "task done" : "tasks done"} />
       </div>
-      <div className="flex items-end gap-[3px] h-10">
-        {momentum.map((b) => {
-          const ratio = b.focus_ms / peak;
-          const label = new Date(b.start_ms).toLocaleDateString(undefined, {
-            weekday: "short",
-          });
-          return (
-            <div
-              key={b.start_ms}
-              className="flex-1 flex flex-col items-center justify-end gap-[2px]"
-              title={`${label} · ${(b.focus_ms / 3_600_000).toFixed(2)}h · ${b.completed_timers} timers · ${b.completed_tasks} tasks`}
-            >
-              <div
-                className="w-full rounded-sm bg-accent/60"
-                style={{ height: `${Math.max(2, ratio * 100)}%` }}
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex justify-between mt-1 text-[10px] text-ink-500">
-        <span>{tasks} tasks done</span>
-        <span>peak {(peak / 3_600_000).toFixed(1)}h</span>
-      </div>
-      <p className="mt-2 text-[11px] text-ink-400 leading-snug">
-        No pressure — focus accumulates. Missing a day doesn't reset anything.
-      </p>
+      {delta && <p className="mt-2 text-[11px] text-ink-400 leading-snug">{delta}</p>}
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="tnum text-ink-100 text-sm leading-tight truncate">{value}</div>
+      <div className="text-[10px] text-ink-500 truncate">{label}</div>
     </div>
   );
 }

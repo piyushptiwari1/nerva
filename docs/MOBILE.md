@@ -1,229 +1,112 @@
-# Nerva — Mobile Strategy (Android + iOS)
+# Nerva — Mobile (Android shipped in beta · iOS planned)
 
-> Status: planning. No mobile code yet. This document is the reference
-> spec; once P5 (Sync) is stable we open the mobile track.
+> **Status (v0.1.14):** Android APK builds from the same repo via Tauri 2
+> mobile and is attached to every GitHub release. iOS is fully planned but
+> **on hold until Bytical has an Apple Developer account** (needs macOS +
+> $99/yr for signing/TestFlight). Nothing in the codebase blocks it.
+>
+> The earlier native-companion spec (SwiftUI/Compose over a UniFFI core) is
+> archived in `MOBILE_NATIVE_COMPANION_ARCHIVED.md` for the widget ideas.
 
-## Goal
+## Decision: Tauri 2 mobile, not native shells
 
-Mobile is **not a port of the desktop app**. It is a **companion** —
-specifically a **widget-first lock-screen / home-screen extension** of
-the user's persistent focus state.
-
-Three jobs only:
-
-1. **Show**: current active timer(s) + remaining time + workspace
-   name, on lock screen, home screen, and Apple Watch / Wear OS.
-2. **Capture**: quick-capture a note that lands in the active workspace.
-3. **Resume**: tap a widget → opens app → app pushes a
-   `workspace.activated` event into the sync stream so the desktop
-   picks it up next time it connects.
-
-Everything else (multi-timer creation, full notes, habits, audio)
-remains desktop-first. Mobile users get a read-mostly experience.
-
----
-
-## Why a companion, not a full port
-
-- Deep work happens at a desk. Mobile timers compete with notifications;
-  desktop wins for the core use case.
-- Mobile widgets are *the* killer surface — a glanceable focus state
-  on the lock screen massively reduces context-switching cost.
-- A full mobile port would 3× the maintenance burden for a small
-  share of value.
-
----
-
-## Architecture
-
-```
-┌────────────────────────────────────────────┐
-│ Desktop (Linux / Windows / macOS)          │
-│   Tauri + Rust runtime (source of truth)   │
-│              │                              │
-│              ▼                              │
-│   Event log (SQLite, append-only)          │
-│              │                              │
-│              ▼                              │
-│   Sync engine (P5: age + S3-compat)        │
-└────────────────┬───────────────────────────┘
-                 │  E2E-encrypted event stream
-                 ▼
-┌────────────────────────────────────────────┐
-│ Mobile companion                            │
-│   - Native iOS app (SwiftUI + WidgetKit)   │
-│   - Native Android app (Jetpack Compose +  │
-│     Glance for widgets)                     │
-│   Shared Rust core via UniFFI / mobile-ffi │
-└────────────────────────────────────────────┘
-```
-
-### Why native (not Tauri Mobile) for v1
-
-| Concern | Tauri mobile | Native |
+| | Tauri 2 mobile (chosen) | Native companions (previous plan) |
 |---|---|---|
-| WidgetKit / Glance access | ❌ not exposed | ✅ first-class |
-| Apple Watch complications | ❌ blocked | ✅ |
-| Background refresh budgets | ⚠️ unpredictable | ✅ |
-| App Store review risk | ⚠️ medium | ✅ low |
-| Code reuse with desktop | ✅ via UniFFI | ✅ via UniFFI |
+| Rust core reuse (timers, SQLite log, licence) | ✅ identical crate | ✅ via UniFFI, but a second build system |
+| UI reuse | ✅ same React panels, phone shell | ❌ two new UIs |
+| Time to first APK | days | months |
+| Home-screen widgets / Live Activities | ⬜ later via a small native plugin | ✅ first-class |
+| Maintenance | one release pipeline | three |
 
-So: native shells + **shared Rust core** via UniFFI (iOS) and JNI
-(Android). The core handles event log decoding, timer math, and CRDT
-merge.
+Widgets are nice-to-have; a working app on the phone is the feature.
 
----
+## What's in the Android build
 
-## iOS
+- **Shell:** `src/mobile/MobileApp.tsx` — one column, bottom tabs
+  Focus · Tasks · Habits · Notes, settings gear. Picked at boot by
+  `isMobile()` (`src/lib/platform.ts`; UA sniff, `?shell=mobile` forces it
+  in a browser for layout work).
+- **Same Rust core** — `src-tauri/` compiles for
+  `aarch64-linux-android` (+ armv7/x86/x86_64 in CI). Desktop-only pieces are
+  `#[cfg(desktop)]`: tray, single-instance, global shortcuts, updater,
+  process plugin, floating windows (`spawn_popup`), `reveal_data_dir`, and
+  the rodio audio engine (`audio/mobile.rs` is a no-op reporting
+  `available=false`). Their crates live in a
+  `[target.'cfg(not(any(target_os="android", target_os="ios")))'.dependencies]`
+  table and their permissions in `capabilities/desktop.json`
+  (`platforms: [linux, macOS, windows]`).
+- **Background alerts:** Android suspends the WebView, so instead of the
+  250 ms tick we hand the OS scheduled notifications for every phase
+  boundary and the session end (`src/mobile/alerts.ts`,
+  `plugin-notification` `schedule`). Re-armed whenever the running set
+  changes; `cancelAll()` first so it's idempotent. Manifest permissions:
+  `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`.
+- **Pro:** licence activation works unchanged — a phone is just another
+  device against the plan's limit (2/3/5).
+- **Ask Nerva:** cloud providers (OpenAI/Anthropic/Gemini/OpenRouter/custom)
+  work; Ollama needs a reachable endpoint (set it to your desktop's LAN IP).
+- **Not on mobile:** pop-out windows, tray, keyboard shortcuts/palette, DND
+  toggle, synthesized audio, sidebar layout editor, auto-updater (store).
 
-### Targets
-- iPhone (iOS 17+)
-- iPad (iPadOS 17+)
-- Apple Watch (watchOS 10+)
-- Mac (Catalyst — bonus, may share with desktop tray)
+## Building
 
-### Surfaces
-
-1. **Home screen widget** (small / medium / large)
-   - Small: ring + remaining time + workspace dot.
-   - Medium: ring + remaining + next-up timer + workspace name.
-   - Large: stacked timeline of all active timers + last note title.
-2. **Lock screen widget** (iOS 16+ accessory widgets)
-   - Inline: `🟢 Focus 23:11`.
-   - Circular: ring with %.
-   - Rectangular: ring + workspace.
-3. **Live Activity** (Dynamic Island, iOS 16.1+)
-   - Mirror the active timer with ring + name.
-   - Compact: ring + minutes left.
-   - Expanded: full timer + pause/resume CTA via App Intent.
-4. **Apple Watch complication** (corner / circular / rectangular).
-5. **Control Center widget** (iOS 18+).
-6. **App Intent**: "Start a 25-minute focus timer in Coding" via Siri /
-   Shortcuts.
-
-### Tech
-
-- SwiftUI + WidgetKit + ActivityKit (Live Activities).
-- Rust core compiled to `aarch64-apple-ios` + `aarch64-apple-ios-sim` +
-  `aarch64-apple-darwin` (Mac Catalyst).
-- UniFFI generates the Swift bindings.
-- Sync state stored in App Group container shared across app + widgets
-  (`group.dev.nerva.app`).
-- Background refresh: BGTaskScheduler. Live Activities update via push
-  (silent APNs from sync backend) so the widget stays accurate while
-  the app is closed.
-
-### Distribution
-
-- TestFlight → App Store.
-- Bundle: `dev.nerva.app` (matches desktop).
-- Categories: Productivity (primary), Lifestyle (secondary).
-- Privacy nutrition labels: "Data Not Collected" — everything is E2E.
-
----
-
-## Android
-
-### Targets
-- Phone (Android 13+, API 33+)
-- Tablet
-- Wear OS 4+
-- Foldables (responsive layouts)
-
-### Surfaces
-
-1. **Home screen widget** (`androidx.glance`)
-   - 2×1, 2×2, 4×2 sizes mirroring iOS.
-   - Glance composables → RemoteViews compiled at build time.
-2. **Lock screen** (Android 14+: notification + media-style controls)
-   - Foreground service notification rendered as a media-style card
-     when a timer is active, exposing pause/resume.
-3. **Wear OS tile** + complications.
-4. **Quick Settings tile** (`TileService`) — toggle "Focus mode" from
-     the system QS panel.
-5. **App Shortcuts** — "Start 25m Focus" / "Open Coding workspace".
-6. **Google Assistant action** via App Actions (BII:
-   `actions.intent.START_EXERCISE` repurposed, or custom BII).
-
-### Tech
-
-- Kotlin + Jetpack Compose + `androidx.glance:glance-appwidget`.
-- Rust core compiled to `aarch64-linux-android` + `armv7-linux-androideabi`
-  + `x86_64-linux-android` (emulator).
-- UniFFI → Kotlin bindings.
-- Sync state in app-private storage + a tiny content provider for
-  widget reads.
-- Background: WorkManager + foreground service for active timers
-  (Android 14 requires `dataSync` foreground service type).
-
-### Distribution
-
-- Internal track → closed beta → production on Google Play.
-- Same `dev.nerva.app` package id (with `.android` suffix if needed).
-- F-Droid: build pipeline with reproducible builds, no proprietary deps.
-
----
-
-## Sync contract
-
-Mobile reads + writes events to the same encrypted log as desktop.
-
-- **Read** events at startup + every 60s when foregrounded + on push.
-- **Write** events for:
-  - `note.saved` (quick capture)
-  - `workspace.activated` (tap a widget to switch)
-  - `timer.started` / `timer.paused` (only if user explicitly acts;
-    we don't second-guess the desktop)
-- Conflict resolution: events are CRDT-friendly (Lamport timestamps,
-  last-writer-wins on `workspace.activated`).
-
-The desktop remains the **authoritative writer** for habit
-calculations, audio, and intelligence. Mobile never runs those.
-
----
-
-## Shared Rust core
-
-`nerva-core/` (new crate, factored out of `src-tauri/src/` at P5):
-
-```
-nerva-core/
-├── store/      # SQLite + event log (already exists)
-├── timers/     # wall-clock math (already exists)
-├── notes/
-├── workspaces/
-├── sync/       # CRDT merge, age E2E, S3-compat client
-├── ffi/        # UniFFI scaffold (mobile)
-└── lib.rs
+```bash
+./scripts/android-setup.sh          # JDK 17 + SDK/NDK + rust targets (user-local, once)
+source ~/.nerva-android.env
+npm run tauri android dev           # on a connected device / emulator
+npm run tauri android build --apk   # universal release APK
+npm run tauri android build --apk --target aarch64   # faster, arm64 only
 ```
 
-The desktop `src-tauri/` becomes a thin shell that depends on
-`nerva-core`. Mobile shells depend on `nerva-core` via UniFFI.
+Output: `src-tauri/gen/android/app/build/outputs/apk/universal/release/`.
+`src-tauri/gen/android/` is **committed** (manifest permissions, signing
+config); `build/`, `.gradle`, `keystore.properties`, `*.jks` are ignored.
 
----
+### Signing
 
-## Phased rollout
+`app/build.gradle.kts` reads `app/keystore.properties`
+(`keyAlias`, `password`, `storeFile`). Without it the release build is
+signed with the debug key so it still installs (sideload/testing).
 
-- **P5.1**: Factor `nerva-core` out of `src-tauri/`. UniFFI scaffold.
-- **P5.2**: Sync engine end-to-end on desktop only.
-- **P6.1**: iOS minimal — single widget (medium) + Live Activity for
-  one active timer + quick-capture sheet.
-- **P6.2**: Apple Watch complication.
-- **P6.3**: Android minimal — single Glance widget + foreground-service
-  notification + quick capture.
-- **P6.4**: Wear OS tile.
-- **P7**: Full widget matrices, Siri / Assistant actions, Quick
-  Settings tile, App Intents.
+Create the upload key once:
 
----
+```bash
+keytool -genkey -v -keystore ~/nerva-upload.jks -keyalg RSA -keysize 2048 \
+  -validity 10000 -alias nerva-upload
+base64 -w0 ~/nerva-upload.jks   # → GitHub secret ANDROID_KEYSTORE_B64
+```
+
+GitHub secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEY_ALIAS`,
+`ANDROID_KEY_PASSWORD`. The `android` job in `release.yml` writes them into
+`keystore.properties`, builds `--apk --aab`, and uploads
+`Nerva_<v>_android.apk` / `.aab` to the release. **Keep the .jks backed up
+offline** — Play requires the same upload key forever.
+
+## Distribution roadmap
+
+| Step | Channel | Status |
+|---|---|---|
+| A1 | GitHub release APK (sideload), website download tile | ✅ v0.1.14 |
+| A2 | Google Play internal testing (AAB from CI) | ⬜ needs Play Console account ($25 one-off) |
+| A3 | Play production + Data-safety form ("no data collected" unless telemetry opt-in) | ⬜ |
+| A4 | F-Droid (reproducible build recipe; no proprietary deps — we have none) | ⬜ |
+| A5 | Home-screen widget (Glance) via a tiny Tauri plugin reading the SQLite log | 📐 |
+| A6 | Wear OS tile | 📐 |
+
+## iOS (planned, not started)
+
+Tauri 2 supports iOS with the same crate; expected work when unblocked:
+
+1. Apple Developer account + a Mac (or a `macos-14` CI runner) for `tauri ios init/build`.
+2. `#[cfg(desktop)]` gates already cover iOS; test the `audio/mobile.rs` path.
+3. Notifications: `plugin-notification` schedules on iOS too; no exact-alarm permission needed.
+4. TestFlight → App Store; privacy label "Data Not Collected".
+5. Later: WidgetKit / Live Activity via a small Swift plugin.
 
 ## UX rules for mobile
 
-- **No new timers from widgets** (too easy to mis-tap). Widgets only
-  show + resume.
-- **No notifications during focus**. The only notification is at the
-  *end* of a timer, and it's a quiet local notification (no sound by
-  default).
-- **No streaks visible** — anti-shame design carries over.
-- **Glance, not graze** — every widget should be readable in under
-  300 ms of attention.
+- Glance, not graze — the Focus tab must be readable in <300 ms.
+- No streak shaming; "This week" summary only.
+- Only end-of-phase notifications; nothing mid-focus.
+- Every panel used on the phone must remain usable at 360 px wide — check
+  with `?shell=mobile` in a narrow browser window before shipping.

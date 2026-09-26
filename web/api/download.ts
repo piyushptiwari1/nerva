@@ -18,6 +18,7 @@
 //   /api/download?p=linux&f=rpm       → Nerva-<ver>-1.x86_64.rpm
 //   /api/download?p=windows&f=msi     → Nerva_<ver>_x64_en-US.msi
 //   /api/download?p=windows&f=exe     → Nerva_<ver>_x64-setup.exe
+//   /api/download?p=android&f=apk     → Nerva_<ver>_android.apk
 //   /api/download?p=cert              → bytical-codesign.crt
 //
 // `vercel.json` rewrites the public /download/... paths onto this handler.
@@ -39,6 +40,9 @@ const FILES: Record<string, Record<string, string>> = {
   windows: {
     msi: "Nerva_{v}_x64_en-US.msi",
     exe: "Nerva_{v}_x64-setup.exe",
+  },
+  android: {
+    apk: "Nerva_{v}_android.apk",
   },
   cert: {
     // No version in the cert filename.
@@ -86,7 +90,7 @@ export default async function handler(
 
   const platformFiles = FILES[platform];
   if (!platformFiles) {
-    return new Response("Unknown platform. Try p=linux|windows|cert.\n", { status: 404 });
+    return new Response("Unknown platform. Try p=linux|windows|android|cert.\n", { status: 404 });
   }
   // For `cert`, default format = `crt`.
   const fileKey = format || (platform === "cert" ? "crt" : "");

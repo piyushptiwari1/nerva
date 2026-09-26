@@ -126,6 +126,7 @@ jobs:
             ### Downloads
             - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm` · also `yay -S nerva-desktop-bin`, `snap install nerva`
             - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS) · also `winget install Bytical.Nerva`
+            - **Android 7+ (beta)** — `Nerva_x.y.z_android.apk` (sideload; attached a few minutes after the desktop builds)
             - Direct links that always point at the latest build: https://nerva.bytical.ai/#download
 
             ### Verifying the Windows build
@@ -165,6 +166,93 @@ jobs:
   # for every platform variant (linux-x86_64, linux-x86_64-deb,
   # linux-x86_64-rpm, linux-x86_64-appimage, windows-x86_64,
   # windows-x86_64-msi, windows-x86_64-nsis). No additional job needed.
+
+  # Android: universal release APK (sideload / F-Droid-style) + AAB (Play).
+  # Signed with the Bytical upload key when ANDROID_KEYSTORE_B64 is set;
+  # otherwise Gradle falls back to the debug key so the artifact still installs.
+  android:
+    name: Build Android
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973'
+
+      - name: Setup Rust stable (android targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Write signing keystore
+        if: env.ANDROID_KEYSTORE_B64 != ''
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > src-tauri/gen/android/app/upload.jks
+          cat > src-tauri/gen/android/app/keystore.properties <<EOF
+          keyAlias=$ANDROID_KEY_ALIAS
+          password=$ANDROID_KEY_PASSWORD
+          storeFile=upload.jks
+          EOF
+
+      - name: Tauri android build
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+        run: |
+          npx tauri android build --apk --aab
+          V="${GITHUB_REF_NAME#v}"
+          mkdir -p out
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release*.apk "out/Nerva_${V}_android.apk"
+          cp src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab "out/Nerva_${V}_android.aab"
+          ls -la out
+
+      - name: Upload artifacts (for non-release runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nerva-android
+          path: out/*
+          retention-days: 14
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # tauri-action in `build` creates the release; wait for it to exist.
+          for i in $(seq 1 40); do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            echo "waiting for release... ($i/40)"; sleep 30
+          done
+          gh release upload "$GITHUB_REF_NAME" out/* --clobber
 
   # After all builds finish, submit a winget manifest PR (Windows only)
   winget-publish:

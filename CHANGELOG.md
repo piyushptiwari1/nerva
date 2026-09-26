@@ -4,6 +4,14 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
+## v0.1.14 — 2026-09-26
+
+### New
+- **Nerva for Android (beta).** The same Rust core and panels, in a one-column phone shell with Focus / Tasks / Habits / Notes tabs. Timer and break alerts are scheduled with the OS so they fire even when the app is in the background. Your Pro key works on the phone as another device. Download the APK from the GitHub release or nerva.bytical.ai; Google Play and iOS are next.
+
+### Changed
+- **Cleaner dashboard.** The bottom event timeline is now off by default (Settings → Layout → Advanced to bring it back) and "Momentum" became **This week**: focus time, sessions and tasks done, with a plain comparison to last week. Hidden until you finish your first timer; turn it on in Settings → Layout.
+
 ## v0.1.13 — 2026-09-26
 
 ### Fixed

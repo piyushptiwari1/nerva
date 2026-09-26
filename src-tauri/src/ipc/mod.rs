@@ -926,6 +926,7 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 // or frozen popup and a hung main window. The official guidance is to create
 // windows from async commands so the build runs off the main thread's
 // synchronous command handler. Do not remove `async`.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
     let label = format!("sticky-{}", note_id.replace(['-', ' '], "_"));
@@ -946,6 +947,7 @@ pub async fn open_sticky(app: tauri::AppHandle, note_id: String) -> Result<()> {
 /// Spawn (or focus) the floating timer widget. Single instance.
 /// Default = regular window (stays on origin desktop). Pin via UI to keep on top.
 // `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
     spawn_popup(
@@ -963,6 +965,7 @@ pub async fn open_timer_widget(app: tauri::AppHandle) -> Result<()> {
 
 /// Spawn (or focus) the floating habits widget. Single instance.
 // `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
     spawn_popup(
@@ -980,6 +983,7 @@ pub async fn open_habits_widget(app: tauri::AppHandle) -> Result<()> {
 
 /// Spawn (or focus) the floating tasks widget. Single instance.
 // `async` required — see the note on `open_sticky` (Windows WebView2 deadlock).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
     spawn_popup(
@@ -993,6 +997,50 @@ pub async fn open_tasks_widget(app: tauri::AppHandle) -> Result<()> {
         300.0,
     )
     .map_err(|e| NervaError::Invalid(format!("open tasks widget: {e}")))
+}
+
+// Mobile: one activity, no floating windows. The commands stay registered
+// so the shared JS `ipc` surface is identical; the mobile shell never calls
+// them, and if something does it gets a clear error instead of a missing-
+// command panic.
+#[cfg(mobile)]
+fn no_windows() -> NervaError {
+    NervaError::Invalid("floating windows are not available on mobile".into())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn open_sticky(_app: tauri::AppHandle, _note_id: String) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn open_timer_widget(_app: tauri::AppHandle) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn open_habits_widget(_app: tauri::AppHandle) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn open_tasks_widget(_app: tauri::AppHandle) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub fn window_set_always_on_top(_app: tauri::AppHandle, _label: String, _on: bool) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub fn window_hide(_app: tauri::AppHandle, _label: String) -> Result<()> {
+    Err(no_windows())
+}
+#[cfg(mobile)]
+#[tauri::command]
+pub fn window_close(_app: tauri::AppHandle, _label: String) -> Result<()> {
+    Err(no_windows())
 }
 
 /// Axis-aligned rectangle in *logical* pixels.
@@ -1048,6 +1096,7 @@ pub fn popup_origin(main: LogicalRect, monitor: Option<LogicalRect>, w: f64, h: 
 // Clippy: 8 args > default 7. Splitting these into a struct would just
 // scatter the popup-window contract across two places; every caller wants
 // to set every field, so positional args at the call site stay clearer.
+#[cfg(desktop)]
 #[allow(clippy::too_many_arguments)]
 fn spawn_popup(
     app: &tauri::AppHandle,
@@ -1133,6 +1182,7 @@ fn spawn_popup(
 
 /// Toggle always-on-top ("pin") for an arbitrary popup window by label.
 /// Used by the frontend pin button on sticky / timer / habits / tasks widgets.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) -> Result<()> {
     use tauri::Manager;
@@ -1149,6 +1199,7 @@ pub fn window_set_always_on_top(app: tauri::AppHandle, label: String, on: bool) 
 /// Why this exists: on Windows, rapid close/reopen of undecorated WebView2
 /// popups can occasionally wedge the renderer. Hiding preserves process
 /// state and lets reopen be a cheap show/focus path.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_hide(app: tauri::AppHandle, label: String) -> Result<()> {
     use tauri::Manager;
@@ -1162,6 +1213,7 @@ pub fn window_hide(app: tauri::AppHandle, label: String) -> Result<()> {
 /// Close a popup window by label. Frontend already calls `window.close()`
 /// directly via the Tauri JS API, but this command is the canonical surface
 /// for the tray menu and command palette to close widgets too.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_close(app: tauri::AppHandle, label: String) -> Result<()> {
     use tauri::Manager;
@@ -1178,6 +1230,21 @@ pub fn window_close(app: tauri::AppHandle, label: String) -> Result<()> {
 #[tauri::command]
 pub fn reveal_data_dir(state: State) -> Result<()> {
     let path = state.data_dir.clone();
+    #[cfg(mobile)]
+    {
+        return Err(NervaError::Invalid(format!(
+            "no file manager on this device; data lives at {}",
+            path.display()
+        )));
+    }
+    #[cfg(desktop)]
+    {
+        reveal_dir_desktop(path)
+    }
+}
+
+#[cfg(desktop)]
+fn reveal_dir_desktop(path: std::path::PathBuf) -> Result<()> {
     let path_str = path.to_string_lossy().to_string();
     // Linux: xdg-open is the freedesktop standard; falls back to gio open on
     // pure-Wayland systems where xdg-utils may be absent. On WSL without

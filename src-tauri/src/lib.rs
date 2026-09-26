@@ -32,6 +32,7 @@ use tracing_subscriber::EnvFilter;
 /// the `nerva.db` family of files. WAL/SHM are removed too because a
 /// stale WAL replayed against a fresh DB is exactly the corruption
 /// pattern we're recovering from.
+#[cfg(desktop)]
 fn wipe_data_dir_for_cli_reset() -> std::io::Result<()> {
     const ID: &str = "ai.bytical.nerva";
     let base = dirs::data_dir()
@@ -73,14 +74,21 @@ pub fn run() {
     // button is unreachable (rare — only if the React shell itself is broken).
     // Honoured here, BEFORE `tauri::Builder::default()`, so AppState boots
     // fresh on this same launch.
-    let reset_requested = std::env::args().any(|a| a == "--reset");
-    if reset_requested {
+    #[cfg(desktop)]
+    if std::env::args().any(|a| a == "--reset") {
         if let Err(e) = wipe_data_dir_for_cli_reset() {
             eprintln!("[nerva --reset] wipe failed: {e}");
         }
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_notification::init());
+
+    // Desktop-only plugins. Mobile has one activity (no second instance),
+    // no global shortcuts, and updates flow through the store.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // Second-instance launch (e.g. user double-clicks the app icon
             // again while it's already running, or main has been hidden via
@@ -93,8 +101,6 @@ pub fn run() {
                 let _ = win.set_focus();
             }
         }))
-        .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         // Auto-updater: probes the endpoint in tauri.conf.json once at
         // startup. Signature is verified against the bundled pubkey
@@ -102,7 +108,9 @@ pub fn run() {
         // "check, prompt user, apply on next launch" — see the JS
         // call in src/main.tsx for the UI side.
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    builder
         .setup(|app| {
             use tauri::Manager;
             let handle = app.handle().clone();
@@ -118,6 +126,7 @@ pub fn run() {
             //
             // Without this block the tray icon appears but does nothing on
             // either left or right click, which is the v0.1.0 bug we're fixing.
+            #[cfg(desktop)]
             if let Err(e) = install_tray_menu(app) {
                 tracing::warn!(err = %e, "tray menu setup failed (continuing without)");
             }
@@ -132,6 +141,7 @@ pub fn run() {
             // popups are open orphans the user — popups keep running but
             // there's no tray menu hook (pre-v0.1.1) and no main window to
             // click, so the only recovery is killing every popup.
+            #[cfg(desktop)]
             if let Some(main) = app.get_webview_window("main") {
                 let app_for_event = app.handle().clone();
                 main.on_window_event(move |event| {
@@ -300,6 +310,7 @@ pub fn run() {
 ///   Quit Nerva     — cleanly shuts down the app.
 ///
 /// Left-clicking the tray icon also brings the main window forward.
+#[cfg(desktop)]
 fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
@@ -376,6 +387,7 @@ fn install_tray_menu(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 fn focus_main(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(win) = app.get_webview_window("main") {
