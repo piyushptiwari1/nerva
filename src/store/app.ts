@@ -11,11 +11,13 @@ import {
   type Timer,
   type Workspace,
 } from "@/lib/ipc";
+import { isAndroid } from "@/lib/platform";
 
 let notifyPermission: boolean | null = null;
 
 /** Fire OS notifications for completed timers and phase transitions. */
 async function notifyTimerEvents(timers: Timer[], completed: string[], changes: PhaseChange[]) {
+  if (isAndroid()) return;
   try {
     const n = await import("@tauri-apps/plugin-notification");
     if (notifyPermission === null) {

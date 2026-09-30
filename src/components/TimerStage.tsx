@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/store/app";
 import { ipc, formatRemaining, planPhases, phaseLabel, type Timer } from "@/lib/ipc";
 import { settings } from "@/lib/settings";
+import { isMobile } from "@/lib/platform";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
   { label: "25m Focus", ms: 25 * 60_000, color: "#7c9cff" },
@@ -66,13 +67,15 @@ export function TimerStage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => ipc.openTimerWidget()}
-            className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700 text-ink-300"
-            title="Open as a floating always-on-top widget"
-          >
-            ↗ Pop up
-          </button>
+          {!isMobile() && (
+            <button
+              onClick={() => ipc.openTimerWidget()}
+              className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700 text-ink-300"
+              title="Open as a floating always-on-top widget"
+            >
+              ↗ Pop up
+            </button>
+          )}
           <button
             onClick={() => setCreating((v) => !v)}
             className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"

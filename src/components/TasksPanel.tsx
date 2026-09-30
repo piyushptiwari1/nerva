@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/store/app";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
+import { isMobile } from "@/lib/platform";
 
 /**
  * Compact tasks list. Workspace-scoped; the backend defaults new tasks to the
@@ -77,13 +78,15 @@ export function TasksPanel() {
           Tasks {todo.length > 0 && <span className="text-ink-500">· {todo.length}</span>}
         </h3>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => ipc.openTasksWidget()}
-            className="text-[10px] text-ink-400 hover:text-ink-100"
-            title="Pop up as floating widget"
-          >
-            pop up ↗
-          </button>
+          {!isMobile() && (
+            <button
+              onClick={() => ipc.openTasksWidget()}
+              className="text-[10px] text-ink-400 hover:text-ink-100"
+              title="Pop up as floating widget"
+            >
+              pop up ↗
+            </button>
+          )}
           <button
             onClick={() => setShowDone((v) => !v)}
             className="text-[10px] text-ink-300 hover:text-ink-100"

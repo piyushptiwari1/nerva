@@ -28,6 +28,25 @@ pub fn ping() -> &'static str {
 }
 
 #[tauri::command]
+pub async fn android_widgets(
+    app: tauri::AppHandle,
+    action: String,
+    kind: Option<String>,
+) -> Result<serde_json::Value> {
+    #[cfg(target_os = "android")]
+    {
+        crate::widgets::android::call(&app, &action, kind)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, action, kind);
+        Err(NervaError::Invalid(
+            "Home-screen widgets require Android".into(),
+        ))
+    }
+}
+
+#[tauri::command]
 pub fn get_runtime_info(state: State) -> Result<RuntimeInfo> {
     let events = state.store.replay_all()?;
     Ok(RuntimeInfo {
@@ -54,7 +73,7 @@ pub struct CreateTimerArgs {
 }
 
 /// Persisted default for `CreateTimerArgs::auto_breaks`.
-fn read_auto_breaks(state: &State) -> bool {
+fn read_auto_breaks(state: &AppState) -> bool {
     match state.store.meta_get("timer.auto_breaks") {
         Ok(Some(v)) => v != "false",
         _ => true,
@@ -63,6 +82,10 @@ fn read_auto_breaks(state: &State) -> bool {
 
 #[tauri::command]
 pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
+    timer_create_for(&state, args)
+}
+
+pub(crate) fn timer_create_for(state: &AppState, args: CreateTimerArgs) -> Result<Timer> {
     if args.duration_ms <= 0 {
         return Err(NervaError::Invalid("duration_ms must be > 0".into()));
     }
@@ -70,7 +93,7 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
     let workspace_id = args
         .workspace_id
         .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
-    let auto_breaks = args.auto_breaks.unwrap_or_else(|| read_auto_breaks(&state));
+    let auto_breaks = args.auto_breaks.unwrap_or_else(|| read_auto_breaks(state));
     let phases = if auto_breaks {
         crate::timers::plan_phases(args.duration_ms)
     } else {
@@ -103,7 +126,7 @@ pub fn timer_create(state: State, args: CreateTimerArgs) -> Result<Timer> {
         .ok_or_else(|| NervaError::Invalid("create failed".into()))
 }
 
-fn append_and_apply(state: &State, kind: &str, id: &str) -> Result<()> {
+fn append_and_apply(state: &AppState, kind: &str, id: &str) -> Result<()> {
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event(kind, &payload)?;
     let ev = StoredEvent {
@@ -118,7 +141,11 @@ fn append_and_apply(state: &State, kind: &str, id: &str) -> Result<()> {
 
 #[tauri::command]
 pub fn timer_start(state: State, id: String) -> Result<Timer> {
-    append_and_apply(&state, "timer.started", &id)?;
+    timer_start_for(&state, id)
+}
+
+pub(crate) fn timer_start_for(state: &AppState, id: String) -> Result<Timer> {
+    append_and_apply(state, "timer.started", &id)?;
     state
         .timers
         .lock()
@@ -129,7 +156,11 @@ pub fn timer_start(state: State, id: String) -> Result<Timer> {
 
 #[tauri::command]
 pub fn timer_pause(state: State, id: String) -> Result<Timer> {
-    append_and_apply(&state, "timer.paused", &id)?;
+    timer_pause_for(&state, id)
+}
+
+pub(crate) fn timer_pause_for(state: &AppState, id: String) -> Result<Timer> {
+    append_and_apply(state, "timer.paused", &id)?;
     state
         .timers
         .lock()
@@ -140,7 +171,11 @@ pub fn timer_pause(state: State, id: String) -> Result<Timer> {
 
 #[tauri::command]
 pub fn timer_resume(state: State, id: String) -> Result<Timer> {
-    append_and_apply(&state, "timer.resumed", &id)?;
+    timer_resume_for(&state, id)
+}
+
+pub(crate) fn timer_resume_for(state: &AppState, id: String) -> Result<Timer> {
+    append_and_apply(state, "timer.resumed", &id)?;
     state.audio.play_resume();
     state
         .timers
@@ -152,7 +187,11 @@ pub fn timer_resume(state: State, id: String) -> Result<Timer> {
 
 #[tauri::command]
 pub fn timer_reset(state: State, id: String) -> Result<Timer> {
-    append_and_apply(&state, "timer.reset", &id)?;
+    timer_reset_for(&state, id)
+}
+
+pub(crate) fn timer_reset_for(state: &AppState, id: String) -> Result<Timer> {
+    append_and_apply(state, "timer.reset", &id)?;
     state
         .timers
         .lock()
@@ -175,6 +214,10 @@ pub fn timer_list(state: State) -> Result<Vec<Timer>> {
 /// or crossed a focus↔break boundary.
 #[tauri::command]
 pub fn timer_tick(state: State) -> Result<TickReport> {
+    timer_tick_for(&state)
+}
+
+pub(crate) fn timer_tick_for(state: &AppState) -> Result<TickReport> {
     let mut engine = state.timers.lock();
     let (completed, phase_changes) = engine.tick();
     // Resolve linked task ids up front while we hold the engine lock; we'll
@@ -277,6 +320,34 @@ pub fn note_get(state: State, id: String) -> Result<Option<Note>> {
 
 #[tauri::command]
 pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
+    note_save_for(&state, args)
+}
+
+pub(crate) fn note_save_for(state: &AppState, args: SaveNoteArgs) -> Result<Note> {
+    note_save_checked(state, args, None)
+}
+
+pub(crate) fn note_save_checked(
+    state: &AppState,
+    args: SaveNoteArgs,
+    expected: Option<(&str, i64)>,
+) -> Result<Note> {
+    let mut notes = state.notes.lock();
+    if let Some((body, updated_ms)) = expected {
+        let id = args
+            .id
+            .as_deref()
+            .ok_or_else(|| NervaError::Invalid("note id required".into()))?;
+        let current = state
+            .store
+            .note_get(id)?
+            .ok_or_else(|| NervaError::NotFound(id.into()))?;
+        if current.2 != body || current.3 != updated_ms {
+            return Err(NervaError::Invalid(
+                "This note changed. Reopen it before saving.".into(),
+            ));
+        }
+    }
     // Body size guard. Tauri/SQLite both technically handle multi-MB blobs,
     // but the FTS5 trigger + JSON event payload + embedding round-trip all
     // pay O(n) per save, so a multi-MB paste can freeze the UI for seconds
@@ -343,7 +414,7 @@ pub fn note_save(state: State, args: SaveNoteArgs) -> Result<Note> {
         kind: "note.saved".into(),
         payload,
     };
-    state.notes.lock().apply(&ev);
+    notes.apply(&ev);
 
     // Fire-and-forget embedding. We deliberately don't await — saves stay
     // fast even when Ollama is slow/offline, and a missing embedding just
@@ -390,6 +461,7 @@ pub fn note_list(state: State) -> Result<Vec<NoteMeta>> {
 #[tauri::command]
 pub fn note_delete(app: tauri::AppHandle, state: State, id: String) -> Result<()> {
     use tauri::Emitter;
+    let mut notes = state.notes.lock();
     if id.trim().is_empty() {
         return Err(NervaError::Invalid("note id required".into()));
     }
@@ -415,7 +487,7 @@ pub fn note_delete(app: tauri::AppHandle, state: State, id: String) -> Result<()
         kind: "note.deleted".into(),
         payload: payload.clone(),
     };
-    state.notes.lock().apply(&ev);
+    notes.apply(&ev);
     // Cross-window notification — listeners are in NotesPanel + StickyNote.
     let _ = app.emit("note:deleted", payload);
     Ok(())
@@ -634,6 +706,10 @@ pub fn task_list(state: State) -> Result<Vec<Task>> {
 
 #[tauri::command]
 pub fn task_create(state: State, args: CreateTaskArgs) -> Result<Task> {
+    task_create_for(&state, args)
+}
+
+pub(crate) fn task_create_for(state: &AppState, args: CreateTaskArgs) -> Result<Task> {
     let title = args.title.trim();
     if title.is_empty() {
         return Err(NervaError::Invalid("task title required".into()));
@@ -664,6 +740,10 @@ pub fn task_create(state: State, args: CreateTaskArgs) -> Result<Task> {
 
 #[tauri::command]
 pub fn task_toggle(state: State, id: String) -> Result<Task> {
+    task_toggle_for(&state, id)
+}
+
+pub(crate) fn task_toggle_for(state: &AppState, id: String) -> Result<Task> {
     let kind = {
         let proj = state.tasks.lock();
         let t = proj
@@ -2277,6 +2357,10 @@ pub fn habit_delete(state: State, id: String) -> Result<()> {
 
 #[tauri::command]
 pub fn habit_log(state: State, args: LogHabitArgs) -> Result<HabitEntry> {
+    habit_log_for(&state, args)
+}
+
+pub(crate) fn habit_log_for(state: &AppState, args: LogHabitArgs) -> Result<HabitEntry> {
     if args.day.len() != 10 {
         return Err(NervaError::Invalid("day must be ISO YYYY-MM-DD".into()));
     }
@@ -2304,6 +2388,10 @@ pub fn habit_log(state: State, args: LogHabitArgs) -> Result<HabitEntry> {
 
 #[tauri::command]
 pub fn habit_clear(state: State, args: ClearHabitArgs) -> Result<()> {
+    habit_clear_for(&state, args)
+}
+
+pub(crate) fn habit_clear_for(state: &AppState, args: ClearHabitArgs) -> Result<()> {
     let payload = serde_json::json!({ "habit_id": args.habit_id, "day": args.day });
     let evt_id = state.store.append_event("habit.cleared", &payload)?;
     let ev = StoredEvent {

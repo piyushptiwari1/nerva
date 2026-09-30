@@ -83,7 +83,7 @@ export function SettingsPane() {
             transition={{ duration: 0.14 }}
             className={
               isMobile()
-                ? "w-full h-full glass overflow-hidden flex flex-col"
+                ? "settings-pane w-full h-full glass overflow-hidden flex flex-col"
                 : "w-[680px] max-w-[94vw] h-[460px] glass rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
             }
           >
@@ -104,9 +104,9 @@ export function SettingsPane() {
                 </span>
               )}
             </header>
-            <div className="flex-1 min-h-0 flex">
+            <div className="settings-body flex-1 min-h-0 flex">
               {/* Tab rail */}
-              <nav className="w-28 border-r border-ink-700/40 py-2 flex flex-col" role="tablist">
+              <nav className="settings-tabs w-28 border-r border-ink-700/40 py-2 flex flex-col" role="tablist">
                 {TABS.map((t) => (
                   <button
                     key={t}

@@ -19,9 +19,13 @@ pub mod state;
 pub mod store;
 pub mod tasks;
 pub mod timers;
+#[cfg(any(target_os = "android", test))]
+pub mod widgets;
 pub mod workspaces;
 
+#[cfg(not(target_os = "android"))]
 use state::AppState;
+#[cfg(not(target_os = "android"))]
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
@@ -85,6 +89,9 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init());
 
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(widgets::android::init());
+
     // Desktop-only plugins. Mobile has one activity (no second instance),
     // no global shortcuts, and updates flow through the store.
     #[cfg(desktop)]
@@ -114,10 +121,17 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
             let handle = app.handle().clone();
+            #[cfg(not(target_os = "android"))]
             let state = AppState::initialize(&handle)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+            #[cfg(not(target_os = "android"))]
             let state = Arc::new(state);
+            #[cfg(target_os = "android")]
+            let state = widgets::android::shared_state(handle.path().app_data_dir()?)
+                .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             app.manage(state.clone());
+            #[cfg(target_os = "android")]
+            widgets::android::attach(handle.clone());
 
             // Wire up the system-tray menu. The icon itself is declared in
             // tauri.conf.json (so it's bundled and registered at boot); here
@@ -202,6 +216,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ipc::ping,
             ipc::get_runtime_info,
+            ipc::android_widgets,
             // timers
             ipc::timer_create,
             ipc::timer_start,

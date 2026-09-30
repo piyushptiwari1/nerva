@@ -34,6 +34,7 @@ src-tauri/gen/android/app/*.keystore
 
 *.tsbuildinfo
 dist/
+test-results/
 
 
 # Secrets — NEVER commit

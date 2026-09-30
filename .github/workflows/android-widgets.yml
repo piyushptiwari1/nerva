@@ -1,0 +1,95 @@
+name: Android Widgets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-widgets.yml'
+      - 'scripts/test-android-widgets.sh'
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'package*.json'
+      - 'index.html'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-widgets.yml'
+      - 'scripts/test-android-widgets.sh'
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'package*.json'
+      - 'index.html'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-widgets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  widgets:
+    name: Native Widgets (API 35)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 2
+      GRADLE_OPTS: '-Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs=-Xmx2g'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.0.12077973'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android-widget-tests
+      - run: npm ci
+      - name: Build shared Rust core and Android app
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          npx tauri android build --apk --target x86_64 --ci
+      - name: Build instrumented widget tests
+        run: |
+          src-tauri/gen/android/gradlew -p src-tauri/gen/android \
+            :app:assembleUniversalDebug :app:assembleUniversalDebugAndroidTest \
+            -x rustBuildUniversalDebug --max-workers=2 --no-daemon --console=plain \
+            -Dorg.gradle.jvmargs=-Xmx2g -Pkotlin.compiler.execution.strategy=in-process
+          src-tauri/gen/android/gradlew -p src-tauri/gen/android --stop
+      - name: Enable emulator acceleration
+        run: |
+          sudo -n chmod a+rw /dev/kvm
+      - name: Verify widget behavior on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          ram-size: 2048M
+          cores: 2
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -feature -Vulkan
+          script: bash scripts/test-android-widgets.sh
+      - name: Retain Android diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-widget-results-${{ github.run_attempt }}
+          path: |
+            test-results/android-widgets/
+            src-tauri/gen/android/app/build/reports/
+          if-no-files-found: warn
+          retention-days: 14

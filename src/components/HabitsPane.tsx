@@ -8,6 +8,7 @@ import {
   type HabitStats,
 } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
+import { isMobile } from "@/lib/platform";
 
 /**
  * HabitsPane — daily habit tracker.
@@ -70,7 +71,7 @@ export function HabitsPane() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 32, opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="w-[min(820px,96vw)] h-full bg-ink-900/95 border-l border-ink-700/60 backdrop-blur-md shadow-2xl flex flex-col"
+            className="habits-pane w-[min(820px,96vw)] h-full bg-ink-900/95 border-l border-ink-700/60 backdrop-blur-md shadow-2xl flex flex-col"
           >
             <header className="px-5 py-3 border-b border-ink-700/50 flex items-center justify-between bg-gradient-to-b from-ink-800/40 to-transparent">
               <div className="flex items-center gap-3">
@@ -81,19 +82,19 @@ export function HabitsPane() {
                   <h2 className="text-sm font-semibold text-ink-100 tracking-tight">
                     Habits
                   </h2>
-                  <p className="text-[10.5px] text-ink-400 mt-0.5">
+                  {!isMobile() && <p className="text-[10.5px] text-ink-400 mt-0.5">
                     Click a habit to see its full history.
-                  </p>
+                  </p>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                {!isMobile() && <button
                   onClick={() => ipc.openHabitsWidget()}
                   className="text-[11px] px-2.5 py-1.5 rounded-md bg-ink-800 hover:bg-ink-700 text-ink-200 border border-ink-700 transition-colors"
                   title="Open as floating widget"
                 >
                   ↗ pop up
-                </button>
+                </button>}
                 <button
                   onClick={() => setShowNew((v) => !v)}
                   className={`text-[11px] px-3 py-1.5 rounded-md transition-colors border ${
@@ -104,15 +105,16 @@ export function HabitsPane() {
                 >
                   {showNew ? "Cancel" : "+ New habit"}
                 </button>
-                <span className="text-[10px] text-ink-500 mx-1">
+                {!isMobile() && <span className="text-[10px] text-ink-500 mx-1">
                   <kbd className="border border-ink-700 rounded px-1 py-0.5">
                     Esc
                   </kbd>
-                </span>
+                </span>}
                 <button
                   onClick={hide}
                   className="text-ink-400 hover:text-ink-100 hover:bg-ink-800 w-7 h-7 rounded-md grid place-items-center transition-colors"
                   title="Close"
+                  aria-label="Close habits"
                 >
                   ×
                 </button>
@@ -226,7 +228,7 @@ function NewHabitForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div className="px-5 py-4 bg-ink-800/30 flex flex-col gap-3">
-      <div className="flex gap-2">
+      <div className="habit-name-row flex gap-2">
         <input
           autoFocus
           value={name}

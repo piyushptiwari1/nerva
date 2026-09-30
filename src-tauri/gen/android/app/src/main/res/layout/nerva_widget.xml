@@ -1,0 +1,26 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_surface_light">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="28dp" android:gravity="center_vertical">
+        <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@mipmap/ic_launcher" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Nerva" android:textColor="#192330" android:textSize="14sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:id="@+id/widget_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="4dp" android:textColor="#596575" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:id="@+id/widget_timer" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical" android:orientation="vertical" android:visibility="gone">
+            <Chronometer android:id="@+id/widget_countdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:textSize="32sp" android:textColor="#192330" android:maxLines="1" android:countDown="true" />
+            <TextView android:id="@+id/widget_remaining" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="32sp" android:fontFamily="sans-serif-medium" android:textColor="#192330" android:maxLines="1" android:visibility="gone" />
+            <TextView android:id="@+id/widget_phase" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#596575" android:maxLines="3" android:ellipsize="end" />
+            <ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:progressTint="#5179C7" android:progressBackgroundTint="#B3C0D3" android:max="100" />
+        </LinearLayout>
+        <ListView android:id="@+id/widget_list" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@null" android:visibility="gone" />
+        <TextView android:id="@+id/widget_note" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="top" android:paddingTop="4dp" android:textSize="14sp" android:textColor="#192330" android:lineSpacingExtra="3dp" android:maxLines="8" android:ellipsize="end" android:visibility="gone" />
+        <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Ready" android:textColor="#596575" android:textSize="13sp" android:visibility="gone" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
+        <ImageButton android:id="@+id/widget_primary" android:layout_width="48dp" android:layout_height="48dp" android:src="@android:drawable/ic_media_play" android:tint="#5179C7" android:padding="12dp" android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="Start session" />
+        <ImageButton android:id="@+id/widget_secondary" android:layout_width="48dp" android:layout_height="48dp" android:src="@android:drawable/ic_popup_sync" android:tint="#5179C7" android:padding="12dp" android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="Refresh widget" />
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="1dp" />
+        <ImageButton android:id="@+id/widget_configure" android:layout_width="48dp" android:layout_height="48dp" android:src="@android:drawable/ic_menu_preferences" android:tint="#5179C7" android:padding="12dp" android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="Configure widget" />
+    </LinearLayout>
+</LinearLayout>

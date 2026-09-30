@@ -41,6 +41,10 @@ futures-util = "0.3"
 # Pro licence: verify ECDSA P-256 device tokens issued by nerva.bytical.ai.
 p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
 base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
 
 # Desktop-only: multi-window widgets, tray, updater, synthesized audio.
 # Android/iOS use OS notifications for cues and have no updater/tray.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
 import { BoolCycleButton, boolState } from "@/components/HabitsWidget";
+import { isMobile } from "@/lib/platform";
 
 /**
  * HabitsRail — compact habits list for the home sidebar.
@@ -140,14 +141,16 @@ export function HabitsRail() {
           Habits
         </h3>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => ipc.openHabitsWidget()}
-            className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
-            title="Open as a floating always-on-top widget"
-            aria-label="Pop out habits widget"
-          >
-            ↗ Pop up
-          </button>
+          {!isMobile() && (
+            <button
+              onClick={() => ipc.openHabitsWidget()}
+              className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
+              title="Open as a floating always-on-top widget"
+              aria-label="Pop out habits widget"
+            >
+              ↗ Pop up
+            </button>
+          )}
           <button
             onClick={openHabits}
             className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"

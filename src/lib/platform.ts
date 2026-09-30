@@ -4,7 +4,17 @@
  * first paint is already the right layout). `@tauri-apps/plugin-os` would
  * be authoritative but is async — the UA is good enough to pick a shell.
  */
+import { platform } from "@tauri-apps/plugin-os";
+
 let cached: boolean | null = null;
+
+export function isAndroid(): boolean {
+  try {
+    return platform() === "android";
+  } catch {
+    return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  }
+}
 
 export function isMobile(): boolean {
   if (cached !== null) return cached;

@@ -1,0 +1,21 @@
+<resources>
+    <string name="widget_focus_name">Nerva Focus</string>
+    <string name="widget_tasks_name">Nerva Tasks</string>
+    <string name="widget_habits_name">Nerva Habits</string>
+    <string name="widget_notes_name">Nerva Note</string>
+    <string name="widget_focus_description">A selected focus session with countdown and start, pause and resume controls.</string>
+    <string name="widget_tasks_description">A workspace task list with completion, undo and quick capture.</string>
+    <string name="widget_habits_description">Today\'s habits with progress, direct logging and undo.</string>
+    <string name="widget_notes_description">A selected note with native editing and quick capture.</string>
+    <style name="Theme.Nerva.WidgetEditor" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#5179C7</item>
+        <item name="colorSecondary">#388569</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="Theme.Nerva.QuickCapture" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <item name="colorPrimary">#5179C7</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+</resources>

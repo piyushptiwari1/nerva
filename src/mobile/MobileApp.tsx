@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Check, Flame, LayoutGrid, ListTodo, Moon, NotebookPen, Plus, Settings, Sun, Timer, X } from "lucide-react";
 import { useApp } from "@/store/app";
 import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
@@ -6,20 +7,25 @@ import { useLicense, planLabel } from "@/lib/license";
 import { TimerStage } from "@/components/TimerStage";
 import { TasksPanel } from "@/components/TasksPanel";
 import { HabitsRail } from "@/components/HabitsRail";
+import { HabitsPane } from "@/components/HabitsPane";
 import { NotesPanel } from "@/components/NotesPanel";
 import { SettingsPane } from "@/components/SettingsPane";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WhatsNew } from "@/components/WhatsNew";
-import { rescheduleTimerAlerts, runningSignature } from "./alerts";
+import { useNativeWidgets } from "./widgets";
+import { WidgetsPane } from "./WidgetsPane";
+import { ipc } from "@/lib/ipc";
+import nervaIcon from "../../src-tauri/icons/icon.png";
+import "./mobile.css";
 
 type Tab = "focus" | "tasks" | "habits" | "notes";
 
-const TABS: { id: Tab; label: string; glyph: string }[] = [
-  { id: "focus", label: "Focus", glyph: "◔" },
-  { id: "tasks", label: "Tasks", glyph: "☑" },
-  { id: "habits", label: "Habits", glyph: "✦" },
-  { id: "notes", label: "Notes", glyph: "✎" },
-];
+const TABS = [
+  { id: "focus", label: "Focus", Icon: Timer },
+  { id: "tasks", label: "Tasks", Icon: ListTodo },
+  { id: "habits", label: "Habits", Icon: Flame },
+  { id: "notes", label: "Notes", Icon: NotebookPen },
+] as const;
 
 /**
  * One-column phone shell. Same Rust core, same stores, same panels as the
@@ -27,8 +33,13 @@ const TABS: { id: Tab; label: string; glyph: string }[] = [
  * grid. No floating windows, tray, or keyboard shortcuts on this surface.
  */
 export function MobileApp() {
-  const { ready, bootstrap, refreshTimers, timers } = useApp();
+  const { ready, bootstrap, refreshTimers, workspaces, active, activateWorkspace } = useApp();
+  const widgetError = useNativeWidgets();
   const [tab, setTab] = useState<Tab>("focus");
+  const [widgetsOpen, setWidgetsOpen] = useState(false);
+  const [workspaceDraft, setWorkspaceDraft] = useState<string | null>(null);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const openSettings = useSettingsUi((s) => s.setOpen);
   const theme = useTheme((s) => s.theme);
   const toggleTheme = useTheme((s) => s.toggleTheme);
@@ -47,23 +58,10 @@ export function MobileApp() {
   useEffect(() => {
     if (!ready) return;
     const h = window.setInterval(() => {
-      refreshTimers().catch(() => void 0);
+      if (document.visibilityState === "visible") refreshTimers().catch(() => void 0);
     }, 250);
     return () => window.clearInterval(h);
   }, [ready, refreshTimers]);
-
-  // Re-arm OS alarms whenever the running set changes (start/pause/reset,
-  // phase flip). Debounced by signature so the 250 ms tick is a no-op.
-  const lastSig = useRef("");
-  useEffect(() => {
-    const sig = runningSignature(timers);
-    // Only phase/identity changes matter; remaining seconds tick every second
-    // so compare with seconds stripped.
-    const coarse = sig.replace(/:\d+(\||$)/g, "$1");
-    if (coarse === lastSig.current) return;
-    lastSig.current = coarse;
-    void rescheduleTimerAlerts(timers);
-  }, [timers]);
 
   // Catch up after the WebView was suspended: Android freezes JS timers in
   // the background, so a single tick on resume snaps the UI to wall-clock.
@@ -75,56 +73,88 @@ export function MobileApp() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refreshTimers]);
 
+  async function changeWorkspace(id: string) {
+    setWorkspaceBusy(true);
+    setError(null);
+    try { await activateWorkspace(id); }
+    catch (failure) { setError(String(failure)); }
+    finally { setWorkspaceBusy(false); }
+  }
+
+  async function createWorkspace() {
+    if (!workspaceDraft?.trim() || workspaceBusy) return;
+    setWorkspaceBusy(true);
+    setError(null);
+    try {
+      const workspace = await ipc.workspaceCreate({ name: workspaceDraft.trim() });
+      await bootstrap();
+      await activateWorkspace(workspace.id);
+      setWorkspaceDraft(null);
+    } catch (failure) { setError(String(failure)); }
+    finally { setWorkspaceBusy(false); }
+  }
+
   return (
-    <div
-      className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
-    >
-      <header className="h-12 px-4 flex items-center gap-2 shrink-0">
-        <div className="w-6 h-6 rounded-md bg-accent/20 border border-accent/30 grid place-items-center text-accent-glow text-[11px] font-semibold">
-          N
-        </div>
-        <span className="font-semibold tracking-tight">Nerva</span>
-        <span className="text-ink-500 text-[11px] -ml-1">by Bytical</span>
+    <div className="mobile-app bg-ink-950 text-ink-100">
+      <header className="mobile-header">
+        <img className="mobile-brand-icon" src={nervaIcon} alt="" />
+        <div className="mobile-brand"><strong>Nerva</strong><span>by Bytical</span></div>
         {isPro && (
           <span
-            className="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded bg-focus/15 border border-focus/40 text-focus"
-            title={`Nerva Pro · ${planLabel(plan)}`}
+            className="text-[10px] font-semibold text-focus"
+            title={`Nerva Pro: ${planLabel(plan)}`}
           >
-            ★ Pro
+            Pro
           </span>
         )}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center">
+          <button onClick={() => setWidgetsOpen(true)} className="mobile-icon" aria-label="Home-screen widgets" title="Home-screen widgets"><LayoutGrid size={20} /></button>
           <button
             onClick={toggleTheme}
-            className="w-9 h-9 grid place-items-center rounded-md text-ink-300 active:bg-ink-800"
+            className="mobile-icon"
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Light theme" : "Dark theme"}
           >
-            {theme === "dark" ? "☀" : "☾"}
+            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
           <button
             onClick={() => openSettings(true)}
-            className="w-9 h-9 grid place-items-center rounded-md text-ink-300 active:bg-ink-800"
+            className="mobile-icon"
             aria-label="Settings"
+            title="Settings"
           >
-            ⚙
+            <Settings size={20} />
           </button>
         </div>
       </header>
-
-      <main className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 flex flex-col">
+      <div className="mobile-workspace">
+        {workspaceDraft === null ? <>
+          <label className="flex-1 min-w-0"><span>Workspace</span>
+            <select value={active?.id ?? ""} disabled={workspaceBusy} onChange={(event) => void changeWorkspace(event.target.value)} aria-label="Active workspace">
+              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+            </select>
+          </label>
+          <button onClick={() => setWorkspaceDraft("")} className="mobile-icon" aria-label="New workspace" title="New workspace"><Plus size={20} /></button>
+        </> : <form onSubmit={(event) => { event.preventDefault(); void createWorkspace(); }} className="flex w-full items-center gap-1">
+          <input autoFocus className="flex-1 min-w-0" value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} aria-label="Workspace name" placeholder="Workspace name" />
+          <button type="submit" disabled={workspaceBusy || !workspaceDraft.trim()} className="mobile-icon" aria-label="Create workspace" title="Create workspace"><Check size={20} /></button>
+          <button type="button" onClick={() => setWorkspaceDraft(null)} className="mobile-icon" aria-label="Cancel workspace" title="Cancel"><X size={20} /></button>
+        </form>}
+      </div>
+      <main className="mobile-content" id="mobile-tab-panel" role="tabpanel" aria-labelledby={`mobile-tab-${tab}`}>
+        {(widgetError || error) && <p role="alert" className="mobile-error">{error ?? `Widget refresh failed: ${widgetError}`}</p>}
         {!ready && <div className="text-xs text-ink-500 p-4">Loading…</div>}
         {ready && tab === "focus" && (
           <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
         )}
         {ready && tab === "tasks" && (
           <ErrorBoundary scope="TasksPanel">
-            <section className="glass rounded-xl p-3"><TasksPanel /></section>
+            <section className="mobile-list-pane"><TasksPanel /></section>
           </ErrorBoundary>
         )}
         {ready && tab === "habits" && (
           <ErrorBoundary scope="HabitsRail">
-            <section className="glass rounded-xl p-3"><HabitsRail /></section>
+            <section className="mobile-list-pane"><HabitsRail /></section>
           </ErrorBoundary>
         )}
         {ready && tab === "notes" && (
@@ -133,30 +163,32 @@ export function MobileApp() {
       </main>
 
       <nav
-        className="shrink-0 glass border-t border-ink-700/40 grid grid-cols-4"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="mobile-tabs"
         role="tablist"
+        aria-label="Workspace views"
       >
-        {TABS.map((t) => {
-          const active = tab === t.id;
+        {TABS.map(({ id, label, Icon }) => {
+          const selected = tab === id;
           return (
             <button
-              key={t.id}
+              key={id}
+              id={`mobile-tab-${id}`}
               role="tab"
-              aria-selected={active}
-              onClick={() => setTab(t.id)}
-              className={`h-14 flex flex-col items-center justify-center gap-0.5 text-[11px] ${
-                active ? "text-accent-glow" : "text-ink-400"
-              }`}
+              aria-controls="mobile-tab-panel"
+              aria-selected={selected}
+              onClick={() => setTab(id)}
+              className={selected ? "selected" : ""}
             >
-              <span className="text-lg leading-none">{t.glyph}</span>
-              {t.label}
+              <Icon size={21} aria-hidden="true" />
+              {label}
             </button>
           );
         })}
       </nav>
 
       <ErrorBoundary scope="SettingsPane"><SettingsPane /></ErrorBoundary>
+      <ErrorBoundary scope="HabitsPane"><HabitsPane /></ErrorBoundary>
+      {widgetsOpen && <ErrorBoundary scope="WidgetsPane"><WidgetsPane onClose={() => setWidgetsOpen(false)} /></ErrorBoundary>}
       <ErrorBoundary scope="WhatsNew"><WhatsNew /></ErrorBoundary>
     </div>
   );

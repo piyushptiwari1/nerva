@@ -29,6 +29,10 @@ pub struct AppState {
 impl AppState {
     pub fn initialize(app: &AppHandle) -> Result<Self> {
         let data_dir = resolve_data_dir(app)?;
+        Self::initialize_at(data_dir)
+    }
+
+    pub(crate) fn initialize_at(data_dir: PathBuf) -> Result<Self> {
         std::fs::create_dir_all(&data_dir)?;
         tracing::info!(path = %data_dir.display(), "data directory");
 

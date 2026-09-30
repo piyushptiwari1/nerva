@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ipc, type NoteSearchHit, type SemanticHit } from "@/lib/ipc";
 import { useApp } from "@/store/app";
 import { renderMarkdown } from "@/lib/markdown";
+import { isMobile } from "@/lib/platform";
 
 type Mode = "edit" | "view";
 
@@ -351,14 +352,16 @@ export function NotesPanel() {
           >
             {mode === "edit" ? "View" : "Edit"}
           </button>
-          <button
-            onClick={popSticky}
-            disabled={!currentId}
-            className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Open this note in a floating sticky window"
-          >
-            Pop up
-          </button>
+          {!isMobile() && (
+            <button
+              onClick={popSticky}
+              disabled={!currentId}
+              className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Open this note in a floating sticky window"
+            >
+              Pop up
+            </button>
+          )}
           <button
             onClick={newNote}
             className="text-xs font-semibold px-2.5 py-1 rounded-md bg-accent text-ink-950 hover:bg-accent-glow shadow-glow transition-colors"
@@ -451,7 +454,7 @@ export function NotesPanel() {
               }}
               spellCheck={false}
               className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none placeholder:text-ink-500"
-              placeholder={"Type your note here \u2014 it auto-saves as you write.\n\nMarkdown works:  # heading  **bold**  - list  `code`\nPop up to a sticky window with the button above."}
+              placeholder="Write a note..."
               aria-label="Note body"
             />
           ) : (

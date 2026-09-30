@@ -1,12 +1,103 @@
-# Nerva — Mobile (Android shipped in beta · iOS planned)
+# Nerva — Mobile Research and Implementation
 
-> **Status (v0.1.14):** Android APK builds from the same repo via Tauri 2
-> mobile and is attached to every GitHub release. iOS is fully planned but
-> **on hold until Bytical has an Apple Developer account** (needs macOS +
-> $99/yr for signing/TestFlight). Nothing in the codebase blocks it.
+> **Baseline (v0.1.14):** Android APK available, but no native home-screen
+> widgets. Desktop pop-out controls and the generated Tauri launcher icon
+> were incorrectly retained. A successful APK build did not validate the
+> complete mobile experience. The widget work below is in progress, not a
+> claim about the published APK. iOS and Google Play publishing remain planned.
 >
 > The earlier native-companion spec (SwiftUI/Compose over a UniFFI core) is
 > archived in `MOBILE_NATIVE_COMPANION_ARCHIVED.md` for the widget ideas.
+
+## Research (2026-09-26)
+
+This is a qualitative desk review of official product/help pages, their
+published UI examples, and a small sample of publicly visible Google Play
+reviews. It is not a usability study or a representative survey. Review
+dates below matter: historical complaints are test scenarios, not claims
+that a competitor still has that defect. Reddit search did not expose
+readable comments, so no Reddit findings are asserted. No competitor code
+or artwork is being copied.
+
+| Competitor | Documented functionality | User-facing approach / UI | Nerva decision |
+|---|---|---|---|
+| [TickTick](https://ticktick.com/features) | Tasks, recurring reminders, calendar, lists/kanban, habits, Pomodoro, widgets for viewing/adding tasks | One planner spanning several jobs; consistent task context across views | Keep context, but show one job per widget instead of an entire dashboard |
+| [Todoist Android widgets](https://www.todoist.com/help/todoist/features/use-a-todoist-widget-on-your-android-device-632pZA) | Project/filter selection, task list, completion, Quick Add, productivity summary, theme/font/opacity configuration | Preview during setup; direct completion in normal mode; compact mode removes the completion circle | Per-widget source selection and preview; never sacrifice a direct completion control just to fit more rows |
+| [Loop Habit Tracker](https://loophabits.org/) / [F-Droid](https://f-droid.org/en/packages/org.isoron.uhabits/) | Flexible habits, progress history, score, notification actions, offline operation | Minimal interface, progress that is not destroyed by one missed day | Visible done/skipped/not-recorded states, simple increments and undo; no punitive messaging |
+| [Focus To-Do](https://www.focustodo.cn/) | Task-linked Pomodoro, subtasks, repeats, reminders, time reports, cross-device access | Connect the task, focus session and history; timer is an execution tool | Show selected session name, phase and remaining time together; retain the existing Rust timer engine |
+| [Google Keep widgets](https://support.google.com/keep/answer/13302793?hl=en) | Single note, note collection, quick capture; checklist toggles on the home screen | Choose the content once; keep it visible; text editing opens a dedicated editing surface | Pinned note and quick capture; native text editor rather than pretending an Android widget can host an EditText |
+| [Forest](https://www.forestapp.cc/) | Focus duration, visual session progress and history, distraction-blocking features | A single prominent session state with a visual reward | Borrow clarity of the primary action, not the game, punitive failure state or decorative illustrations |
+
+### Public feedback and resulting requirements
+
+| Source / sample | Observation | Requirement |
+|---|---|---|
+| [Loop reviews](https://play.google.com/store/apps/details?id=org.isoron.uhabits&hl=en), 2026-09-07 and 2026-08-19 | Users report weak dark-theme contrast and difficulty distinguishing habit states | Status must use text/symbols as well as color; check both themes |
+| [TickTick reviews](https://play.google.com/store/apps/details?id=com.ticktick.task&hl=en), 2026-07-11 and 2026-07-28 | One reviewer finds the interface difficult and wants time corrections; another values the integrated, clean feature set | Progressive disclosure, reversible actions, no raw internal event names |
+| [Focus To-Do reviews](https://play.google.com/store/apps/details?id=com.superelement.pomodoro&hl=en), 2020-10-04 and 2025-01-24 | Historical lost-progress report; later praise for sync and requests for better batch interaction | Persistence/reopen tests are release gates; do not imply Nerva has cross-device sync |
+| [Keep reviews](https://play.google.com/store/apps/details?id=com.google.android.keep&hl=en), 2026-09-08 and 2026-07-15 | Fast capture is valued; another reviewer requests more privacy control | Few-step capture; note content appears on the home screen only after explicit selection |
+| [Todoist widget help](https://www.todoist.com/help/todoist/features/use-a-todoist-widget-on-your-android-device-632pZA) | Documents frozen widgets under some battery-management conditions | Test cold-process actions and resume, not only widgets while the app is open |
+
+## Functionality, Intent, Problems and Use Cases
+
+| Function | Intent and problem statement | Concrete use case | UI/UX and implementation approach |
+|---|---|---|---|
+| Focus widget | Opening the full app just to check/pause a session interrupts focus | Select a session, start/pause/resume it, glance at the next boundary | Native countdown, phase text, end time and primary play/pause control; reuse Rust wall-clock math |
+| Tasks widget | A shortcut is not a useful list; users need to finish work in place | Pin a workspace list, complete a task, undo a mistaken completion, quick-add another | Scrollable rows, 48 dp action targets, due/priority context, in-place mutation and undo |
+| Habits widget | Logging should not require navigating a tracker | Pin a habit/list, record today, increment a measured target, undo | Distinct status text, progress against target, native log/undo actions; local calendar day |
+| Notes widget | Important information should stay visible without opening the editor | Pin one note, read an excerpt, edit or capture in a small native sheet | Explicit note selection, readable text, edit/capture surface without launching Tauri |
+| Widget configuration | Multiple widgets must not all silently follow the same global selection | Work tasks and personal tasks on separate home pages | Persist selection per appWidgetId, preview, reconfigure, reset missing/deleted sources safely |
+| Branding and phone shell | Generated icon and desktop-only buttons undermine trust | Recognize Nerva, add a habit, switch workspace, use Settings on a narrow screen | Existing Nerva artwork, consistent icons, no floating-window commands, visible close/back controls |
+
+## Usability Contract
+
+- Native Android widgets, not embedded WebViews or simulated widget cards.
+- One clear job per widget, with a stable header/content/action hierarchy.
+- At least 48 dp interactive targets; accessible labels; text and symbols
+  supplement semantic color. No gesture-only essential commands.
+- Resize by useful content density, never by shrinking text below legibility.
+- Follow system light/dark appearance with restrained accent colors and
+  Android widget corner conventions, not nested decorative cards.
+- Show persisted results immediately. Keep configuration and independent
+  widget instances across restart, process eviction and app upgrade.
+- Use platform Chronometer/alarm facilities rather than a per-second worker.
+- Reconcile app and widget changes through the same Rust state and SQLite
+  event store. No second timer model, duplicate database or fake success.
+- Exact-alarm/notification denial must be visible and handled. Android
+  force-stop and some OEM power policies can prevent background delivery;
+  do not promise an unconditional alarm guarantee.
+- A small native capture/editor Activity is necessary for text input:
+  Android RemoteViews do not support a normal editable text field.
+
+## Acceptance and Verification
+
+1. All four providers appear in the launcher widget picker with Nerva branding.
+2. Configure two instances with different sources; resize both and verify isolation.
+3. Start/pause/resume a timer, complete/undo a task and log/undo a habit without
+   creating MainActivity or a Tauri WebView, including after process eviction.
+4. Reopen the app and confirm the same data; app edits refresh pinned widgets.
+5. Test empty/deleted sources, repeated taps, midnight/time-zone changes,
+   denied notification/alarm permissions and restart recovery.
+6. Inspect minimum-size layouts, large fonts and both themes; no clipped
+   primary controls or inaccessible touch targets.
+7. Run focused Rust/native tests, Android build and desktop regression gates.
+8. Publish only verified results. Device/OEM tests not executed are reported
+   explicitly; neither a compile nor a screenshot proves alarm delivery.
+
+### Clean-Emulator Gate
+
+The `Android Widgets` workflow builds the x86_64 Rust core and debug test
+APKs before starting a fresh API 35 emulator. It runs the persistence/layout
+test, a separate cold-process test, and the live collection-button test in
+that order. A failed instrumentation assertion fails the job even when ADB
+returns exit code zero. Logs, widget state and screenshots are retained as
+`android-widget-results-<attempt>` for 14 days. This workflow does not publish
+a release or use signing secrets.
+
+With those debug APKs built and an isolated emulator running, use
+`bash scripts/test-android-widgets.sh` to repeat the same checks. This clears
+Nerva's data on the connected test device; never run it against a personal
+phone with real data. Output is written under `test-results/android-widgets/`.
 
 ## Decision: Tauri 2 mobile, not native shells
 
@@ -18,7 +109,8 @@
 | Home-screen widgets / Live Activities | ⬜ later via a small native plugin | ✅ first-class |
 | Maintenance | one release pipeline | three |
 
-Widgets are nice-to-have; a working app on the phone is the feature.
+Home-screen widgets are a primary Android workflow. Tauri remains the full
+app shell; native Android components own launcher widgets and quick capture.
 
 ## What's in the Android build
 
