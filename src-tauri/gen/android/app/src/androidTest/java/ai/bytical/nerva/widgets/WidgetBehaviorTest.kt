@@ -175,9 +175,9 @@ class WidgetBehaviorTest {
                 val title = findText(taskActivity.container, task.getString("title"))!!
                 (title.parent.parent as View).findViewById<View>(R.id.widget_row_action).performClick()
             }
+            awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
             awaitText(taskActivity, task.getString("title"), false)
             assertEquals("done", findTask(task.getString("id")).getString("status"))
-            awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
             instrumentation.runOnMainSync { taskActivity.widgetView.findViewById<View>(R.id.widget_secondary).performClick() }
             awaitText(taskActivity, task.getString("title"), true)
             assertEquals("todo", findTask(task.getString("id")).getString("status"))
