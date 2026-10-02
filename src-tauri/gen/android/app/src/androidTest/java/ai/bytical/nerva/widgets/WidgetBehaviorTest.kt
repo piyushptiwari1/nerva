@@ -162,6 +162,10 @@ class WidgetBehaviorTest {
         val taskActivity = launchHost(widgetId)
         try {
             awaitText(taskActivity, task.getString("title"), true)
+            instrumentation.runOnMainSync {
+                assertNull("Widget IDs are isolated from the Activity namespace", taskActivity.findViewById<View>(R.id.widget_secondary))
+                assertNotNull("Widget controls resolve inside the host", taskActivity.widgetView.findViewById<View>(R.id.widget_secondary))
+            }
             instrumentation.uiAutomation.takeScreenshot().let { bitmap ->
                 val file = File(context.getExternalFilesDir(null), "widget-test-screenshots/tasks-live.png")
                 file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -174,7 +178,7 @@ class WidgetBehaviorTest {
             awaitText(taskActivity, task.getString("title"), false)
             assertEquals("done", findTask(task.getString("id")).getString("status"))
             awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
-            instrumentation.runOnMainSync { taskActivity.findViewById<View>(R.id.widget_secondary).performClick() }
+            instrumentation.runOnMainSync { taskActivity.widgetView.findViewById<View>(R.id.widget_secondary).performClick() }
             awaitText(taskActivity, task.getString("title"), true)
             assertEquals("todo", findTask(task.getString("id")).getString("status"))
         } finally { instrumentation.runOnMainSync { taskActivity.finish() } }
@@ -230,7 +234,7 @@ class WidgetBehaviorTest {
         lateinit var listener: ViewTreeObserver.OnPreDrawListener
         instrumentation.runOnMainSync {
             fun checkControl() {
-                val control = activity.findViewById<View>(id)
+                val control = activity.widgetView.findViewById<View>(id)
                 if (control?.visibility == View.VISIBLE && control.contentDescription?.toString() == description) ready.countDown()
             }
             listener = ViewTreeObserver.OnPreDrawListener {
@@ -245,7 +249,7 @@ class WidgetBehaviorTest {
         try {
             val found = ready.await(30, TimeUnit.SECONDS)
             var actual = ""
-            instrumentation.runOnMainSync { actual = "destroyed=${activity.isDestroyed}, control=${activity.findViewById<View>(id)}, label=${activity.findViewById<View>(id)?.contentDescription}" }
+            instrumentation.runOnMainSync { actual = "destroyed=${activity.isDestroyed}, control=${activity.widgetView.findViewById<View>(id)}, label=${activity.widgetView.findViewById<View>(id)?.contentDescription}" }
             assertTrue("Widget control '$description' should be ready: $actual", found)
         }
         finally { instrumentation.runOnMainSync { activity.container.viewTreeObserver.removeOnPreDrawListener(listener) } }
