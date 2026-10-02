@@ -65,6 +65,12 @@ object NervaWidgets {
         val config = preview ?: WidgetConfig.load(context, widgetId)
         val palette = config.palette(context)
         val views = RemoteViews(context.packageName, R.layout.nerva_widget)
+        listOf(R.id.widget_timer, R.id.widget_list, R.id.widget_note, R.id.widget_empty).forEach {
+            views.setViewVisibility(it, View.GONE)
+        }
+        views.setImageViewResource(R.id.widget_secondary, android.R.drawable.ic_popup_sync)
+        views.setContentDescription(R.id.widget_secondary, "Refresh widget")
+        views.setViewVisibility(R.id.widget_secondary, View.VISIBLE)
         views.setInt(android.R.id.background, "setBackgroundResource", if (palette.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light)
         listOf(R.id.widget_title, R.id.widget_countdown, R.id.widget_remaining, R.id.widget_note).forEach { views.setTextColor(it, palette.text) }
         listOf(R.id.widget_subtitle, R.id.widget_phase, R.id.widget_empty).forEach { views.setTextColor(it, palette.secondary) }

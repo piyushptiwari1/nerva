@@ -36,7 +36,8 @@ trap collect_results EXIT
 
 run_test() {
   local method="$1"
-  "$ADB" shell am instrument -w -r -e class "$CLASS#$method" "$RUNNER" | tee "$OUTPUT/$method.txt"
+  local suite="${2:-$CLASS}"
+  "$ADB" shell am instrument -w -r -e class "$suite#$method" "$RUNNER" | tee "$OUTPUT/$method.txt"
   if ! grep -Eq '^OK \(1 test\)' "$OUTPUT/$method.txt"; then
     printf 'Android widget test failed: %s\n' "$method" >&2
     return 1
@@ -48,3 +49,4 @@ run_test providersActionsPersistenceAndLayouts
 run_test coldProcessRecoversAndActsWithoutMainActivity
 "$ADB" shell am force-stop ai.bytical.nerva
 run_test liveCollectionsRenderAndAcceptTap
+run_test reapplyClearsStaleEmptyContentAndUndo ai.bytical.nerva.widgets.WidgetRenderingTest
