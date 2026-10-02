@@ -124,35 +124,69 @@ export async function writeJson(path: string, data: unknown, message: string, sh
   return false;
 }
 
-/** Read all events of `kind` for the last `days` days. Missing days skipped. */
-export async function readEvents(
-  kind: EventKind,
-  days: number,
-): Promise<Record<string, unknown>[]> {
-  const token = (globalThis as { process?: { env?: Record<string, string> } })
-    .process?.env?.GH_METRICS_TOKEN;
-  if (!token) return [];
-  const out: Record<string, unknown>[] = [];
-  const fetches: Promise<void>[] = [];
-  for (let i = 0; i < days; i++) {
-    const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-    const api = `https://api.github.com/repos/${METRICS_REPO}/contents/events/${kind}/${day}.json`;
-    fetches.push(
-      (async () => {
+type MetricEvent = Record<string, unknown>;
+const EVENT_KINDS: EventKind[] = ["downloads", "pings", "feedback", "licenses"];
+
+export async function readEventWindows(windows: Partial<Record<EventKind, number>>): Promise<{
+  events: Record<EventKind, MetricEvent[]>;
+  incomplete: EventKind[];
+}> {
+  const events: Record<EventKind, MetricEvent[]> = { downloads: [], pings: [], feedback: [], licenses: [] };
+  const requested = EVENT_KINDS.filter((kind) => Number.isFinite(windows[kind]) && Number(windows[kind]) > 0);
+  const incomplete = new Set<EventKind>();
+  const token = (globalThis as { process?: { env?: Record<string, string> } }).process?.env?.GH_METRICS_TOKEN;
+  if (!requested.length) return { events, incomplete: [] };
+  if (!token) return { events, incomplete: requested };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const options = { headers: ghHeaders(token), signal: controller.signal };
+  try {
+    const response = await fetch(`https://api.github.com/repos/${METRICS_REPO}/git/trees/HEAD?recursive=1`, options);
+    if (!response.ok) throw new Error(`metrics index ${response.status}`);
+    const index = await response.json() as { tree?: { path: string; type: string; sha: string }[]; truncated?: boolean };
+    if (!Array.isArray(index.tree) || index.truncated) throw new Error("incomplete metrics index");
+    const now = Date.now();
+    const today = new Date(now).toISOString().slice(0, 10);
+    const files = index.tree.flatMap((entry) => {
+      if (entry.type !== "blob" || !/^[a-f0-9]{40,64}$/.test(entry.sha)) return [];
+      const match = /^events\/(downloads|pings|feedback|licenses)\/(\d{4}-\d{2}-\d{2})\.json$/.exec(entry.path);
+      if (!match) return [];
+      const kind = match[1] as EventKind;
+      if (!requested.includes(kind)) return [];
+      const days = Math.min(3660, Math.floor(Number(windows[kind])));
+      const start = new Date(now - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+      return match[2] >= start && match[2] <= today ? [{ kind, sha: entry.sha }] : [];
+    });
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(6, files.length) }, async () => {
+      while (cursor < files.length) {
+        const file = files[cursor++];
         try {
-          const res = await fetch(api, { headers: ghHeaders(token) });
-          if (!res.ok) return;
-          const j = (await res.json()) as { content: string };
-          const arr = JSON.parse(b64decodeUtf8(j.content)) as Record<string, unknown>[];
-          out.push(...arr);
+          const response = await fetch(`https://api.github.com/repos/${METRICS_REPO}/git/blobs/${file.sha}`, options);
+          if (!response.ok) throw new Error(`metrics file ${response.status}`);
+          const blob = await response.json() as { content?: string; encoding?: string };
+          if (blob.encoding !== "base64" || typeof blob.content !== "string") throw new Error("invalid metrics file");
+          const values: unknown = JSON.parse(b64decodeUtf8(blob.content));
+          if (!Array.isArray(values)) throw new Error("invalid metrics events");
+          for (const value of values) {
+            if (value && typeof value === "object" && !Array.isArray(value)) events[file.kind].push(value as MetricEvent);
+            else incomplete.add(file.kind);
+          }
         } catch {
-          /* skip day */
+          incomplete.add(file.kind);
         }
-      })(),
-    );
+      }
+    }));
+  } catch {
+    requested.forEach((kind) => incomplete.add(kind));
+  } finally {
+    clearTimeout(timeout);
   }
-  await Promise.all(fetches);
-  return out;
+  return { events, incomplete: [...incomplete] };
+}
+
+export async function readEvents(kind: EventKind, days: number): Promise<MetricEvent[]> {
+  return (await readEventWindows({ [kind]: days })).events[kind];
 }
 
 /** Country/city from Vercel's edge geo headers. */

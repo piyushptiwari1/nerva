@@ -16,6 +16,8 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      - name: Verify dashboard API behavior
+        run: node --test web/tests/*.test.mjs
       - run: npm run build   # tsc --noEmit && vite build
 
   rust-check:

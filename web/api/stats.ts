@@ -15,10 +15,9 @@
 
 export const config = { runtime: "edge" };
 
-import { readEvents } from "./_lib/metrics";
+import { readEventWindows } from "./_lib/metrics";
 
 const REPO = "piyushptiwari1/nerva";
-// sha256("Bytical@1") — override via env DATA_PASSWORD_SHA256.
 const DEFAULT_PW_SHA256 =
   "e7d426e003dc6c6a627606f1cf619051ac8101c55a2be8989771efc6e7794f96";
 
@@ -61,38 +60,45 @@ export default async function handler(req: Request): Promise<Response> {
   }
   let password = "";
   try {
-    const body = (await req.json()) as { password?: string };
-    password = body.password ?? "";
+    const body: unknown = await req.json();
+    if (body && typeof body === "object" && "password" in body && typeof body.password === "string") {
+      password = body.password;
+    }
   } catch {
     /* fall through to 401 */
   }
   const expected =
     (globalThis as { process?: { env?: Record<string, string> } }).process?.env
       ?.DATA_PASSWORD_SHA256 ?? DEFAULT_PW_SHA256;
-  if (!password || (await sha256Hex(password)) !== expected.toLowerCase()) {
+  if (!password || (await sha256Hex(password)) !== expected.trim().toLowerCase()) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401,
       headers: { "content-type": "application/json" },
     });
   }
 
-  // Fetch every release (paginated; 100/page covers years of releases).
-  const gh = await fetch(
-    `https://api.github.com/repos/${REPO}/releases?per_page=100`,
-    {
-      headers: {
-        accept: "application/vnd.github+json",
-        "user-agent": "nerva-data-page",
-      },
-    },
-  );
-  if (!gh.ok) {
-    return new Response(JSON.stringify({ error: `github ${gh.status}` }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
+  let releases: GhRelease[];
+  const controller = new AbortController();
+  const releaseTimeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const gh = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100`, {
+      headers: { accept: "application/vnd.github+json", "user-agent": "nerva-data-page" },
+      signal: controller.signal,
     });
+    if (!gh.ok) throw new Error(`github ${gh.status}`);
+    const body: unknown = await gh.json();
+    if (!Array.isArray(body) || !body.every((release) => release && typeof release.tag_name === "string" && Array.isArray(release.assets))) {
+      throw new Error("invalid release data");
+    }
+    releases = body;
+  } catch {
+    return new Response(JSON.stringify({ error: "Download statistics are temporarily unavailable. Please retry." }), {
+      status: 502,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
+  } finally {
+    clearTimeout(releaseTimeout);
   }
-  const releases = (await gh.json()) as GhRelease[];
 
   const totals: Record<string, Record<string, number>> = {};
   const perRelease = releases.map((r) => {
@@ -115,12 +121,8 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   // ---- tracked events (last 30 days, from the private metrics store) ----
-  const [dlEvents, pingEvents, fbEvents, licEvents] = await Promise.all([
-    readEvents("downloads", 30),
-    readEvents("pings", 30),
-    readEvents("feedback", 90),
-    readEvents("licenses", 365),
-  ]);
+  const metrics = await readEventWindows({ downloads: 30, pings: 30, feedback: 90, licenses: 365 });
+  const { downloads: dlEvents, pings: pingEvents, feedback: fbEvents, licenses: licEvents } = metrics.events;
 
   // Downloads: by day, by country, by platform, by version (tracked window only).
   const byDay: Record<string, number> = {};
@@ -201,6 +203,7 @@ export default async function handler(req: Request): Promise<Response> {
   return new Response(
     JSON.stringify({
       generated_at: new Date().toISOString(),
+      incomplete_sources: metrics.incomplete,
       source: "github-releases + nerva-metrics(30d) + feedback(90d) + licenses(365d)",
       latest_version: latestVersion,
       latest_published_at: latestPublished,

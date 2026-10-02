@@ -54,6 +54,7 @@
     </div>
 
     <div id="dash">
+      <div id="data-warning" class="err" role="status"></div>
       <div class="kpis" id="kpis"></div>
 
       <div class="card">
@@ -129,18 +130,38 @@
     $("#pwform").addEventListener("submit", async (e) => {
       e.preventDefault();
       $("#err").textContent = "";
-      const res = await fetch("/api/stats", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password: $("#pw").value }),
-      });
-      if (!res.ok) {
-        $("#err").textContent = res.status === 401 ? "Wrong password." : "Error " + res.status;
-        return;
+      const button = $("#pwform button");
+      button.disabled = true;
+      button.textContent = "Loading...";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25000);
+      try {
+        const res = await fetch("/api/stats", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ password: $("#pw").value }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const failure = await res.json().catch(() => ({}));
+          $("#err").textContent = res.status === 401 ? "Wrong password." : failure.error || "Statistics are temporarily unavailable. Please retry.";
+          return;
+        }
+        const data = await res.json();
+        render(data);
+        $("#data-warning").textContent = data.incomplete_sources?.length
+          ? "Some tracked data is unavailable (" + data.incomplete_sources.join(", ") + "). Totals for those sources may be incomplete."
+          : "";
+        $("#pw").value = "";
+        $("#gate").style.display = "none";
+        $("#dash").style.display = "block";
+      } catch {
+        $("#err").textContent = controller.signal.aborted ? "Loading timed out. Please retry." : "Could not load statistics. Check your connection and retry.";
+      } finally {
+        clearTimeout(timeout);
+        button.disabled = false;
+        button.textContent = "Unlock";
       }
-      render(await res.json());
-      $("#gate").style.display = "none";
-      $("#dash").style.display = "block";
     });
 
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
