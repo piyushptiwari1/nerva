@@ -171,9 +171,9 @@ class WidgetBehaviorTest {
                 file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
-            instrumentation.runOnMainSync {
-                val title = findText(taskActivity.container, task.getString("title"))!!
-                (title.parent.parent as View).findViewById<View>(R.id.widget_row_action).performClick()
+            clickWhenReady(taskActivity, "Complete task") {
+                val title = findText(taskActivity.container, task.getString("title"))
+                (title?.parent?.parent as? View)?.findViewById(R.id.widget_row_action)
             }
             awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
             awaitText(taskActivity, task.getString("title"), false)
@@ -182,7 +182,11 @@ class WidgetBehaviorTest {
                 assertEquals(View.GONE, taskActivity.widgetView.findViewById<View>(R.id.widget_list).visibility)
                 assertEquals(View.VISIBLE, taskActivity.widgetView.findViewById<View>(R.id.widget_empty).visibility)
             }
-            instrumentation.runOnMainSync { taskActivity.widgetView.findViewById<View>(R.id.widget_secondary).performClick() }
+            clickWhenReady(taskActivity, "Undo task completion") {
+                taskActivity.widgetView.findViewById<View>(R.id.widget_secondary)?.takeIf {
+                    it.contentDescription?.toString() == "Undo ${task.getString("title")}"
+                }
+            }
             awaitText(taskActivity, task.getString("title"), true)
             assertEquals("todo", findTask(task.getString("id")).getString("status"))
         } finally { instrumentation.runOnMainSync { taskActivity.finish() } }
@@ -198,9 +202,9 @@ class WidgetBehaviorTest {
                 file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
-            instrumentation.runOnMainSync {
-                val title = findText(habitActivity.container, "Reading pages")!!
-                (title.parent.parent as View).findViewById<View>(R.id.widget_row_action).performClick()
+            clickWhenReady(habitActivity, "Log habit") {
+                val title = findText(habitActivity.container, "Reading pages")
+                (title?.parent?.parent as? View)?.findViewById(R.id.widget_row_action)
             }
             awaitText(habitActivity, "1 / 4", true)
         } finally { instrumentation.runOnMainSync { habitActivity.finish() } }
@@ -218,6 +222,35 @@ class WidgetBehaviorTest {
             findText(root.getChildAt(index), text)?.let { return it }
         }
         return null
+    }
+
+    private fun clickWhenReady(activity: WidgetTestHostActivity, description: String, locate: () -> View?) {
+        val ready = CountDownLatch(1)
+        var clicked = false
+        lateinit var listener: ViewTreeObserver.OnPreDrawListener
+        instrumentation.runOnMainSync {
+            fun tryClick() {
+                if (ready.count == 0L) return
+                val control = locate() ?: return
+                if (!control.isShown || !control.isEnabled || !control.isClickable) return
+                clicked = control.performClick()
+                ready.countDown()
+            }
+            listener = ViewTreeObserver.OnPreDrawListener {
+                tryClick()
+                if (ready.count > 0L) activity.container.postInvalidateOnAnimation()
+                true
+            }
+            activity.container.viewTreeObserver.addOnPreDrawListener(listener)
+            tryClick()
+            activity.container.postInvalidateOnAnimation()
+        }
+        try {
+            assertTrue("$description control should become ready", ready.await(30, TimeUnit.SECONDS))
+            assertTrue("$description click must be handled", clicked)
+        } finally {
+            instrumentation.runOnMainSync { activity.container.viewTreeObserver.removeOnPreDrawListener(listener) }
+        }
     }
 
     private fun awaitText(activity: WidgetTestHostActivity, text: String, present: Boolean) {
