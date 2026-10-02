@@ -178,6 +178,10 @@ class WidgetBehaviorTest {
             awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
             awaitText(taskActivity, task.getString("title"), false)
             assertEquals("done", findTask(task.getString("id")).getString("status"))
+            instrumentation.runOnMainSync {
+                assertEquals(View.GONE, taskActivity.widgetView.findViewById<View>(R.id.widget_list).visibility)
+                assertEquals(View.VISIBLE, taskActivity.widgetView.findViewById<View>(R.id.widget_empty).visibility)
+            }
             instrumentation.runOnMainSync { taskActivity.widgetView.findViewById<View>(R.id.widget_secondary).performClick() }
             awaitText(taskActivity, task.getString("title"), true)
             assertEquals("todo", findTask(task.getString("id")).getString("status"))
@@ -208,6 +212,7 @@ class WidgetBehaviorTest {
     ) as WidgetTestHostActivity
 
     private fun findText(root: View, text: String): TextView? {
+        if (root.visibility != View.VISIBLE) return null
         if (root is TextView && root.text.toString() == text) return root
         if (root is ViewGroup) for (index in 0 until root.childCount) {
             findText(root.getChildAt(index), text)?.let { return it }
