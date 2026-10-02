@@ -88,8 +88,8 @@ or artwork is being copied.
 
 The `Android Widgets` workflow builds the x86_64 Rust core and debug test
 APKs before starting a fresh API 35 emulator. It runs the persistence/layout
-test, a separate cold-process test, and the live collection-button test in
-that order. A failed instrumentation assertion fails the job even when ADB
+test, a separate cold-process test, the live collection-button test, and a
+reused-view regression in that order. A failed instrumentation assertion fails the job even when ADB
 returns exit code zero. Logs, widget state and screenshots are retained as
 `android-widget-results-<attempt>` for 14 days. This workflow does not publish
 a release or use signing secrets.
@@ -106,18 +106,24 @@ phone with real data. Output is written under `test-results/android-widgets/`.
 | Rust core reuse (timers, SQLite log, licence) | ✅ identical crate | ✅ via UniFFI, but a second build system |
 | UI reuse | ✅ same React panels, phone shell | ❌ two new UIs |
 | Time to first APK | days | months |
-| Home-screen widgets / Live Activities | ⬜ later via a small native plugin | ✅ first-class |
+| Home-screen widgets / Live Activities | Android native RemoteViews + JNI implemented; iOS planned | First-class native APIs |
 | Maintenance | one release pipeline | three |
 
 Home-screen widgets are a primary Android workflow. Tauri remains the full
 app shell; native Android components own launcher widgets and quick capture.
 
-## What's in the Android build
+## Current Branch (Not Yet Released)
 
 - **Shell:** `src/mobile/MobileApp.tsx` — one column, bottom tabs
   Focus · Tasks · Habits · Notes, settings gear. Picked at boot by
   `isMobile()` (`src/lib/platform.ts`; UA sniff, `?shell=mobile` forces it
-  in a browser for layout work).
+  in a browser for layout work). Workspace selection, habit management and
+  home-screen widget setup are available in the phone shell. Desktop pop-out
+  controls are hidden; the launcher icon uses Nerva's existing artwork.
+- **Home-screen widgets:** native Focus, Tasks, Habits and Note providers,
+  with source and theme saved per widget. Kotlin calls the existing Rust
+  commands through `WidgetBridge`; both the widgets and Tauri share one
+  in-process state and the database at Android's `applicationInfo.dataDir`.
 - **Same Rust core** — `src-tauri/` compiles for
   `aarch64-linux-android` (+ armv7/x86/x86_64 in CI). Desktop-only pieces are
   `#[cfg(desktop)]`: tray, single-instance, global shortcuts, updater,
@@ -127,18 +133,27 @@ app shell; native Android components own launcher widgets and quick capture.
   `[target.'cfg(not(any(target_os="android", target_os="ios")))'.dependencies]`
   table and their permissions in `capabilities/desktop.json`
   (`platforms: [linux, macOS, windows]`).
-- **Background alerts:** Android suspends the WebView, so instead of the
-  250 ms tick we hand the OS scheduled notifications for every phase
-  boundary and the session end (`src/mobile/alerts.ts`,
-  `plugin-notification` `schedule`). Re-armed whenever the running set
-  changes; `cancelAll()` first so it's idempotent. Manifest permissions:
+- **Background alerts:** native `WidgetAlarms` schedules phase boundaries
+  through Android's AlarmManager. App changes trigger native refresh via
+  `src/mobile/widgets.ts`; pausing cancels the scheduled boundary. The old
+  JavaScript scheduler was removed to avoid duplicate Android alerts.
+  Permission denial falls back to approximate delivery and is shown in the
+  widget setup screen. Manifest permissions:
   `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`.
-- **Pro:** licence activation works unchanged — a phone is just another
-  device against the plan's limit (2/3/5).
-- **Ask Nerva:** cloud providers (OpenAI/Anthropic/Gemini/OpenRouter/custom)
-  work; Ollama needs a reachable endpoint (set it to your desktop's LAN IP).
+- **Pro:** uses the same licence code and device limits (2/3/5); live
+  purchase/activation on a phone is not covered by widget tests.
+- **Ask Nerva:** provider settings are shared, but the phone shell does not
+  yet expose the chat view. Do not claim mobile chat parity from the backend
+  provider support alone.
 - **Not on mobile:** pop-out windows, tray, keyboard shortcuts/palette, DND
   toggle, synthesized audio, sidebar layout editor, auto-updater (store).
+
+API 35 tests cover provider binding, persisted direct actions, cold-process
+recovery without MainActivity, and bounds at normal through 200% text size.
+They do not certify alarm timing under Doze/OEM restrictions, every launcher,
+Google Play distribution, full mobile chat, or live Pro activation. Those
+remain separate release checks. Android force-stop can prevent alarms until
+the app is opened again.
 
 ## Building
 
@@ -158,7 +173,10 @@ config); `build/`, `.gradle`, `keystore.properties`, `*.jks` are ignored.
 
 `app/build.gradle.kts` reads `app/keystore.properties`
 (`keyAlias`, `password`, `storeFile`). Without it the release build is
-signed with the debug key so it still installs (sideload/testing).
+signed with the debug key for local testing. A fresh CI debug key changes the
+signing identity, so it must not be used for a new public update channel:
+existing installations cannot upgrade in place with a different certificate.
+Provision and back up a persistent release key before the next public APK.
 
 Create the upload key once:
 
@@ -172,7 +190,9 @@ GitHub secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`. The `android` job in `release.yml` writes them into
 `keystore.properties`, builds `--apk --aab`, and uploads
 `Nerva_<v>_android.apk` / `.aab` to the release. **Keep the .jks backed up
-offline** — Play requires the same upload key forever.
+offline**. Sideload updates require compatible app signing. With Play App
+Signing, the app-signing key and upload key are different roles; a lost
+upload key can be reset through Play Console.
 
 ## Distribution roadmap
 
@@ -182,7 +202,7 @@ offline** — Play requires the same upload key forever.
 | A2 | Google Play internal testing (AAB from CI) | ⬜ needs Play Console account ($25 one-off) |
 | A3 | Play production + Data-safety form ("no data collected" unless telemetry opt-in) | ⬜ |
 | A4 | F-Droid (reproducible build recipe; no proprietary deps — we have none) | ⬜ |
-| A5 | Home-screen widget (Glance) via a tiny Tauri plugin reading the SQLite log | 📐 |
+| A5 | Native RemoteViews widgets using the shared Rust commands over JNI | Implemented on main; not in the published v0.1.14 APK |
 | A6 | Wear OS tile | 📐 |
 
 ## iOS (planned, not started)
