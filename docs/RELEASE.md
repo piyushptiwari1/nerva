@@ -14,8 +14,8 @@ Distribution surfaces (all driven by one tag push):
 
 | Channel | OS | Trigger | Cost |
 |---|---|---|---|
-| GitHub Releases | Linux + Windows | `git tag vX.Y.Z && git push --tags` | $0 |
-| Vercel landing page | n/a | every git push to `main` | $0 |
+| GitHub Releases | Linux + Windows + Android | version tag, after signing preflight | $0 |
+| Vercel landing page | n/a | explicit production deploy from repo root | $0 |
 | winget | Windows | tag → CI auto-PRs winget-pkgs | $0 |
 | Snap Store | Linux | `snapcraft upload` after each build | $0 |
 | AUR | Linux | manual `git push` to AUR repo | $0 |
@@ -23,6 +23,22 @@ Distribution surfaces (all driven by one tag push):
 | Flathub | Linux | manual PR (review weeks) — defer to v0.2 | $0 |
 
 ---
+
+## Current Android Release Gate
+
+v0.1.15 publishing is blocked by an Android signing-identity mismatch with
+v0.1.14. The permanent release key is configured in GitHub, but it cannot
+update the APK signed by the old temporary CI debug key. See
+[the mobile signing audit](MOBILE.md#v0114-upgrade-blocker-2026-10-02).
+
+Do not bypass the preflight, change the package identifier, rotate the key,
+or advise uninstalling to make the release pass. Recover the original key
+or agree on a data-preserving migration path first. Existing v0.1.14
+downloads remain unchanged while blocked.
+
+The release workflow checks signing secrets and the pinned public
+`ANDROID_CERT_SHA256` before any publishing build runs. Standard CI covers
+the rejection cases with `node --test scripts/test-android-signing.mjs`.
 
 ## One-time setup (do these once, in order)
 
@@ -52,6 +68,13 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `TAURI_SIGNING_PRIVATE_KEY` | contents of `secrets/tauri-updater.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | updater-key password you chose |
 | `WINGET_TOKEN` | a GitHub PAT with `public_repo` scope (for the winget-pkgs PR) |
+| `ANDROID_KEYSTORE_B64` | configured by `bash scripts/setup-android-signing.sh github` |
+| `ANDROID_KEY_ALIAS` | configured by the same script |
+| `ANDROID_KEY_PASSWORD` | generated locally and piped directly to GitHub by the same script |
+
+`ANDROID_CERT_SHA256` is a repository variable containing the public
+certificate fingerprint. The Android keystore and password stay under the
+ignored `secrets/` directory and require an offline backup.
 
 ### C. Vercel — deploy nerva.bytical.ai
 
@@ -108,8 +131,11 @@ git add PKGBUILD .SRCINFO && git commit -m "v0.1.0" && git push
    git push && git push --tags
    ```
 
-4. CI builds for ubuntu-22.04 + windows-latest, signs, and creates a **draft**
-   GitHub Release. Verify the draft, then **Publish**.
+4. The Android signing preflight must pass before Linux, Windows and Android
+   builds start. The desktop jobs currently publish the GitHub release
+   automatically (`releaseDraft: false`); the Android job verifies and
+   attaches its APK/AAB. Do not push a version tag while any required gate
+   or migration decision is unresolved.
 
 5. CI auto-submits the winget-pkgs PR.
 

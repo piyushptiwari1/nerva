@@ -18,6 +18,10 @@ jobs:
       - run: npm ci
       - name: Verify dashboard API behavior
         run: node --test web/tests/*.test.mjs
+      - name: Verify APK signing safeguards
+        run: |
+          bash -n scripts/setup-android-signing.sh scripts/verify-android-signing.sh
+          node --test scripts/test-android-signing.mjs
       - run: npm run build   # tsc --noEmit && vite build
 
   rust-check:

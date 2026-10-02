@@ -24,6 +24,10 @@ val keystoreProperties = Properties().apply {
     }
 }
 val hasReleaseKeystore = keystorePropertiesFile.exists()
+val requireReleaseSigning = providers.environmentVariable("NERVA_ANDROID_REQUIRE_SIGNING").orNull == "1"
+require(!requireReleaseSigning || hasReleaseKeystore) {
+    "Public Android builds require a persistent release keystore; debug signing is not allowed."
+}
 
 android {
     compileSdk = 36

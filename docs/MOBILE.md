@@ -176,23 +176,59 @@ config); `build/`, `.gradle`, `keystore.properties`, `*.jks` are ignored.
 signed with the debug key for local testing. A fresh CI debug key changes the
 signing identity, so it must not be used for a new public update channel:
 existing installations cannot upgrade in place with a different certificate.
-Provision and back up a persistent release key before the next public APK.
+Public release CI sets `NERVA_ANDROID_REQUIRE_SIGNING=1`, which rejects missing
+signing configuration before building. All platform publishing jobs depend on
+the Android signing preflight, so an incompatible APK cannot advance the
+shared release or website download links.
 
-Create the upload key once:
+Provision or verify the persistent signing identity:
 
 ```bash
-keytool -genkey -v -keystore ~/nerva-upload.jks -keyalg RSA -keysize 2048 \
-  -validity 10000 -alias nerva-upload
-base64 -w0 ~/nerva-upload.jks   # → GitHub secret ANDROID_KEYSTORE_B64
+source ~/.nerva-android.env
+bash scripts/setup-android-signing.sh github
 ```
 
+The script never overwrites an existing key. It keeps the PKCS12 keystore and
+random password in the ignored `secrets/` directory with owner-only
+permissions. Private values go directly to GitHub over standard input and
+are never printed. Back up the keystore and password offline before release.
+
 GitHub secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEY_ALIAS`,
-`ANDROID_KEY_PASSWORD`. The `android` job in `release.yml` writes them into
-`keystore.properties`, builds `--apk --aab`, and uploads
-`Nerva_<v>_android.apk` / `.aab` to the release. **Keep the .jks backed up
-offline**. Sideload updates require compatible app signing. With Play App
+`ANDROID_KEY_PASSWORD`; public repository variable: `ANDROID_CERT_SHA256`.
+The preflight checks the key against that fingerprint and the last published
+APK. The `android` job also verifies the final APK with
+`scripts/verify-android-signing.sh` before upload and removes runner signing
+files afterward. AAB generation is preparation only, not Play publishing.
+With Play App
 Signing, the app-signing key and upload key are different roles; a lost
 upload key can be reset through Play Console.
+
+### v0.1.14 Upgrade Blocker (2026-10-02)
+
+The published v0.1.14 APK was incorrectly signed with a temporary GitHub
+runner's Android Debug key. Its verified certificate SHA-256 is:
+
+`0c6e092921f6045eeeeff8d237b633922be137495599f5f05f677ea835e4d324`
+
+The local development keystore does not match, and the original release
+retained no signing artifact. A new persistent 3072-bit RSA release key is
+now configured; its public certificate SHA-256 is:
+
+`8109b846cb2bd130596af88e6105ff9ffd6c553f0b6fb259087df4846cc69d64`
+
+Real APK signing with the new key was verified. The upgrade-compatibility
+check intentionally fails against v0.1.14. The original private key cannot
+be recovered from the APK's public certificate, and Android key rotation
+also requires the old private key. Do not publish v0.1.15 under the existing
+identifier until this is resolved.
+
+Preferred resolution: recover a backup of the original CI signing key.
+If no backup exists, a separately approved side-by-side migration build can
+leave the old app and its data intact, but cannot automatically read the old
+app's private database. The v0.1.14 app has no general export function; adding
+one now would itself require its old signing key for an in-place update.
+Do not promise automatic transfer or instruct users to uninstall or clear
+data. A new package identifier or any reset requires explicit user approval.
 
 ## Distribution roadmap
 
