@@ -55,6 +55,7 @@ run_test coldProcessRecoversAndActsWithoutMainActivity
 run_test liveCollectionsRenderAndAcceptTap
 run_test reapplyClearsStaleEmptyContentAndUndo ai.bytical.nerva.widgets.WidgetRenderingTest
 run_test newInstallIsIsolatedFromLegacyData ai.bytical.nerva.widgets.WidgetIsolationTest
+run_test launcherConfigurationSavesEveryWidgetKind ai.bytical.nerva.widgets.WidgetScreenTest
 run_test quickCaptureSavesThroughNativeScreens ai.bytical.nerva.widgets.WidgetScreenTest
 "$ADB" shell am force-stop "$APP_ID"
 "$ADB" shell cmd appops set "$APP_ID" SCHEDULE_EXACT_ALARM deny

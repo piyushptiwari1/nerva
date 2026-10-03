@@ -1,3 +1,4 @@
 include ':app'
+include ':widget-smoke'
 
 apply from: 'tauri.settings.gradle'

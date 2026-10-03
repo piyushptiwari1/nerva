@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/android-widgets.yml'
       - 'scripts/test-android-widgets.sh'
+      - 'scripts/test-android-release.sh'
       - 'scripts/wait-android-boot.mjs'
       - 'src-tauri/**'
       - 'src/**'
@@ -17,6 +18,7 @@ on:
     paths:
       - '.github/workflows/android-widgets.yml'
       - 'scripts/test-android-widgets.sh'
+      - 'scripts/test-android-release.sh'
       - 'scripts/wait-android-boot.mjs'
       - 'src-tauri/**'
       - 'src/**'
@@ -32,9 +34,13 @@ concurrency:
 
 jobs:
   widgets:
-    name: Native Widgets (API 35)
+    name: Native Widgets (API ${{ matrix.api }})
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [35, 36]
     env:
       CARGO_BUILD_JOBS: 2
       GRADLE_OPTS: '-Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs=-Xmx2g'
@@ -74,6 +80,7 @@ jobs:
         run: |
           src-tauri/gen/android/gradlew -p src-tauri/gen/android \
             :app:assembleUniversalDebug :app:assembleUniversalDebugAndroidTest \
+            :widget-smoke:assembleDebug :widget-smoke:assembleDebugAndroidTest \
             -x rustBuildUniversalDebug --max-workers=2 --no-daemon --console=plain \
             -Dorg.gradle.jvmargs=-Xmx2g -Pkotlin.compiler.execution.strategy=in-process
           src-tauri/gen/android/gradlew -p src-tauri/gen/android --stop
@@ -83,7 +90,7 @@ jobs:
       - name: Verify widget behavior on Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_2
@@ -91,12 +98,12 @@ jobs:
           cores: 2
           disable-animations: true
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -feature -Vulkan
-          script: bash scripts/test-android-widgets.sh
+          script: bash scripts/test-android-release.sh && bash scripts/test-android-widgets.sh
       - name: Retain Android diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-widget-results-${{ github.run_attempt }}
+          name: android-widget-results-api${{ matrix.api }}-${{ github.run_attempt }}
           path: |
             test-results/android-widgets/
             src-tauri/gen/android/app/build/reports/

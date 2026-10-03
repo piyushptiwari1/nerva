@@ -2,6 +2,7 @@ package ai.bytical.nerva.widgets
 
 import ai.bytical.nerva.MainActivity
 import android.app.Activity
+import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,7 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.webkit.WebView
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -29,6 +31,42 @@ class WidgetScreenTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val preferences = context.getSharedPreferences("nerva.widget.tests", Context.MODE_PRIVATE)
+
+    @Test
+    fun launcherConfigurationSavesEveryWidgetKind() {
+        val manager = AppWidgetManager.getInstance(context)
+        val host = AppWidgetHost(context, 42002)
+        for (kind in WidgetKind.entries) {
+            val widgetId = host.allocateAppWidgetId()
+            instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.BIND_APPWIDGET")
+            try { assertTrue(manager.bindAppWidgetIdIfAllowed(widgetId, kind.component(context))) }
+            finally { instrumentation.uiAutomation.dropShellPermissionIdentity() }
+            val provider = manager.getAppWidgetInfo(widgetId)
+            assertNotNull("${kind.label} configuration must be registered", provider.configure)
+            val activity = instrumentation.startActivitySync(Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                .setComponent(provider.configure).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+            try {
+                interact(activity, "${kind.label} appearance") {
+                    val theme = find(activity.window.decorView) { it is Spinner && it.contentDescription == "Widget appearance" } as? Spinner
+                    theme?.setSelection(2)
+                    theme != null
+                }
+                interact(activity, "${kind.label} save") {
+                    find(activity.window.decorView) { it is TextView && it.text.toString() == "Save widget" && it.isEnabled }
+                        ?.performClick() ?: false
+                }
+                val saved = CountDownLatch(1)
+                WidgetWorker.run(context, { saved.countDown() }) { }
+                assertTrue("Widget configuration should persist", saved.await(20, TimeUnit.SECONDS))
+                assertEquals("dark", WidgetConfig.load(context, widgetId).theme)
+                assertNotNull(manager.getAppWidgetInfo(widgetId))
+            } finally {
+                instrumentation.runOnMainSync { activity.finish() }
+                host.deleteAppWidgetId(widgetId)
+            }
+        }
+    }
 
     @Test
     fun quickCaptureSavesThroughNativeScreens() {
@@ -70,9 +108,14 @@ class WidgetScreenTest {
         val script = """(() => {
             if (window.__TAURI_INTERNALS__ && !window.__nervaTestRequested) {
                 window.__nervaTestRequested = true;
-                window.__TAURI_INTERNALS__.invoke('get_runtime_info').then(value => window.__nervaTestRuntime = value).catch(error => window.__nervaTestError = String(error));
+                Promise.all([
+                    window.__TAURI_INTERNALS__.invoke('get_runtime_info'),
+                    window.__TAURI_INTERNALS__.invoke('android_widgets', { action: 'refresh' }),
+                    window.__TAURI_INTERNALS__.invoke('android_widgets', { action: 'status' })
+                ]).then(([runtime, , widgets]) => { window.__nervaTestRuntime = runtime; window.__nervaTestWidgets = widgets; })
+                  .catch(error => window.__nervaTestError = JSON.stringify(error));
             }
-            return JSON.stringify({ text: document.body.innerText, runtime: window.__nervaTestRuntime, error: window.__nervaTestError });
+            return JSON.stringify({ text: document.body.innerText, runtime: window.__nervaTestRuntime, widgets: window.__nervaTestWidgets, error: window.__nervaTestError });
         })()"""
         val inspect = object : Runnable {
             override fun run() {
@@ -91,6 +134,8 @@ class WidgetScreenTest {
         try {
             assertTrue("Full app and native IPC must become ready", ready.await(45, TimeUnit.SECONDS))
             assertFalse(report.toString(), report.has("error"))
+            assertEquals(4, report.getJSONObject("widgets").getJSONObject("counts").length())
+            assertFalse(report.toString(), report.getString("text").contains("Widget refresh failed"))
             assertEquals(File(context.applicationInfo.dataDir).canonicalPath, File(report.getJSONObject("runtime").getString("data_dir")).canonicalPath)
             assertTrue(report.getString("text").contains("Focus"))
             assertFalse("Desktop popup controls must not appear on phones", report.getString("text").contains("Pop up"))

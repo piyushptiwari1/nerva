@@ -17,8 +17,6 @@ export function androidWidgets<T = null>(action: "refresh" | "status" | "pin" | 
   return invoke<T>("android_widgets", { action, kind });
 }
 
-let legacyAlarmCleanup: Promise<void> | undefined;
-
 export function useNativeWidgets(): string | null {
   const ready = useApp((state) => state.ready);
   const signature = useApp((state) => JSON.stringify([
@@ -34,8 +32,6 @@ export function useNativeWidgets(): string | null {
     let disposed = false;
     const refresh = async () => {
       try {
-        legacyAlarmCleanup ??= import("@tauri-apps/plugin-notification").then((notifications) => notifications.cancelAll());
-        await legacyAlarmCleanup;
         await androidWidgets("refresh");
         if (!disposed) setError(null);
       } catch (failure) {
