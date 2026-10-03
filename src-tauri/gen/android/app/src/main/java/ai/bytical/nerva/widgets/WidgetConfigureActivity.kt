@@ -73,7 +73,7 @@ class WidgetConfigureActivity : WidgetScreenActivity() {
                 button("Exact timer alerts") { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
             }
         }
-        val save = button("Save widget") { }
+        val save = footerButton("Save widget") { }
         save.setOnClickListener {
             save.isEnabled = false
             val selected = selection()
@@ -117,7 +117,18 @@ class WidgetConfigureActivity : WidgetScreenActivity() {
         val revision = ++previewRevision
         val config = selection()
         WidgetWorker.run(this) {
-            val views = NervaWidgets.views(this, widgetId, kind, snapshot, config)
+            val previewSnapshot = if (kind == WidgetKind.FOCUS && config.source.startsWith("new:")) {
+                val minutes = config.source.substringAfter(":").toInt()
+                JSONObject(snapshot.toString()).apply {
+                    getJSONArray("timers").put(JSONObject().put("id", config.source).put("name", "$minutes minute focus")
+                        .put("workspace_id", config.workspace.ifEmpty { null }).put("status", "idle")
+                        .put("phase_kind", "focus").put("phase_remaining_ms", minutes * 60_000L).put("phase_duration_ms", minutes * 60_000L))
+                }
+            } else snapshot
+            val views = NervaWidgets.views(this, widgetId, kind, previewSnapshot, config)
+            if (kind == WidgetKind.FOCUS && config.source.startsWith("new:")) {
+                views.setTextViewText(ai.bytical.nerva.R.id.widget_phase, "Session length")
+            }
             runOnUiThread {
                 if (revision != previewRevision || isFinishing || isDestroyed) return@runOnUiThread
                 try {

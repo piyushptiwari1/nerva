@@ -9,6 +9,8 @@ import {
 } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
 import { isMobile } from "@/lib/platform";
+import { useApp } from "@/store/app";
+import { inWorkspace } from "@/lib/workspaces";
 
 /**
  * HabitsPane — daily habit tracker.
@@ -24,12 +26,16 @@ import { isMobile } from "@/lib/platform";
  * habits keep working (the backend enum is unchanged).
  */
 export function HabitsPane() {
+  const workspaceId = useApp((state) => state.active?.id ?? null);
   const open = useHabitsUi((s) => s.open);
   const hide = useHabitsUi((s) => s.hide);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const visible = habits.filter((habit) => !habit.archived && inWorkspace(habit, workspaceId));
+
+  useEffect(() => { setExpanded(null); setShowNew(false); }, [workspaceId]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -141,14 +147,13 @@ export function HabitsPane() {
             </AnimatePresence>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-2">
-              {loading && habits.length === 0 && (
+              {loading && visible.length === 0 && (
                 <div className="text-xs text-ink-400 px-2">Loading…</div>
               )}
-              {!loading && habits.length === 0 && !showNew && (
+              {!loading && visible.length === 0 && !showNew && (
                 <EmptyState onAdd={() => setShowNew(true)} />
               )}
-              {habits
-                .filter((h) => !h.archived)
+              {visible
                 .map((h) => (
                   <HabitRow
                     key={h.id}

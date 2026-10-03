@@ -3,6 +3,8 @@ import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
 import { useHabitsUi } from "@/store/habits";
 import { BoolCycleButton, boolState } from "@/components/HabitsWidget";
 import { isMobile } from "@/lib/platform";
+import { useApp } from "@/store/app";
+import { inWorkspace } from "@/lib/workspaces";
 
 /**
  * HabitsRail — compact habits list for the home sidebar.
@@ -16,6 +18,7 @@ import { isMobile } from "@/lib/platform";
  * (color stripe, name, current streak, today control).
  */
 export function HabitsRail() {
+  const workspaceId = useApp((state) => state.active?.id ?? null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [todayMap, setTodayMap] = useState<Record<string, HabitEntry | null>>(
     {},
@@ -132,7 +135,7 @@ export function HabitsRail() {
     }
   }
 
-  const visible = habits.filter((h) => !h.archived);
+  const visible = habits.filter((h) => !h.archived && inWorkspace(h, workspaceId));
 
   return (
     <div>

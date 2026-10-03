@@ -70,6 +70,44 @@ impl AppState {
             store.append_event("workspace.activated", &serde_json::json!({ "id": id }))?;
         }
 
+        let unassigned = timers
+            .list()
+            .iter()
+            .any(|item| item.workspace_id.as_deref().unwrap_or_default().is_empty())
+            || tasks
+                .list()
+                .iter()
+                .any(|item| item.workspace_id.as_deref().unwrap_or_default().is_empty())
+            || habits
+                .list()
+                .iter()
+                .any(|item| item.workspace_id.as_deref().unwrap_or_default().is_empty())
+            || notes
+                .list()
+                .iter()
+                .any(|item| item.workspace_id.as_deref().unwrap_or_default().is_empty());
+        if unassigned {
+            let event = store.move_workspace_contents("", &uuid::Uuid::new_v4().to_string())?;
+            timers.apply(&event);
+            tasks.apply(&event);
+            habits.apply(&event);
+            notes.apply(&event);
+            workspaces.apply(&event);
+        }
+
+        if workspaces.active().is_none() {
+            if let Some(workspace) = workspaces.list().first() {
+                let payload = serde_json::json!({ "id": workspace.id });
+                let event = crate::store::StoredEvent {
+                    id: store.append_event("workspace.activated", &payload)?,
+                    ts_ms: crate::store::now_ms(),
+                    kind: "workspace.activated".into(),
+                    payload,
+                };
+                workspaces.apply(&event);
+            }
+        }
+
         // Restore audio settings from meta.
         let mut audio_settings = AudioSettings::default();
         if let Ok(Some(v)) = store.meta_get("audio.volume") {

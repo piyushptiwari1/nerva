@@ -50,6 +50,7 @@ class NotesWidgetProvider : NervaWidgetProvider()
 
 object NervaWidgets {
     fun refreshAll(context: Context) {
+        WidgetPreviews.publish(context)
         val snapshot = WidgetBridge.snapshot(context)
         WidgetAlarms.sync(context, snapshot)
         val manager = AppWidgetManager.getInstance(context)
@@ -68,7 +69,7 @@ object NervaWidgets {
         listOf(R.id.widget_timer, R.id.widget_list, R.id.widget_note, R.id.widget_empty).forEach {
             views.setViewVisibility(it, View.GONE)
         }
-        views.setImageViewResource(R.id.widget_secondary, android.R.drawable.ic_popup_sync)
+        views.setImageViewResource(R.id.widget_secondary, R.drawable.widget_ic_refresh)
         views.setContentDescription(R.id.widget_secondary, "Refresh widget")
         views.setViewVisibility(R.id.widget_secondary, View.VISIBLE)
         views.setInt(android.R.id.background, "setBackgroundResource", if (palette.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light)
@@ -118,7 +119,7 @@ object NervaWidgets {
                 views.setProgressBar(R.id.widget_progress, 100, (100 * (1.0 - remaining.toDouble() / timer.optLong("phase_duration_ms", 1).coerceAtLeast(1))).toInt().coerceIn(0, 100), false)
                 views.setViewVisibility(R.id.widget_progress, if (height >= 230 && (!largeText || height >= 320)) View.VISIBLE else View.GONE)
                 val operation = when (status) { "running" -> "pause"; "paused" -> "resume"; "completed", "cancelled" -> "restart"; else -> "start" }
-                views.setImageViewResource(R.id.widget_primary, if (running) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+                views.setImageViewResource(R.id.widget_primary, if (running) R.drawable.widget_ic_pause else R.drawable.widget_ic_play)
                 views.setContentDescription(R.id.widget_primary, "$operation ${timer.getString("name")}")
                 views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.action(context, widgetId, JSONObject().put("action", "timer").put("id", config.source).put("operation", operation), "timer-$operation"))
                 views.setViewVisibility(R.id.widget_primary, View.VISIBLE)
@@ -139,7 +140,7 @@ object NervaWidgets {
                     views.setPendingIntentTemplate(R.id.widget_list, PendingIntent.getBroadcast(context, widgetId, template, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
                 }
                 if (kind == WidgetKind.TASKS) {
-                    views.setImageViewResource(R.id.widget_primary, android.R.drawable.ic_menu_add)
+                    views.setImageViewResource(R.id.widget_primary, R.drawable.widget_ic_add)
                     views.setContentDescription(R.id.widget_primary, "Add task")
                     views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "task"))
                     views.setViewVisibility(R.id.widget_primary, View.VISIBLE)
@@ -147,17 +148,17 @@ object NervaWidgets {
                 val undo = WidgetUi.undo(context, widgetId)
                 if (undo != null) {
                     val control = if (kind == WidgetKind.TASKS) R.id.widget_secondary else R.id.widget_primary
-                    views.setImageViewResource(control, android.R.drawable.ic_menu_revert)
+                    views.setImageViewResource(control, R.drawable.widget_ic_undo)
                     views.setContentDescription(control, "Undo ${undo.optString("label", "last change")}")
                     views.setOnClickPendingIntent(control, WidgetUi.action(context, widgetId, JSONObject().put("action", "undo"), "undo"))
                     views.setViewVisibility(control, View.VISIBLE)
                 }
             }
             WidgetKind.NOTES -> {
-                views.setImageViewResource(R.id.widget_primary, android.R.drawable.ic_menu_edit)
+                views.setImageViewResource(R.id.widget_primary, R.drawable.widget_ic_edit)
                 views.setContentDescription(R.id.widget_primary, "Edit selected note")
                 views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "edit"))
-                views.setImageViewResource(R.id.widget_secondary, android.R.drawable.ic_menu_add)
+                views.setImageViewResource(R.id.widget_secondary, R.drawable.widget_ic_add)
                 views.setContentDescription(R.id.widget_secondary, "New note")
                 views.setOnClickPendingIntent(R.id.widget_secondary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "note"))
                 val note = if (config.source.isNotEmpty()) runCatching { WidgetBridge.note(context, config.source) }.getOrNull() else null

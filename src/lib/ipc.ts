@@ -223,6 +223,8 @@ export const ipc = {
   noteSave: (args: { id?: string; title: string; body: string; workspace_id?: string }) =>
     invoke<Note>("note_save", { args }),
   noteDelete: (id: string) => invoke<void>("note_delete", { id }),
+  noteReorder: (workspaceId: string, orderedIds: string[]) =>
+    invoke<NoteMeta[]>("note_reorder", { workspaceId, orderedIds }),
   noteList: () => invoke<NoteMeta[]>("note_list"),
   noteSearch: (query: string, limit?: number) =>
     invoke<NoteSearchHit[]>("note_search", { query, limit }),
@@ -258,6 +260,8 @@ export const ipc = {
   focusState: () => invoke<FocusState>("focus_state"),
   focusSetDnd: (enabled: boolean) => invoke<FocusState>("focus_set_dnd", { enabled }),
   // workspaces
+  workspaceDelete: (id: string, destinationId: string) =>
+    invoke<void>("workspace_delete", { id, destinationId }),
   workspaceList: () => invoke<Workspace[]>("workspace_list"),
   workspaceCreate: (args: { name: string; color?: string }) =>
     invoke<Workspace>("workspace_create", { args }),
@@ -280,8 +284,8 @@ export const ipc = {
   taskSetDue: (args: { id: string; due_ms: number | null }) =>
     mutate<Task>("task_set_due", { args }, "task:changed"),
   // momentum
-  momentumSnapshot: (days?: number) =>
-    invoke<MomentumBucket[]>("momentum_snapshot", { days }),
+  momentumSnapshot: (days?: number, workspaceId?: string) =>
+    invoke<MomentumBucket[]>("momentum_snapshot", { days, workspaceId }),
   // habits
   habitList: () => invoke<Habit[]>("habit_list"),
   habitCreate: (args: {

@@ -19,7 +19,7 @@ object WidgetCollections {
                 .map { task ->
                     val priority = task.optString("priority", "med").replaceFirstChar { it.uppercase() }
                     val due = if (task.isNull("due_ms")) "" else " · ${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(task.getLong("due_ms")))}"
-                    WidgetRow(task.getString("title"), "$priority priority$due", JSONObject().put("action", "task_set").put("id", task.getString("id")).put("done", true), android.R.drawable.checkbox_off_background, "Complete ${task.getString("title")}")
+                    WidgetRow(task.getString("title"), "$priority priority$due", JSONObject().put("action", "task_set").put("id", task.getString("id")).put("done", true), R.drawable.widget_ic_unchecked, "Complete ${task.getString("title")}")
                 }
         }
         return snapshot.getJSONArray("habits").objects().filter { row ->
@@ -44,7 +44,7 @@ object WidgetCollections {
             val request = JSONObject().put("action", "habit_set").put("id", habit.getString("id")).put("day", snapshot.getString("day"))
                 .put("value", next).put("skipped", false).put("expected_updated_ms", entry?.opt("updated_ms") ?: JSONObject.NULL)
             WidgetRow(habit.getString("name"), detail, request,
-                if (boolean) if (done) android.R.drawable.checkbox_on_background else android.R.drawable.checkbox_off_background else android.R.drawable.ic_menu_add,
+                if (boolean) if (done) R.drawable.widget_ic_checked else R.drawable.widget_ic_unchecked else R.drawable.widget_ic_add,
                 if (boolean && done) "Undo ${habit.getString("name")}" else "Log ${habit.getString("name")}")
         }
     }

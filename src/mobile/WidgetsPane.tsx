@@ -3,6 +3,7 @@ import { ArrowLeft, Check, ListTodo, NotebookPen, Plus, Timer, Flame } from "luc
 import { isTauri } from "@tauri-apps/api/core";
 import { requestPermission } from "@tauri-apps/plugin-notification";
 import { androidWidgets, type WidgetKind, type WidgetStatus } from "./widgets";
+import { errorMessage } from "@/lib/errors";
 
 const WIDGETS = [
   { kind: "focus", name: "Focus", Icon: Timer },
@@ -19,7 +20,7 @@ export function WidgetsPane({ onClose }: { onClose: () => void }) {
   async function load() {
     if (!isTauri()) return;
     try { setStatus(await androidWidgets<WidgetStatus>("status")); }
-    catch (failure) { setError(String(failure)); }
+    catch (failure) { setError(errorMessage(failure)); }
   }
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function WidgetsPane({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try { await action(); await load(); }
-    catch (failure) { setError(String(failure)); }
+    catch (failure) { setError(errorMessage(failure)); }
     finally { setBusy(false); }
   }
 

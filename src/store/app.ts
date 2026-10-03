@@ -12,6 +12,7 @@ import {
   type Workspace,
 } from "@/lib/ipc";
 import { isAndroid } from "@/lib/platform";
+import { flushNoteEdits } from "@/lib/noteEdits";
 
 let notifyPermission: boolean | null = null;
 
@@ -68,6 +69,7 @@ interface AppStore {
   refreshTasks: () => Promise<void>;
   refreshMomentum: () => Promise<void>;
   activateWorkspace: (id: string) => Promise<void>;
+  deleteWorkspace: (id: string, destinationId: string) => Promise<void>;
   lastNoteFor: (workspaceId: string) => Promise<string | null>;
   setVolume: (v: number) => Promise<void>;
   setMuted: (m: boolean) => Promise<void>;
@@ -174,19 +176,28 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   async refreshMomentum() {
+    const workspaceId = get().active?.id;
     try {
-      set({ momentum: await ipc.momentumSnapshot(14) });
+      const momentum = await ipc.momentumSnapshot(14, workspaceId);
+      if (get().active?.id === workspaceId) set({ momentum });
     } catch (e) {
       console.warn("[refreshMomentum] failed:", e);
     }
   },
   async activateWorkspace(id) {
+    await flushNoteEdits();
     await ipc.workspaceActivate(id);
     const active = await ipc.workspaceActive();
-    set({ active });
+    set({ active, momentum: [] });
     await get().refreshTimers();
     await get().refreshNotes();
     await get().refreshTasks();
+    await get().refreshMomentum();
+  },
+  async deleteWorkspace(id, destinationId) {
+    await flushNoteEdits();
+    await ipc.workspaceDelete(id, destinationId);
+    await get().bootstrap();
   },
   async lastNoteFor(workspaceId) {
     return ipc.lastNoteForWorkspace(workspaceId);
@@ -215,7 +226,7 @@ export const useApp = create<AppStore>((set, get) => ({
   async createTask(title) {
     const t = title.trim();
     if (!t) return;
-    await ipc.taskCreate({ title: t });
+    await ipc.taskCreate({ title: t, workspace_id: get().active?.id });
     await get().refreshTasks();
   },
   async toggleTask(id) {

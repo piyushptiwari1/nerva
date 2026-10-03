@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ipc, formatRemaining, phaseLabel, type Timer } from "@/lib/ipc";
 import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
+import { inWorkspace } from "@/lib/workspaces";
 
 /**
  * Floating always-on-top timer widget. Single window (label `timer-widget`).
@@ -15,8 +16,8 @@ export function TimerWidget() {
     let alive = true;
     const tick = async () => {
       try {
-        const rep = await ipc.timerTick();
-        if (alive) setTimers(rep.timers);
+        const [rep, workspace] = await Promise.all([ipc.timerTick(), ipc.workspaceActive()]);
+        if (alive) setTimers(rep.timers.filter((timer) => inWorkspace(timer, workspace?.id ?? null)));
       } catch {
         /* ignore */
       }

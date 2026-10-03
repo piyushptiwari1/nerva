@@ -4,6 +4,7 @@ import { useApp } from "@/store/app";
 import { ipc, formatRemaining, planPhases, phaseLabel, type Timer } from "@/lib/ipc";
 import { settings } from "@/lib/settings";
 import { isMobile } from "@/lib/platform";
+import { inWorkspace } from "@/lib/workspaces";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
   { label: "25m Focus", ms: 25 * 60_000, color: "#7c9cff" },
@@ -15,7 +16,8 @@ const PRESETS: Array<{ label: string; ms: number; color: string }> = [
 ];
 
 export function TimerStage() {
-  const { timers, refreshTimers } = useApp();
+  const { timers: allTimers, active, refreshTimers } = useApp();
+  const timers = allTimers.filter((timer) => inWorkspace(timer, active?.id ?? null));
   const [creating, setCreating] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customMin, setCustomMin] = useState(25);
@@ -35,6 +37,7 @@ export function TimerStage() {
       name: p.label,
       duration_ms: p.ms,
       color: p.color,
+      workspace_id: active?.id,
       auto_breaks: autoBreaks,
     });
     await ipc.timerStart(t.id);
@@ -46,6 +49,7 @@ export function TimerStage() {
     const t = await ipc.timerCreate({
       name: customName.trim(),
       duration_ms: customMin * 60_000,
+      workspace_id: active?.id,
       auto_breaks: autoBreaks,
     });
     await ipc.timerStart(t.id);

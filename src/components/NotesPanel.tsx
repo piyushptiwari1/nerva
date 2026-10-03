@@ -3,6 +3,10 @@ import { ipc, type NoteSearchHit, type SemanticHit } from "@/lib/ipc";
 import { useApp } from "@/store/app";
 import { renderMarkdown } from "@/lib/markdown";
 import { isMobile } from "@/lib/platform";
+import { inWorkspace } from "@/lib/workspaces";
+import { errorMessage } from "@/lib/errors";
+import { registerNoteFlusher } from "@/lib/noteEdits";
+import { NoteList } from "@/components/NoteList";
 
 type Mode = "edit" | "view";
 
@@ -29,7 +33,15 @@ async function windowLabel(): Promise<string> {
  * sticky-note window for the current note.
  */
 export function NotesPanel() {
-  const { notes, active, refreshNotes, lastNoteFor } = useApp();
+  const workspaceId = useApp((state) => state.active?.id ?? null);
+  return <WorkspaceNotesPanel key={workspaceId ?? "unassigned"} workspaceId={workspaceId} />;
+}
+
+function WorkspaceNotesPanel({ workspaceId }: { workspaceId: string | null }) {
+  const { notes, refreshNotes, lastNoteFor } = useApp();
+  const active = workspaceId ? { id: workspaceId } : null;
+  const workspaceNotes = notes.filter((note) => inWorkspace(note, workspaceId));
+  const [error, setError] = useState<string | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -46,12 +58,30 @@ export function NotesPanel() {
   const searchTimer = useRef<number | null>(null);
   // Mirrors the latest in-flight edit so flushSave() can persist without
   // racing React's state updater on unmount.
-  const pending = useRef<{ title: string; body: string } | null>(null);
+  const pending = useRef<{ id: string; title: string; body: string; workspace_id?: string } | null>(null);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const saving = useRef(0);
+  const mounted = useRef(true);
+  const loadRevision = useRef(0);
+  const searchRevision = useRef(0);
   // Hold onto the currently loaded note id without going through React state,
   // so the popup `note:saved` listener can ignore events for other notes.
   const currentIdRef = useRef<string | null>(null);
   // Title <input> ref so "+ New" can move focus straight to it.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    const unregister = registerNoteFlusher(flushSave);
+    return () => {
+      mounted.current = false;
+      loadRevision.current += 1;
+      searchRevision.current += 1;
+      unregister();
+      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+      void flushSave().catch(console.error);
+    };
+  }, []);
 
   // On workspace change: try resume last-edited note, else most-recent, else fresh.
   useEffect(() => {
@@ -60,7 +90,7 @@ export function NotesPanel() {
     (async () => {
       const lastId = await lastNoteFor(active.id);
       if (cancelled) return;
-      if (lastId) {
+      if (lastId && workspaceNotes.some((note) => note.id === lastId)) {
         await loadNote(lastId);
         return;
       }
@@ -72,6 +102,7 @@ export function NotesPanel() {
         // Blank slate — empty title lets the input placeholder show through
         // so the user isn't forced to delete filler text before typing.
         setCurrentId(null);
+        currentIdRef.current = null;
         setTitle("");
         setBody("");
       }
@@ -83,15 +114,19 @@ export function NotesPanel() {
   }, [active?.id]);
 
   async function loadNote(id: string) {
+    const revision = ++loadRevision.current;
     try {
+      await flushSave();
       const n = await ipc.noteGet(id);
-      if (n) {
+      if (!mounted.current || revision !== loadRevision.current) return;
+      if (n && inWorkspace(n, workspaceId)) {
         setCurrentId(n.id);
         currentIdRef.current = n.id;
         // Show whatever the backend has. Empty string surfaces the input
         // placeholder; the backend auto-titles on save anyway (v0.1.5+).
         setTitle(n.title ?? "");
         setBody(n.body);
+        setSavedAt(n.updated_ms);
       } else {
         // Note was deleted (e.g. on another device, or by reset). Drop the
         // stale pointer and fall back to a blank slate rather than
@@ -102,7 +137,7 @@ export function NotesPanel() {
         setBody("");
       }
     } catch (e) {
-      console.warn("[NotesPanel] loadNote failed:", e);
+      if (mounted.current) setError(errorMessage(e));
     }
   }
 
@@ -123,6 +158,7 @@ export function NotesPanel() {
         saveTimer.current = null;
         pending.current = null;
       }
+      await saveQueue.current.catch(() => undefined);
       await ipc.noteDelete(id);
       // If the deleted note is the one currently open, reset the editor.
       if (currentIdRef.current === id) {
@@ -146,6 +182,7 @@ export function NotesPanel() {
   useEffect(() => {
     let unlistenSaved: (() => void) | undefined;
     let unlistenDeleted: (() => void) | undefined;
+    let unlistenReordered: (() => void) | undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -162,13 +199,13 @@ export function NotesPanel() {
           // If the changed note is the one we're editing, reload it — but
           // *only* if there's no local pending edit, otherwise we'd clobber
           // the user's in-flight typing.
-          if (id === currentIdRef.current && !pending.current) {
+          if (id === currentIdRef.current && !pending.current && saving.current === 0) {
             try {
               const n = await ipc.noteGet(id);
               // Re-check after the await: a keystroke may have landed while
               // the fetch was in flight. Never overwrite live edits, and
               // skip no-op state sets so the textarea keeps its cursor.
-              if (n && id === currentIdRef.current && !pending.current) {
+              if (n && id === currentIdRef.current && !pending.current && saving.current === 0) {
                 setTitle((prev) => (prev === (n.title ?? "") ? prev : n.title ?? ""));
                 setBody((prev) => (prev === n.body ? prev : n.body));
               }
@@ -196,9 +233,11 @@ export function NotesPanel() {
           }
           refreshNotes();
         });
+        unlistenReordered = await listen("note:reordered", () => { void refreshNotes(); });
         if (cancelled) {
           unlistenSaved?.();
           unlistenDeleted?.();
+          unlistenReordered?.();
         }
       } catch {
         /* not in Tauri context */
@@ -206,20 +245,7 @@ export function NotesPanel() {
     })();
 
     const flushSync = () => {
-      if (!pending.current || !saveTimer.current) return;
-      // Cancel the debounce timer and fire the IPC immediately. We can't
-      // await here (beforeunload doesn't wait for async), but the call is
-      // in-flight before the webview tears down.
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-      const p = pending.current;
-      pending.current = null;
-      void ipc.noteSave({
-        id: currentIdRef.current ?? undefined,
-        title: p.title,
-        body: p.body,
-        workspace_id: active?.id,
-      });
+      void flushSave().catch(console.error);
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flushSync();
@@ -231,6 +257,7 @@ export function NotesPanel() {
       cancelled = true;
       if (unlistenSaved) unlistenSaved();
       if (unlistenDeleted) unlistenDeleted();
+      if (unlistenReordered) unlistenReordered();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("beforeunload", flushSync);
       window.removeEventListener("pagehide", flushSync);
@@ -240,42 +267,58 @@ export function NotesPanel() {
   }, [active?.id]);
 
   function scheduleSave(nextTitle: string, nextBody: string) {
-    pending.current = { title: nextTitle, body: nextBody };
+    loadRevision.current += 1;
+    const id = currentIdRef.current ?? crypto.randomUUID();
+    currentIdRef.current = id;
+    setCurrentId(id);
+    pending.current = { id, title: nextTitle, body: nextBody, workspace_id: workspaceId ?? undefined };
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
-      saveTimer.current = null;
-      try {
-        const saved = await ipc.noteSave({
-          id: currentId ?? undefined,
-          title: nextTitle,
-          body: nextBody,
-          workspace_id: active?.id,
-        });
-        // Successful persist — clear pending so cross-window refresh can
-        // re-fetch without fearing it'll clobber local edits. Only clear if
-        // no newer keystroke re-armed the debounce while we awaited the IPC.
-        if (!saveTimer.current) pending.current = null;
-        setCurrentId(saved.id);
-        currentIdRef.current = saved.id;
-        setSavedAt(Date.now());
-        refreshNotes();
-        // Tell any other window (sticky popup on the same note) to refresh.
-        // Tag with our window label so we can ignore our own echo.
-        try {
-          const { emit } = await import("@tauri-apps/api/event");
-          await emit("note:saved", { id: saved.id, src: await windowLabel() });
-        } catch {
-          /* event bus unavailable */
-        }
-      } catch (e) {
-        console.error("[NotesPanel] save failed:", e);
+    saveTimer.current = window.setTimeout(() => { void flushSave().catch(console.error); }, 250);
+  }
+
+  async function flushSave(): Promise<void> {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    const draft = pending.current;
+    if (!draft) {
+      const queued = saveQueue.current;
+      await queued;
+      if (pending.current || saveQueue.current !== queued) await flushSave();
+      return;
+    }
+    pending.current = null;
+    saving.current += 1;
+    const operation = saveQueue.current.catch(() => undefined).then(async () => {
+      const saved = await ipc.noteSave(draft);
+      if (mounted.current && currentIdRef.current === saved.id && !pending.current) {
+        setSavedAt(saved.updated_ms);
+        setError(null);
       }
-    }, 250);
+      await refreshNotes();
+      try {
+        const { emit } = await import("@tauri-apps/api/event");
+        await emit("note:saved", { id: saved.id, src: await windowLabel() });
+      } catch {}
+    });
+    saveQueue.current = operation;
+    try { await operation; }
+    catch (failure) {
+      if (mounted.current) {
+        if (!pending.current && currentIdRef.current === draft.id) pending.current = draft;
+        setError(errorMessage(failure));
+      }
+      throw failure;
+    }
+    finally { saving.current -= 1; }
+    if (pending.current || saveQueue.current !== operation) await flushSave();
   }
 
   async function newNote() {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    try { await flushSave(); } catch { return; }
+    loadRevision.current += 1;
     setCurrentId(null);
+    currentIdRef.current = null;
+    setSavedAt(null);
     // Empty title + empty body — placeholders explain what to do.
     // The user doesn't need to delete filler text before they can type.
     setTitle("");
@@ -292,6 +335,7 @@ export function NotesPanel() {
   }
 
   function onSearch(q: string) {
+    const revision = ++searchRevision.current;
     setSearch(q);
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
     if (!q.trim()) {
@@ -307,12 +351,13 @@ export function NotesPanel() {
         ipc.noteSearch(q, 10),
         ipc.noteSemanticSearch(q, 5),
       ]);
-      setHits(fts.status === "fulfilled" ? fts.value : []);
+      if (!mounted.current || revision !== searchRevision.current) return;
+      setHits(fts.status === "fulfilled" ? fts.value.filter((hit) => inWorkspace(hit, workspaceId)) : []);
       // Filter out near-zero similarities + dedup against FTS to avoid
       // showing the same note in both buckets.
       const ftsIds = new Set(fts.status === "fulfilled" ? fts.value.map((h) => h.id) : []);
       const semFiltered = sem.status === "fulfilled"
-        ? sem.value.filter((h) => h.score > 0.35 && !ftsIds.has(h.id))
+        ? sem.value.filter((h) => inWorkspace(h, workspaceId) && h.score > 0.35 && !ftsIds.has(h.id))
         : [];
       setSemHits(semFiltered);
     }, 150);
@@ -329,6 +374,7 @@ export function NotesPanel() {
 
   return (
     <aside className="glass rounded-xl flex flex-col min-h-0">
+      {error && <p role="alert" className="px-3 py-2 text-sm text-red-400">{error}</p>}
       <header className="flex items-center justify-between p-3 border-b border-ink-700/40 gap-2">
         <div className="flex flex-col min-w-0">
           <h3 className="text-[11px] uppercase tracking-wider text-ink-400">
@@ -341,7 +387,7 @@ export function NotesPanel() {
                   minute: "2-digit",
                   second: "2-digit",
                 })}`
-              : "Autosaves every keystroke"}
+              : "Not saved yet"}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -465,56 +511,22 @@ export function NotesPanel() {
             />
           )}
 
-          {notes.length > 0 && (
-            <div className="shrink-0 border-t-2 border-ink-700/70 bg-ink-900/50 max-h-36 overflow-auto p-2 rounded-b-xl">
+          {workspaceNotes.length > 0 && (
+            <div className="shrink-0 border-t border-ink-700/70 max-h-56 overflow-auto p-2">
               <div className="flex items-center justify-between px-1 mb-1.5">
                 <h4 className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">
-                  All notes
+                  Workspace notes
                 </h4>
                 <span className="text-[10px] text-ink-500 tnum">
-                  {notes.filter((n) => !active || n.workspace_id === active.id).length}
+                  {workspaceNotes.length}
                 </span>
               </div>
-              <div className="flex flex-col gap-0.5">
-                {notes
-                  .filter((n) => !active || n.workspace_id === active.id)
-                  .slice(0, 8)
-                  .map((n) => (
-                    <div
-                      key={n.id}
-                      className={`group flex items-center gap-1 rounded-md transition-colors ${
-                        n.id === currentId
-                          ? "bg-accent/15 text-accent-glow"
-                          : "text-ink-300 hover:bg-ink-800/80"
-                      }`}
-                    >
-                      <span
-                        className={`w-1 self-stretch my-1 ml-1 rounded-full shrink-0 ${
-                          n.id === currentId ? "bg-accent" : "bg-transparent"
-                        }`}
-                        aria-hidden
-                      />
-                      <button
-                        onClick={() => loadNote(n.id)}
-                        className="flex-1 min-w-0 text-left text-xs px-1.5 py-1 truncate"
-                        title={n.title || "Untitled"}
-                      >
-                        {n.title || "Untitled"}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNote(n.id, n.title || "Untitled");
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] px-1.5 py-1 text-ink-400 hover:text-red-300"
-                        title="Delete note"
-                        aria-label={`Delete note ${n.title || "Untitled"}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-              </div>
+              <NoteList notes={workspaceNotes} selectedId={currentId} onSelect={loadNote} onDelete={deleteNote}
+                onReorder={async (ids) => {
+                  if (!workspaceId) return;
+                  await flushSave();
+                  useApp.setState({ notes: await ipc.noteReorder(workspaceId, ids) });
+                }} />
             </div>
           )}
         </>

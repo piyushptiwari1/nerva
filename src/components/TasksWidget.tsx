@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
 import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
+import { inWorkspace } from "@/lib/workspaces";
 
 /**
  * Floating always-on-top tasks widget (single window label `tasks-widget`).
@@ -23,12 +24,10 @@ export function TasksWidget() {
       ipc.workspaceActive(),
     ]);
     setActiveWs(ws?.id ?? null);
-    // Scope the widget to the active workspace + global (null workspace) tasks
-    // so users see what matters where they are.
     const wsId = ws?.id ?? null;
     setTasks(
       list.filter(
-        (t) => t.status === "todo" && (t.workspace_id === wsId || t.workspace_id === null),
+        (t) => t.status === "todo" && inWorkspace(t, wsId),
       ),
     );
   }, []);

@@ -5,21 +5,21 @@
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Work" android:textSize="12sp" android:textColor="#596575" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
         <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical">
-            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp" android:src="@android:drawable/checkbox_off_background" android:tint="#5179C7" android:contentDescription="Complete task" />
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp" android:src="@drawable/widget_ic_unchecked" android:tint="#5179C7" android:contentDescription="Complete task" />
             <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Review the project" android:textColor="#192330" android:textSize="14sp" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Today" android:textColor="#596575" android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical">
-            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp" android:src="@android:drawable/checkbox_off_background" android:tint="#5179C7" android:contentDescription="Complete task" />
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp" android:src="@drawable/widget_ic_unchecked" android:tint="#5179C7" android:contentDescription="Complete task" />
             <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Plan tomorrow" android:textColor="#192330" android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
-        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_add" android:tint="#5179C7" android:contentDescription="Add task" />
-        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_popup_sync" android:tint="#5179C7" android:contentDescription="Refresh widget" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@drawable/widget_ic_add" android:tint="#5179C7" android:contentDescription="Add task" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@drawable/widget_ic_refresh" android:tint="#5179C7" android:contentDescription="Refresh widget" />
         <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
-        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_preferences" android:tint="#5179C7" android:contentDescription="Configure widget" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@drawable/widget_ic_configure" android:tint="#5179C7" android:contentDescription="Configure widget" />
     </LinearLayout>
 </LinearLayout>

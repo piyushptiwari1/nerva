@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { isAndroid } from "@/lib/platform";
 import { useApp } from "@/store/app";
+import { errorMessage } from "@/lib/errors";
 
 export type WidgetKind = "focus" | "tasks" | "habits" | "notes";
 
@@ -35,7 +36,7 @@ export function useNativeWidgets(): string | null {
         await androidWidgets("refresh");
         if (!disposed) setError(null);
       } catch (failure) {
-        if (!disposed) setError(String(failure));
+        if (!disposed) setError(errorMessage(failure));
       }
     };
     const timer = window.setTimeout(() => void refresh(), 80);
@@ -47,7 +48,8 @@ export function useNativeWidgets(): string | null {
     let disposed = false;
     const subscriptions: UnlistenFn[] = [];
     const refresh = () => {
-      void androidWidgets("refresh").catch((failure) => { if (!disposed) setError(String(failure)); });
+      void androidWidgets("refresh").then(() => { if (!disposed) setError(null); })
+        .catch((failure) => { if (!disposed) setError(errorMessage(failure)); });
     };
     const reload = () => {
       const state = useApp.getState();
@@ -62,7 +64,7 @@ export function useNativeWidgets(): string | null {
         else subscriptions.push(unlisten);
       }
     };
-    void subscribe().catch((failure) => { if (!disposed) setError(String(failure)); });
+    void subscribe().catch((failure) => { if (!disposed) setError(errorMessage(failure)); });
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       disposed = true;

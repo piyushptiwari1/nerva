@@ -47,6 +47,8 @@ class ReleaseWidgetTest {
         for (provider in providers) {
             val name = provider.provider.shortClassName.substringAfterLast('.')
             assertTrue("$name needs a preview layout", provider.previewLayout != 0)
+            assertTrue("$name needs a fallback image", provider.previewImage != 0)
+            assertNotNull("$name fallback must load", provider.loadPreviewImage(context, context.resources.displayMetrics.densityDpi))
             instrumentation.runOnMainSync {
                 val preview = RemoteViews(appId, provider.previewLayout).apply(context, FrameLayout(context))
                 val density = context.resources.displayMetrics.density
@@ -76,7 +78,7 @@ class ReleaseWidgetTest {
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
                 assertTrue("$name must stay open and show its configuration", device.wait(Until.hasObject(By.desc("Widget workspace")), 20000))
                 device.takeScreenshot(File(output, "$name-configure.png"))
-                UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView("Save widget")
+                if (!device.hasObject(By.text("Save widget"))) UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView("Save widget")
                 val save = device.wait(Until.findObject(By.text("Save widget")), 10000)
                 assertNotNull("$name must have a reachable save control", save)
                 save.click()

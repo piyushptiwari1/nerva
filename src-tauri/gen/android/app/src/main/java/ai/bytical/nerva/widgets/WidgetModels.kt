@@ -43,7 +43,7 @@ data class WidgetConfig(val workspace: String = "", val source: String = "", val
             .put("workspace", workspace).put("source", source).put("theme", theme).toString()).apply()
     }
 
-    fun includes(item: JSONObject): Boolean = workspace.isEmpty() || item.isNull("workspace_id") || item.optString("workspace_id") == workspace
+    fun includes(item: JSONObject): Boolean = workspace.isEmpty() || (!item.isNull("workspace_id") && item.optString("workspace_id") == workspace)
     fun workspaceExists(snapshot: JSONObject): Boolean = workspace.isEmpty() || snapshot.getJSONArray("workspaces").objects().any { it.getString("id") == workspace }
 
     fun palette(context: Context): WidgetPalette {

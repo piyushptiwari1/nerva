@@ -5,6 +5,8 @@ import { useState, type ReactNode } from "react";
 import { TasksPanel } from "@/components/TasksPanel";
 import { HabitsRail } from "@/components/HabitsRail";
 import { WorldClock } from "@/components/WorldClock";
+import { WorkspaceDeleteDialog } from "@/components/WorkspaceDeleteDialog";
+import { Trash2 } from "lucide-react";
 
 export function Sidebar() {
   const order = useLayout((s) => s.order);
@@ -46,19 +48,22 @@ function WorkspacesSection() {
   const { workspaces, active, activateWorkspace } = useApp();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   async function create() {
     if (!name.trim()) return;
-    await ipc.workspaceCreate({ name: name.trim() });
+    const workspace = await ipc.workspaceCreate({ name: name.trim() });
     setName("");
     setCreating(false);
     await useApp.getState().bootstrap();
+    await activateWorkspace(workspace.id);
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-[11px] uppercase tracking-wider text-ink-400">Workspaces</h3>
+        <button disabled={!active} onClick={() => setDeleting(true)} aria-label="Delete workspace" title="Delete workspace" className="workspace-icon ml-auto"><Trash2 size={16} /></button>
         <button
           onClick={() => setCreating((v) => !v)}
           className="text-ink-400 hover:text-ink-100 text-sm leading-none"
@@ -68,6 +73,7 @@ function WorkspacesSection() {
           {creating ? "×" : "+"}
         </button>
       </div>
+      {deleting && active && <WorkspaceDeleteDialog workspace={active} onClose={() => setDeleting(false)} />}
       {creating && (
         <div className="mb-2 flex gap-1">
           <input

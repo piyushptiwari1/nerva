@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Flame, LayoutGrid, ListTodo, Moon, NotebookPen, Plus, Settings, Sun, Timer, X } from "lucide-react";
+import { Check, Flame, LayoutGrid, ListTodo, Moon, NotebookPen, Plus, Settings, Sun, Timer, Trash2, X } from "lucide-react";
 import { useApp } from "@/store/app";
 import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
@@ -9,6 +9,7 @@ import { TasksPanel } from "@/components/TasksPanel";
 import { HabitsRail } from "@/components/HabitsRail";
 import { HabitsPane } from "@/components/HabitsPane";
 import { NotesPanel } from "@/components/NotesPanel";
+import { WorkspaceDeleteDialog } from "@/components/WorkspaceDeleteDialog";
 import { SettingsPane } from "@/components/SettingsPane";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WhatsNew } from "@/components/WhatsNew";
@@ -39,6 +40,7 @@ export function MobileApp() {
   const [widgetsOpen, setWidgetsOpen] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState<string | null>(null);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [deletingWorkspace, setDeletingWorkspace] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const openSettings = useSettingsUi((s) => s.setOpen);
   const theme = useTheme((s) => s.theme);
@@ -135,6 +137,7 @@ export function MobileApp() {
             </select>
           </label>
           <button onClick={() => setWorkspaceDraft("")} className="mobile-icon" aria-label="New workspace" title="New workspace"><Plus size={20} /></button>
+          <button disabled={!active || workspaceBusy} onClick={() => setDeletingWorkspace(true)} className="mobile-icon" aria-label="Delete workspace" title="Delete workspace"><Trash2 size={19} /></button>
         </> : <form onSubmit={(event) => { event.preventDefault(); void createWorkspace(); }} className="flex w-full items-center gap-1">
           <input autoFocus className="flex-1 min-w-0" value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} aria-label="Workspace name" placeholder="Workspace name" />
           <button type="submit" disabled={workspaceBusy || !workspaceDraft.trim()} className="mobile-icon" aria-label="Create workspace" title="Create workspace"><Check size={20} /></button>
@@ -187,6 +190,7 @@ export function MobileApp() {
       </nav>
 
       <ErrorBoundary scope="SettingsPane"><SettingsPane /></ErrorBoundary>
+      {deletingWorkspace && active && <WorkspaceDeleteDialog workspace={active} onClose={() => setDeletingWorkspace(false)} />}
       <ErrorBoundary scope="HabitsPane"><HabitsPane /></ErrorBoundary>
       {widgetsOpen && <ErrorBoundary scope="WidgetsPane"><WidgetsPane onClose={() => setWidgetsOpen(false)} /></ErrorBoundary>}
       <ErrorBoundary scope="WhatsNew"><WhatsNew /></ErrorBoundary>

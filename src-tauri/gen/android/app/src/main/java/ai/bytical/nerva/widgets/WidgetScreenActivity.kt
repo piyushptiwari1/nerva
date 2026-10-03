@@ -22,6 +22,7 @@ import com.google.android.material.color.MaterialColors
 abstract class WidgetScreenActivity : AppCompatActivity() {
     protected lateinit var content: LinearLayout
     protected lateinit var errorText: TextView
+    private lateinit var root: LinearLayout
     protected open val compact = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,10 +32,10 @@ abstract class WidgetScreenActivity : AppCompatActivity() {
     }
 
     protected fun screen(title: String) {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val close = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+            setImageResource(R.drawable.widget_ic_close)
             contentDescription = "Close"
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             imageTintList = android.content.res.ColorStateList.valueOf(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface))
@@ -85,5 +86,15 @@ abstract class WidgetScreenActivity : AppCompatActivity() {
     }
 
     protected fun showError(message: String) { errorText.text = message; errorText.visibility = View.VISIBLE }
+    protected fun footerButton(value: String, action: () -> Unit): MaterialButton = MaterialButton(this).apply {
+        text = value
+        isAllCaps = false
+        minHeight = dp(48)
+        cornerRadius = dp(8)
+        setOnClickListener { action() }
+        root.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(dp(20), dp(8), dp(20), dp(12))
+        })
+    }
     protected fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }

@@ -228,6 +228,38 @@ impl Store {
         Ok(out)
     }
 
+    pub fn move_workspace_contents(&self, source: &str, destination: &str) -> Result<StoredEvent> {
+        let mut connection = self.pool.get()?;
+        let transaction = connection.transaction()?;
+        let payload = serde_json::json!({ "id": source, "destination_id": destination });
+        let timestamp = now_ms();
+        let kind = if source.is_empty() {
+            "workspace.recovered"
+        } else {
+            "workspace.deleted"
+        };
+        transaction.execute(
+            "UPDATE notes SET workspace_id = ?1 WHERE COALESCE(workspace_id, '') = ?2",
+            params![destination, source],
+        )?;
+        transaction.execute(
+            "DELETE FROM meta WHERE k = ?1",
+            params![format!("last_note:{source}")],
+        )?;
+        transaction.execute(
+            "INSERT INTO events (ts_ms, kind, payload) VALUES (?1, ?2, ?3)",
+            params![timestamp, kind, payload.to_string()],
+        )?;
+        let event = StoredEvent {
+            id: transaction.last_insert_rowid(),
+            ts_ms: timestamp,
+            kind: kind.into(),
+            payload,
+        };
+        transaction.commit()?;
+        Ok(event)
+    }
+
     pub fn recent_events(&self, limit: i64) -> Result<Vec<StoredEvent>> {
         let conn = self.pool.get()?;
         let mut stmt =

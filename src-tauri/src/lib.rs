@@ -230,6 +230,7 @@ pub fn run() {
             ipc::note_get,
             ipc::note_save,
             ipc::note_delete,
+            ipc::note_reorder,
             ipc::note_list,
             ipc::note_search,
             ipc::note_semantic_search,
@@ -237,6 +238,7 @@ pub fn run() {
             // workspaces
             ipc::workspace_list,
             ipc::workspace_create,
+            ipc::workspace_delete,
             ipc::workspace_activate,
             ipc::workspace_active,
             // events (timeline)

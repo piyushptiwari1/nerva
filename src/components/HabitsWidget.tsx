@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ipc, type Habit, type HabitEntry } from "@/lib/ipc";
 import { usePopupClose } from "@/lib/popup";
 import { PinButton } from "./PinButton";
+import { inWorkspace } from "@/lib/workspaces";
 
 /**
  * Floating always-on-top habits widget (single window label `habits-widget`).
@@ -19,7 +20,8 @@ export function HabitsWidget() {
   const today = useMemo(() => todayIso(), []);
 
   const refresh = useCallback(async () => {
-    const list = await ipc.habitList();
+    const [allHabits, workspace] = await Promise.all([ipc.habitList(), ipc.workspaceActive()]);
+    const list = allHabits.filter((habit) => inWorkspace(habit, workspace?.id ?? null));
     setHabits(list);
     const pairs = await Promise.all(
       list

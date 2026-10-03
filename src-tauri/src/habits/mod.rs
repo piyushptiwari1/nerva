@@ -96,6 +96,20 @@ impl HabitsProjection {
 
     pub fn apply(&mut self, ev: &StoredEvent) {
         match ev.kind.as_str() {
+            "workspace.deleted" | "workspace.recovered" => {
+                if let (Some(source), Some(destination)) = (
+                    ev.payload["id"].as_str(),
+                    ev.payload["destination_id"].as_str(),
+                ) {
+                    for habit in self
+                        .habits
+                        .values_mut()
+                        .filter(|habit| habit.workspace_id.as_deref().unwrap_or_default() == source)
+                    {
+                        habit.workspace_id = Some(destination.into());
+                    }
+                }
+            }
             "habit.created" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
                 if id.is_empty() {

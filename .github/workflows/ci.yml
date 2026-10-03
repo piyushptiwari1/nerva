@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - name: Verify dashboard API behavior
         run: node --test web/tests/*.test.mjs
+      - name: Verify workspace and note interactions
+        run: node --test tests/*.test.mjs
       - name: Verify APK signing safeguards
         run: |
           bash -n scripts/setup-android-signing.sh scripts/verify-android-signing.sh

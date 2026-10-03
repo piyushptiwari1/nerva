@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/store/app";
+import { inWorkspace } from "@/lib/workspaces";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
 import { isMobile } from "@/lib/platform";
 
@@ -42,8 +43,8 @@ export function TasksPanel() {
   const [showDone, setShowDone] = useState(false);
 
   const scoped = active
-    ? tasks.filter((t) => t.workspace_id === active.id || !t.workspace_id)
-    : tasks;
+    ? tasks.filter((t) => inWorkspace(t, active.id))
+    : tasks.filter((t) => inWorkspace(t, null));
   const todo = scoped.filter((t) => t.status === "todo");
   const done = scoped.filter((t) => t.status === "done");
 

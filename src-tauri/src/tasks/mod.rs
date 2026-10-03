@@ -80,6 +80,26 @@ impl TasksProjection {
 
     pub fn apply(&mut self, ev: &StoredEvent) {
         match ev.kind.as_str() {
+            "workspace.deleted" | "workspace.recovered" => {
+                if let (Some(source), Some(destination)) = (
+                    ev.payload["id"].as_str(),
+                    ev.payload["destination_id"].as_str(),
+                ) {
+                    for task in self
+                        .items
+                        .values_mut()
+                        .filter(|task| task.workspace_id.as_deref().unwrap_or_default() == source)
+                    {
+                        task.workspace_id = Some(destination.into());
+                    }
+                    if let Some(moved) = self.order.remove(&Some(source.into())) {
+                        self.order
+                            .entry(Some(destination.into()))
+                            .or_default()
+                            .extend(moved);
+                    }
+                }
+            }
             "task.created" => {
                 let id = ev.payload["id"].as_str().unwrap_or_default().to_string();
                 if id.is_empty() {

@@ -90,9 +90,8 @@ pub(crate) fn timer_create_for(state: &AppState, args: CreateTimerArgs) -> Resul
         return Err(NervaError::Invalid("duration_ms must be > 0".into()));
     }
     let id = Uuid::new_v4().to_string();
-    let workspace_id = args
-        .workspace_id
-        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let workspaces = state.workspaces.lock();
+    let workspace_id = workspaces.resolve(args.workspace_id)?;
     let auto_breaks = args.auto_breaks.unwrap_or_else(|| read_auto_breaks(state));
     let phases = if auto_breaks {
         crate::timers::plan_phases(args.duration_ms)
@@ -391,9 +390,26 @@ pub(crate) fn note_save_checked(
     };
 
     let id = args.id.unwrap_or_else(|| Uuid::new_v4().to_string());
-    let ws = args
-        .workspace_id
-        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let workspaces = state.workspaces.lock();
+    let previous = state.store.note_get(&id)?;
+    let ws = if let Some((previous_workspace, _, _, _)) = previous {
+        if args
+            .workspace_id
+            .as_deref()
+            .is_some_and(|requested| requested != previous_workspace)
+        {
+            return Err(NervaError::Invalid(
+                "This note belongs to another workspace. Reopen it before saving.".into(),
+            ));
+        }
+        if previous_workspace.is_empty() {
+            None
+        } else {
+            workspaces.resolve(Some(previous_workspace))?
+        }
+    } else {
+        workspaces.resolve(args.workspace_id)?
+    };
     state
         .store
         .note_upsert(&id, ws.as_deref(), &title, &args.body)?;
@@ -450,6 +466,19 @@ pub(crate) fn note_save_checked(
 #[tauri::command]
 pub fn note_list(state: State) -> Result<Vec<NoteMeta>> {
     Ok(state.notes.lock().list())
+}
+
+#[tauri::command]
+pub fn note_reorder(
+    app: tauri::AppHandle,
+    state: State,
+    workspace_id: String,
+    ordered_ids: Vec<String>,
+) -> Result<Vec<NoteMeta>> {
+    use tauri::Emitter;
+    let notes = crate::notes::reorder(&state, workspace_id, ordered_ids)?;
+    let _ = app.emit("note:reordered", ());
+    Ok(notes)
 }
 
 /// Hard-delete a note. Removes the row from `notes` (which cascades into
@@ -664,6 +693,8 @@ pub fn workspace_activate(app: tauri::AppHandle, state: State, id: String) -> Re
     if id.trim().is_empty() {
         return Err(NervaError::Invalid("workspace id required".into()));
     }
+    let mut workspaces = state.workspaces.lock();
+    workspaces.resolve(Some(id.clone()))?;
     let payload = serde_json::json!({ "id": id });
     let evt_id = state.store.append_event("workspace.activated", &payload)?;
     let ev = StoredEvent {
@@ -672,7 +703,8 @@ pub fn workspace_activate(app: tauri::AppHandle, state: State, id: String) -> Re
         kind: "workspace.activated".into(),
         payload: payload.clone(),
     };
-    state.workspaces.lock().apply(&ev);
+    workspaces.apply(&ev);
+    drop(workspaces);
     // Broadcast so sticky/widget windows can refresh their workspace context
     // instead of holding stale ids until their next 4 s poll.
     let _ = app.emit("workspace:activated", payload);
@@ -682,6 +714,20 @@ pub fn workspace_activate(app: tauri::AppHandle, state: State, id: String) -> Re
 #[tauri::command]
 pub fn workspace_active(state: State) -> Result<Option<Workspace>> {
     Ok(state.workspaces.lock().active().cloned())
+}
+
+#[tauri::command]
+pub fn workspace_delete(
+    app: tauri::AppHandle,
+    state: State,
+    id: String,
+    destination_id: String,
+) -> Result<()> {
+    use tauri::Emitter;
+    crate::workspaces::delete(&state, &id, &destination_id)?;
+    let _ = app.emit("workspace:activated", serde_json::json!({ "id": state.workspaces.lock().active().map(|workspace| workspace.id.clone()) }));
+    let _ = app.emit("habit:changed", ());
+    Ok(())
 }
 
 // ---------- timeline ----------
@@ -715,9 +761,8 @@ pub(crate) fn task_create_for(state: &AppState, args: CreateTaskArgs) -> Result<
         return Err(NervaError::Invalid("task title required".into()));
     }
     let id = Uuid::new_v4().to_string();
-    let ws = args
-        .workspace_id
-        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let workspaces = state.workspaces.lock();
+    let ws = workspaces.resolve(args.workspace_id)?;
     let payload = serde_json::json!({
         "id": id,
         "title": title,
@@ -915,7 +960,20 @@ pub struct MomentumBucket {
 }
 
 #[tauri::command]
-pub fn momentum_snapshot(state: State, days: Option<i64>) -> Result<Vec<MomentumBucket>> {
+pub fn momentum_snapshot(
+    state: State,
+    days: Option<i64>,
+    workspace_id: Option<String>,
+) -> Result<Vec<MomentumBucket>> {
+    momentum_snapshot_for(&state, days, workspace_id)
+}
+
+pub(crate) fn momentum_snapshot_for(
+    state: &AppState,
+    days: Option<i64>,
+    workspace_id: Option<String>,
+) -> Result<Vec<MomentumBucket>> {
+    let workspace = state.workspaces.lock().resolve(workspace_id)?;
     let days = days.unwrap_or(7).clamp(1, 90);
     let now = crate::store::now_ms();
     let day_ms: i64 = 86_400_000;
@@ -937,15 +995,50 @@ pub fn momentum_snapshot(state: State, days: Option<i64>) -> Result<Vec<Momentum
         })
         .collect();
 
-    let timer_durations: std::collections::HashMap<String, i64> = state
-        .timers
-        .lock()
-        .list()
-        .into_iter()
-        .map(|t| (t.id, t.duration_ms))
-        .collect();
+    let events = state.store.replay_all()?;
+    let mut owners: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+    let mut timer_durations = std::collections::HashMap::new();
+    for event in &events {
+        if matches!(event.kind.as_str(), "timer.created" | "task.created") {
+            if let Some(id) = event.payload["id"].as_str() {
+                owners.insert(
+                    id.into(),
+                    event.payload["workspace_id"].as_str().map(str::to_owned),
+                );
+                if event.kind == "timer.created" {
+                    timer_durations.insert(
+                        id.to_owned(),
+                        event.payload["duration_ms"].as_i64().unwrap_or(0),
+                    );
+                }
+            }
+        } else if matches!(
+            event.kind.as_str(),
+            "workspace.deleted" | "workspace.recovered"
+        ) {
+            if let (Some(source), Some(destination)) = (
+                event.payload["id"].as_str(),
+                event.payload["destination_id"].as_str(),
+            ) {
+                for owner in owners
+                    .values_mut()
+                    .filter(|owner| owner.as_deref().unwrap_or_default() == source)
+                {
+                    *owner = Some(destination.into());
+                }
+            }
+        }
+    }
 
-    for ev in state.store.replay_all()? {
+    for ev in events {
+        let belongs = ev.payload["id"]
+            .as_str()
+            .and_then(|id| owners.get(id))
+            .is_some_and(|owner| owner == &workspace);
+        if !belongs {
+            continue;
+        }
         if ev.ts_ms < start_ms {
             continue;
         }
@@ -2263,9 +2356,8 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
         }
     }
     let id = Uuid::new_v4().to_string();
-    let ws = args
-        .workspace_id
-        .or_else(|| state.workspaces.lock().active().map(|w| w.id.clone()));
+    let workspaces = state.workspaces.lock();
+    let ws = workspaces.resolve(args.workspace_id)?;
     let payload = serde_json::json!({
         "id": id,
         "name": name,
