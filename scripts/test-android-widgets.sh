@@ -67,6 +67,7 @@ run_test screenOffAlarmDeliversWithoutMainActivity ai.bytical.nerva.widgets.Widg
 run_test prepareRebootRecovery ai.bytical.nerva.widgets.WidgetAlarmTest
 "$ADB" reboot
 "$ADB" wait-for-device
+node "$ROOT/scripts/wait-android-boot.mjs" "$ADB"
 "$ADB" shell am wait-for-broadcast-idle
 run_test rebootRecoversAndDeliversWithoutMainActivity ai.bytical.nerva.widgets.WidgetAlarmTest
 "$ADB" shell input keyevent KEYCODE_WAKEUP

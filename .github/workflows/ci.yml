@@ -21,7 +21,7 @@ jobs:
       - name: Verify APK signing safeguards
         run: |
           bash -n scripts/setup-android-signing.sh scripts/verify-android-signing.sh
-          node --test scripts/test-android-signing.mjs
+          node --test scripts/test-android-*.mjs
       - run: npm run build   # tsc --noEmit && vite build
 
   rust-check:
