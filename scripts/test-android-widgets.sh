@@ -71,6 +71,7 @@ node "$ROOT/scripts/wait-android-boot.mjs" "$ADB"
 "$ADB" shell input keyevent KEYCODE_WAKEUP
 "$ADB" shell wm dismiss-keyguard
 "$ADB" shell am wait-for-broadcast-idle
+node "$ROOT/scripts/wait-android-boot.mjs" "$ADB" "$APP_ID"
 run_test rebootRecoversAndDeliversWithoutMainActivity ai.bytical.nerva.widgets.WidgetAlarmTest --no-restart
 "$ADB" shell input keyevent KEYCODE_WAKEUP
 run_test fullAppUsesMobileDatabaseAfterHeadlessWidgetUse ai.bytical.nerva.widgets.WidgetScreenTest
