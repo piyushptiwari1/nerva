@@ -207,9 +207,9 @@ jobs:
 
             ### Downloads
             - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm` · also `yay -S nerva-desktop-bin`, `snap install nerva`
-            - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS) · also `winget install Bytical.Nerva`
+            - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS) · winget submission awaiting approval
             - **Android 7+ (Nerva Mobile)** — `Nerva_x.y.z_android.apk` (sideload; attached after the desktop builds). Installs separately from v0.1.14; keep the legacy app to retain its data. No automatic import.
-            - Direct links that always point at the latest build: https://nerva.bytical.ai/#download
+            - Direct links that always point at the latest build: https://nerva.bytical.ai/#downloads
 
             ### Verifying the Windows build
             Installers are signed with the Bytical self-signed certificate.
