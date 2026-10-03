@@ -103,14 +103,18 @@ pub fn execute(state: &AppState, command: WidgetCommand) -> Result<Value> {
                     json!({ "habit": habit, "entry": entry, "stats": stats })
                 })
                 .collect();
+            drop(habits);
+            let workspaces = state.workspaces.lock().list();
+            let tasks = state.tasks.lock().list();
+            let notes = state.notes.lock().list();
             Ok(json!({
                 "generated_ms": crate::store::now_ms(),
                 "day": day,
-                "workspaces": state.workspaces.lock().list(),
+                "workspaces": workspaces,
                 "timers": report.timers,
-                "tasks": state.tasks.lock().list(),
+                "tasks": tasks,
                 "habits": habit_rows,
-                "notes": state.notes.lock().list(),
+                "notes": notes,
             }))
         }
         WidgetCommand::Timer { id, operation } => {

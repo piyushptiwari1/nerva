@@ -270,6 +270,62 @@ mod tests {
     }
 
     #[test]
+    fn workspace_deletion_and_widget_snapshots_do_not_deadlock() {
+        use std::sync::{mpsc, Arc, Barrier};
+        use std::time::Duration;
+
+        let directory = tempfile::tempdir().unwrap();
+        let state = Arc::new(AppState::initialize_at(directory.path().into()).unwrap());
+        let destination = state.workspaces.lock().active().unwrap().id.clone();
+        let sources: Vec<_> = (0..16).map(|index| format!("workspace-{index}")).collect();
+        for id in &sources {
+            let payload = json!({ "id": id, "name": id });
+            let event = StoredEvent {
+                id: state
+                    .store
+                    .append_event("workspace.created", &payload)
+                    .unwrap(),
+                ts_ms: crate::store::now_ms(),
+                kind: "workspace.created".into(),
+                payload,
+            };
+            state.workspaces.lock().apply(&event);
+        }
+        let barrier = Arc::new(Barrier::new(2));
+        let (finished, receiver) = mpsc::channel();
+        let snapshot_state = state.clone();
+        let snapshot_barrier = barrier.clone();
+        let snapshot_finished = finished.clone();
+        let snapshots = std::thread::spawn(move || {
+            snapshot_barrier.wait();
+            for _ in 0..160 {
+                crate::widgets::execute(
+                    &snapshot_state,
+                    crate::widgets::WidgetCommand::Snapshot {
+                        day: "2026-10-04".into(),
+                    },
+                )
+                .unwrap();
+            }
+            snapshot_finished.send(()).unwrap();
+        });
+        let deletes = std::thread::spawn(move || {
+            barrier.wait();
+            for id in sources {
+                delete(&state, &id, &destination).unwrap();
+            }
+            finished.send(()).unwrap();
+        });
+        for _ in 0..2 {
+            receiver
+                .recv_timeout(Duration::from_secs(10))
+                .expect("Workspace writes and widget snapshots must finish");
+        }
+        snapshots.join().unwrap();
+        deletes.join().unwrap();
+    }
+
+    #[test]
     fn workspace_recovery_keeps_legacy_unassigned_content_accessible_once() {
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(&directory.path().join("nerva.db")).unwrap();
