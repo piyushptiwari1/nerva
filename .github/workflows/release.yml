@@ -5,9 +5,22 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to rebuild
+        required: true
+        type: string
+      platforms:
+        description: Platforms to rebuild
+        type: choice
+        options: [all, windows]
+        default: all
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 jobs:
   signing-preflight:
@@ -17,6 +30,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -33,6 +48,8 @@ jobs:
           ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
         run: |
           set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo '::error::A version tag is required.'; exit 1; }
+          [[ "v$(node -p 'require("./package.json").version')" == "$RELEASE_TAG" ]] || { echo '::error::Tag and source version differ.'; exit 1; }
           umask 077
           : "${ANDROID_KEYSTORE_B64:?Missing persistent Android signing key}"
           : "${ANDROID_KEY_ALIAS:?Missing Android signing alias}"
@@ -77,21 +94,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # One Linux build (ubuntu-22.04) — its glibc is forward-compatible
-          # to Ubuntu 22.04 AND 24.04 users (the AppImage / .deb / .rpm
-          # produced here install cleanly on both).
-          - os: ubuntu-22.04
-            rust-target: x86_64-unknown-linux-gnu
-            tauri-args: ''
-          # One Windows build (Server 2022) — covers Windows 10 (1809+) and 11.
-          - os: windows-latest
-            rust-target: x86_64-pc-windows-msvc
-            tauri-args: ''
+        os: ${{ fromJSON(inputs.platforms == 'windows' && '["windows-latest"]' || '["ubuntu-22.04", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -102,7 +111,7 @@ jobs:
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.rust-target }}
+          targets: ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || 'x86_64-unknown-linux-gnu' }}
 
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
@@ -133,7 +142,7 @@ jobs:
         id: notes
         shell: bash
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${RELEASE_TAG#v}"
           NOTES=$(awk -v v="$V" '
             $0 ~ "^## v"v"([^0-9]|$)" {p=1; next}
             /^## v/ && p {exit}
@@ -147,15 +156,31 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ---------- Windows signing prep (self-signed PFX from secret) ----------
-      - name: Decode Windows signing cert
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
+      - name: Configure Windows signing
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          if (!$env:WINDOWS_CERTIFICATE -or !$env:WINDOWS_CERTIFICATE_PASSWORD -or !$env:WINDOWS_CERTIFICATE_THUMBPRINT) {
+            throw 'Persistent Windows signing configuration is required.'
+          }
           $pfxBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
-          [System.IO.File]::WriteAllBytes("$env:RUNNER_TEMP\codesign.pfx", $pfxBytes)
-          echo "PFX_PATH=$env:RUNNER_TEMP\codesign.pfx" >> $env:GITHUB_ENV
+          $pfxPath = "$env:RUNNER_TEMP\codesign.pfx"
+          [System.IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $certificate = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          $expected = $env:WINDOWS_CERTIFICATE_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+          if ($certificate.Thumbprint -ne $expected) { throw 'Windows certificate differs from the pinned thumbprint.' }
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $config.bundle.windows.certificateThumbprint = $expected
+          $config | ConvertTo-Json -Depth 100 | Set-Content src-tauri/tauri.conf.json -Encoding utf8
+          $publicPath = "$env:RUNNER_TEMP\bytical-codesign.crt"
+          [System.IO.File]::WriteAllBytes($publicPath, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          Import-Certificate -FilePath $publicPath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
 
       # ---------- Build + sign + bundle ----------
       - name: Tauri build
@@ -170,10 +195,10 @@ jobs:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Nerva ${{ github.ref_name }}'
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: 'Nerva ${{ env.RELEASE_TAG }}'
           releaseBody: |
-            ## Nerva by Bytical ${{ github.ref_name }}
+            ## Nerva by Bytical ${{ env.RELEASE_TAG }}
 
             ${{ steps.notes.outputs.body }}
 
@@ -185,10 +210,10 @@ jobs:
 
             ### Verifying the Windows build
             Installers are signed with the Bytical self-signed certificate.
-            Windows SmartScreen will show "Unrecognized app" on first install —
-            click **More info → Run anyway**. To remove the warning forever,
-            import [`bytical-codesign.crt`](https://nerva.bytical.ai/cert) into
-            Trusted Root Certification Authorities.
+            The public [`bytical-codesign.crt`](https://nerva.bytical.ai/cert)
+            is available for inspecting the signing identity. A self-signed
+            certificate does not establish public-CA trust or SmartScreen
+            reputation; Windows may still show an unrecognized-app warning.
 
             ---
             If Nerva helps you focus, a ⭐ on this repo and a rating (Settings → Feedback in the app, or https://nerva.bytical.ai/#feedback) go a long way.
@@ -200,7 +225,31 @@ jobs:
           # the updater manifest live the moment the build finishes.
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.tauri-args }}
+          args: ''
+
+      - name: Verify Windows signatures and attach public certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe, src-tauri/target/release/bundle/msi/*.msi)
+          if ($installers.Count -ne 2) { throw 'Expected both Windows installer formats.' }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERTIFICATE_THUMBPRINT) {
+              throw "Installer signature verification failed: $($installer.Name) ($($signature.Status))"
+            }
+          }
+          gh release upload "$env:RELEASE_TAG" "$env:RUNNER_TEMP\bytical-codesign.crt" --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Public certificate upload failed.' }
+
+      - name: Remove runner Windows signing file
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: Remove-Item "$env:RUNNER_TEMP\codesign.pfx" -Force -ErrorAction SilentlyContinue
 
       # Linux-side osslsigncode for AppImage (optional, GPG-equivalent flow comes later)
       # Windows signing is handled by tauri-action via TAURI_WINDOWS_CERTIFICATE_THUMBPRINT.
@@ -225,11 +274,14 @@ jobs:
   android:
     name: Build Android
     needs: signing-preflight
+    if: inputs.platforms != 'windows'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -315,23 +367,23 @@ jobs:
           retention-days: 14
 
       - name: Attach to GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # tauri-action in `build` creates the release; wait for it to exist.
           for i in $(seq 1 40); do
-            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            gh release view "$RELEASE_TAG" >/dev/null 2>&1 && break
             echo "waiting for release... ($i/40)"; sleep 30
           done
-          gh release upload "$GITHUB_REF_NAME" out/* --clobber
+          gh release upload "$RELEASE_TAG" out/* --clobber
 
   # After all builds finish, submit a winget manifest PR (Windows only)
   winget-publish:
     name: Publish to winget
     runs-on: ubuntu-latest
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    if: inputs.platforms != 'windows' && startsWith(inputs.release_tag || github.ref_name, 'v') && !github.event.release.prerelease
     steps:
       - name: Submit winget package update
         uses: vedantmgoyal2009/winget-releaser@v2
@@ -350,7 +402,7 @@ jobs:
     name: Publish to AUR
     runs-on: ubuntu-latest
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    if: inputs.platforms != 'windows' && startsWith(inputs.release_tag || github.ref_name, 'v') && !github.event.release.prerelease
     permissions:
       contents: write
     steps:
@@ -362,7 +414,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${RELEASE_TAG#v}"
           for i in $(seq 1 30); do
             if gh release view "v$V" --json assets -q '.assets[].name' 2>/dev/null | grep -qx "Nerva_${V}_amd64.deb"; then exit 0; fi
             sleep 20
@@ -371,7 +423,7 @@ jobs:
       - name: Bump PKGBUILD + sha256
         id: bump
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${RELEASE_TAG#v}"
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${V}/Nerva_${V}_amd64.deb"
           SHA=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)
           cd packaging/aur/nerva-desktop-bin
@@ -415,7 +467,7 @@ jobs:
     name: Build and publish Snap
     runs-on: ubuntu-22.04
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') && !github.event.release.prerelease
+    if: inputs.platforms != 'windows' && startsWith(inputs.release_tag || github.ref_name, 'v') && !github.event.release.prerelease
     permissions:
       # `contents: write` (not read): the asset-settle poll below queries the
       # releases REST API, and the promote-to-published fallback edits the
@@ -424,10 +476,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Sync snap version with git tag
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ env.RELEASE_TAG }}
         run: |
           VERSION="${TAG#v}"
           sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
@@ -436,7 +490,7 @@ jobs:
       - name: Wait for release assets to settle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ env.RELEASE_TAG }}
         run: |
           # tauri-action publishes the release directly (releaseDraft: false)
           # and uploads every asset over several minutes. Poll the REST API
@@ -456,7 +510,7 @@ jobs:
       - name: Ensure release is published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ env.RELEASE_TAG }}
         run: |
           # Normally a no-op now that the build publishes directly, but keep it
           # as a safety net: if anything ever leaves the release as a draft,
@@ -467,7 +521,7 @@ jobs:
       - name: Download .deb from release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ env.RELEASE_TAG }}
         run: |
           mkdir -p src-tauri/target/release/bundle/deb
           gh release download "$TAG" -p '*_amd64.deb' \

@@ -98,6 +98,16 @@ returns exit code zero. Logs, widget state and screenshots are retained as
 `android-widget-results-<attempt>` for 14 days. This workflow does not publish
 a release or use signing secrets.
 
+The v0.1.15 source at `78df08a` passed all 11 test invocations in
+[Android run 37119557835](https://github.com/piyushptiwari1/nerva/actions/runs/37119557835),
+including native task/note capture, denied-permission fallback and pause
+cancellation, actual screen-off and post-reboot completion notifications,
+and full-app startup using the database previously opened by headless widgets.
+The reboot observer waits for Android to unlock app storage and naturally
+restart the process before attaching without restarting it. Standard
+[CI run 37119557844](https://github.com/piyushptiwari1/nerva/actions/runs/37119557844)
+also passed. This is clean API 35 emulator evidence, not OEM/Doze certification.
+
 With those debug APKs built and an isolated emulator running, set
 `NERVA_LEGACY_APK` to the downloaded v0.1.14 APK and run
 `bash scripts/test-android-widgets.sh`. This clears

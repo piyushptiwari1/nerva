@@ -41,6 +41,24 @@ The release workflow checks signing secrets and the pinned public
 `ANDROID_CERT_SHA256` before any publishing build runs. Standard CI covers
 the rejection cases with `node --test scripts/test-android-signing.mjs`.
 
+## Windows Signing and Rebuilds
+
+Windows CI imports the persistent PFX into the runner's certificate store,
+checks its pinned thumbprint, and sets Tauri's signing configuration before
+building. Both installer signatures are verified, and the public certificate
+is attached to the release. A self-signed certificate does not provide
+public-CA trust or guarantee that SmartScreen warnings disappear.
+
+To repair Windows artifacts without moving an existing release tag:
+
+```bash
+gh workflow run release.yml --ref main -f release_tag=v0.1.15 -f platforms=windows
+```
+
+The workflow uses the source at that tag and skips Android, Linux and package
+manager publishing. Check the rebuilt installers, public certificate and
+updated desktop updater manifest before announcing completion.
+
 ## One-time setup (do these once, in order)
 
 ### A. Generate signing keys (local machine, never re-run)
