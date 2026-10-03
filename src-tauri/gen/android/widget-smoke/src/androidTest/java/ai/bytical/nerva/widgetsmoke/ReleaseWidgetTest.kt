@@ -3,11 +3,18 @@ package ai.bytical.nerva.widgetsmoke
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Bundle
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.RemoteViews
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,8 +43,22 @@ class ReleaseWidgetTest {
         assertEquals("All four release providers must be registered", 4, providers.size)
         val host = AppWidgetHost(context, HostActivity.HOST_ID)
         val output = File(context.getExternalFilesDir(null), "release-widget-screenshots").apply { mkdirs() }
+        assertEquals("Each provider must have a distinct preview", 4, providers.map { it.previewLayout }.toSet().size)
         for (provider in providers) {
             val name = provider.provider.shortClassName.substringAfterLast('.')
+            assertTrue("$name needs a preview layout", provider.previewLayout != 0)
+            instrumentation.runOnMainSync {
+                val preview = RemoteViews(appId, provider.previewLayout).apply(context, FrameLayout(context))
+                val density = context.resources.displayMetrics.density
+                val width = (300 * density).toInt()
+                val height = (320 * density).toInt()
+                preview.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+                preview.layout(0, 0, width, height)
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                preview.draw(Canvas(bitmap))
+                File(output, "$name-preview.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bitmap.recycle()
+            }
             val widgetId = host.allocateAppWidgetId()
             instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.BIND_APPWIDGET")
             try {
@@ -53,9 +74,11 @@ class ReleaseWidgetTest {
                 context.startActivity(Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
                     .setComponent(provider.configure).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
-                val save = device.wait(Until.findObject(By.text("Save widget")), 20000)
-                assertNotNull("$name must stay open and show its configuration", save)
+                assertTrue("$name must stay open and show its configuration", device.wait(Until.hasObject(By.desc("Widget workspace")), 20000))
                 device.takeScreenshot(File(output, "$name-configure.png"))
+                UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView("Save widget")
+                val save = device.wait(Until.findObject(By.text("Save widget")), 10000)
+                assertNotNull("$name must have a reachable save control", save)
                 save.click()
                 assertTrue("$name must finish configuration", device.wait(Until.gone(By.text("Save widget")), 20000))
                 context.startActivity(Intent(context, HostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

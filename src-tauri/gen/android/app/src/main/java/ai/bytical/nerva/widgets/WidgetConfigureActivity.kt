@@ -43,6 +43,8 @@ class WidgetConfigureActivity : WidgetScreenActivity() {
 
     private fun form() {
         val config = WidgetConfig.load(this, widgetId)
+        preview = FrameLayout(this).apply { contentDescription = "Widget preview" }
+        content.addView(preview, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(if (kind == WidgetKind.FOCUS) 300 else 260)))
         workspaces = listOf("" to "All workspaces") + snapshot.getJSONArray("workspaces").objects().map { it.getString("id") to it.getString("name") }
         label("Workspace")
         workspace = spinner(workspaces.map { it.second }).apply { contentDescription = "Widget workspace"; setSelection(workspaces.indexOfFirst { it.first == config.workspace }.coerceAtLeast(0)) }
@@ -50,9 +52,6 @@ class WidgetConfigureActivity : WidgetScreenActivity() {
         source = spinner(emptyList()).apply { contentDescription = "Widget content" }
         label("Appearance")
         theme = spinner(listOf("System", "Light", "Dark")).apply { contentDescription = "Widget appearance"; setSelection(listOf("system", "light", "dark").indexOf(config.theme).coerceAtLeast(0)) }
-        preview = FrameLayout(this)
-        label("Preview")
-        content.addView(preview, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250)))
         populateSources(config.source)
         val changed = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { updatePreview() }
@@ -121,10 +120,14 @@ class WidgetConfigureActivity : WidgetScreenActivity() {
             val views = NervaWidgets.views(this, widgetId, kind, snapshot, config)
             runOnUiThread {
                 if (revision != previewRevision || isFinishing || isDestroyed) return@runOnUiThread
-                preview.removeAllViews()
-                val view = views.apply(this, preview)
-                disable(view)
-                preview.addView(view)
+                try {
+                    val view = views.apply(applicationContext, preview)
+                    disable(view)
+                    preview.removeAllViews()
+                    preview.addView(view)
+                } catch (error: Exception) {
+                    showError(error.message ?: "Could not display the widget preview")
+                }
             }
         }
     }

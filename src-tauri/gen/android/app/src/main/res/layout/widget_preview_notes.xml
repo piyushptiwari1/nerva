@@ -1,0 +1,13 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:padding="16dp" android:background="@drawable/widget_surface_light">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Project notes" android:textSize="14sp" android:textStyle="bold" android:textColor="#192330" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Work" android:textSize="12sp" android:textColor="#596575" />
+    <TextView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="16dp" android:text="One clear next step.\n\nReview the outline.\nKeep time for a break." android:textSize="14sp" android:lineSpacingExtra="3dp" android:textColor="#192330" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_edit" android:tint="#5179C7" android:contentDescription="Edit selected note" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_add" android:tint="#5179C7" android:contentDescription="New note" />
+        <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_preferences" android:tint="#5179C7" android:contentDescription="Configure widget" />
+    </LinearLayout>
+</LinearLayout>

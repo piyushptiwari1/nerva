@@ -1,0 +1,27 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:padding="16dp" android:background="@drawable/widget_surface_light">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Nerva Habits" android:textSize="14sp" android:textStyle="bold" android:textColor="#192330" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Personal" android:textSize="12sp" android:textColor="#596575" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Drink water" android:textColor="#192330" android:textSize="14sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="3 / 8 glasses" android:textColor="#596575" android:textSize="12sp" />
+            </LinearLayout>
+            <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_add" android:tint="#388569" android:contentDescription="Log water" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Read" android:textColor="#192330" android:textSize="14sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Done today" android:textColor="#388569" android:textSize="12sp" />
+            </LinearLayout>
+            <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/checkbox_on_background" android:tint="#388569" android:contentDescription="Reading done" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_revert" android:tint="#5179C7" android:contentDescription="Undo habit log" />
+        <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:src="@android:drawable/ic_menu_preferences" android:tint="#5179C7" android:contentDescription="Configure widget" />
+    </LinearLayout>
+</LinearLayout>
