@@ -1085,10 +1085,10 @@ function DiagTab() {
         {bootstrapErrors.length > 0 && (
           <div className="text-[10px] text-amber-300 leading-snug">
             ⚠ Partial boot — some panels failed to load: {bootstrapErrors.join(", ")}.
-            If symptoms persist, try Reset.
+            {isMobile() ? " Reopen Nerva to retry." : " If symptoms persist, try Reset."}
           </div>
         )}
-        <div className="flex flex-wrap gap-1.5 mt-1">
+        {!isMobile() && <><div className="flex flex-wrap gap-1.5 mt-1">
           <button
             onClick={() => void reveal()}
             className="text-[11px] px-2 py-0.5 rounded bg-ink-800 hover:bg-ink-700 text-ink-200"
@@ -1106,7 +1106,7 @@ function DiagTab() {
         <div className="text-[10px] text-ink-500 leading-snug">
           Reset keeps a timestamped <code>backup-…</code> copy of the database
           inside the same folder. Nothing is sent off-device.
-        </div>
+        </div></>}
       </div>
 
       <div className="flex items-center gap-2">

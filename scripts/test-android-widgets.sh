@@ -41,7 +41,7 @@ trap collect_results EXIT
 run_test() {
   local method="$1"
   local suite="${2:-$CLASS}"
-  "$ADB" shell am instrument -w -r -e class "$suite#$method" "$RUNNER" | tee "$OUTPUT/$method.txt"
+  "$ADB" shell am instrument "${@:3}" -w -r -e class "$suite#$method" "$RUNNER" | tee "$OUTPUT/$method.txt"
   if ! grep -Eq '^OK \(1 test\)' "$OUTPUT/$method.txt"; then
     printf 'Android widget test failed: %s\n' "$method" >&2
     return 1
@@ -68,8 +68,10 @@ run_test prepareRebootRecovery ai.bytical.nerva.widgets.WidgetAlarmTest
 "$ADB" reboot
 "$ADB" wait-for-device
 node "$ROOT/scripts/wait-android-boot.mjs" "$ADB"
+"$ADB" shell input keyevent KEYCODE_WAKEUP
+"$ADB" shell wm dismiss-keyguard
 "$ADB" shell am wait-for-broadcast-idle
-run_test rebootRecoversAndDeliversWithoutMainActivity ai.bytical.nerva.widgets.WidgetAlarmTest
+run_test rebootRecoversAndDeliversWithoutMainActivity ai.bytical.nerva.widgets.WidgetAlarmTest --no-restart
 "$ADB" shell input keyevent KEYCODE_WAKEUP
 run_test fullAppUsesMobileDatabaseAfterHeadlessWidgetUse ai.bytical.nerva.widgets.WidgetScreenTest
 "$ADB" shell pm path ai.bytical.nerva

@@ -1,8 +1,13 @@
 package ai.bytical.nerva.widgets
 
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.UserManager
+import androidx.core.content.ContextCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -18,8 +23,8 @@ import java.util.concurrent.TimeUnit
 class WidgetAlarmTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-    private val alarms = context.getSharedPreferences("nerva.widget.alarms", Context.MODE_PRIVATE)
-    private val tests = context.getSharedPreferences("nerva.widget.tests", Context.MODE_PRIVATE)
+    private val alarms by lazy { context.getSharedPreferences("nerva.widget.alarms", Context.MODE_PRIVATE) }
+    private val tests by lazy { context.getSharedPreferences("nerva.widget.tests", Context.MODE_PRIVATE) }
 
     private fun execute(request: JSONObject) = WidgetBridge.execute(context, request) as JSONObject
 
@@ -64,10 +69,25 @@ class WidgetAlarmTest {
 
     @Test
     fun rebootRecoversAndDeliversWithoutMainActivity() {
+        awaitUserUnlocked()
         val id = tests.getString("rebootTimer", null) ?: error("Run prepareRebootRecovery before reboot")
         awaitDelivery(id)
         assertCompletedNotification(id)
         assertNoActivity()
+    }
+
+    private fun awaitUserUnlocked() {
+        val manager = context.getSystemService(UserManager::class.java)
+        if (manager.isUserUnlocked) return
+        val unlocked = CountDownLatch(1)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) { if (manager.isUserUnlocked) unlocked.countDown() }
+        }
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(Intent.ACTION_USER_UNLOCKED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        try {
+            if (manager.isUserUnlocked) unlocked.countDown()
+            assertTrue("Credential-encrypted data requires first device unlock", unlocked.await(60, TimeUnit.SECONDS))
+        } finally { context.unregisterReceiver(receiver) }
     }
 
     private fun awaitDelivery(id: String) {

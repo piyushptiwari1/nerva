@@ -158,7 +158,8 @@ recovery without MainActivity, and bounds at normal through 200% text size.
 They do not certify alarm timing under Doze/OEM restrictions, every launcher,
 Google Play distribution, full mobile chat, or live Pro activation. Those
 remain separate release checks. Android force-stop can prevent alarms until
-the app is opened again.
+the app is opened again. After a device reboot, alarms are restored after
+the first unlock, when Android makes credential-encrypted app data available.
 
 ## Building
 
