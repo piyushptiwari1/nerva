@@ -12,7 +12,7 @@
   <a href="https://github.com/piyushptiwari1/nerva/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/piyushptiwari1/nerva?style=social"></a>
 </p>
 
-A free, offline-first desktop focus workspace for **Linux and Windows**. Pomodoro
+A free, offline-first focus workspace for **Linux, Windows and Android**. Pomodoro
 timers with automatic breaks that survive sleep and reboot, sticky markdown notes
 that float above any window, a year-long habit heatmap, tasks, world clocks, and
 an optional AI assistant that runs on your own model or key. No account. No cloud.
@@ -34,6 +34,7 @@ Telemetry is opt-in only and never contains your content.
 | **Sticky markdown notes** | Pop any note out as a small always-on-top window. Autosaves every 250 ms and on every close path. Esc / Ctrl+W dismisses. |
 | **Habits** | Yes/no or amount habits, 4-state daily log, streaks, 30-day and all-time heatmaps. Missing a day doesn't shame you. |
 | **Tasks** | Priority, due times, drag reorder, floating widget. Timer-linked tasks auto-complete. |
+| **Android home-screen widgets** | Nerva Mobile: Focus, Tasks, Habits and Note. Configure each widget independently, control sessions, complete/undo tasks, log habits and capture notes without the full app. |
 | **Ask Nerva** | Local Ollama by default — or bring your own OpenAI / Anthropic / Gemini / OpenRouter / OpenAI-compatible key. Keys stay on-device. |
 | **Your dashboard** | Reorder or hide sidebar sections; up to six world clocks. Light and dark themes. |
 | **Command palette** | `Ctrl+K` for everything. `Ctrl+,` settings · `Ctrl+H` habits. |
@@ -53,6 +54,13 @@ Direct links always resolve to the **latest published release** (fronted by the 
 | **Linux** (Fedora, openSUSE, RHEL) | `.rpm` | https://nerva.bytical.ai/download/linux/rpm |
 | **Windows 10 / 11** | `.exe` (NSIS) | https://nerva.bytical.ai/download/windows/exe |
 | **Windows 10 / 11** | `.msi` | https://nerva.bytical.ai/download/windows/msi |
+| **Android 7+** | `.apk` (Nerva Mobile) | https://nerva.bytical.ai/download/android/apk |
+
+**Android v0.1.14 users:** Nerva Mobile installs separately under
+`ai.bytical.nerva.mobile` because the legacy APK used a temporary signing key.
+The old app and its data remain intact; there is no automatic import. Keep
+v0.1.14 installed if you need its content. Future Nerva Mobile APKs use a
+permanent signing key. Google Play and iOS remain planned.
 
 Or via a package manager:
 
@@ -62,14 +70,15 @@ yay -S nerva-desktop-bin              # Arch (AUR)
 winget install Bytical.Nerva          # Windows
 ```
 
-Nerva auto-updates itself (minisign-signed, verified locally) and shows a **"What's new"** card after each update.
+Desktop direct-download builds support signed updates, verified locally, and show a **"What's new"** card after each update. Android APK updates are downloaded from the website.
 Windows builds are signed with the Bytical self-signed certificate — first run shows SmartScreen "Unrecognized app";
 click *More info → Run anyway*, or install the [trust certificate](https://nerva.bytical.ai/cert) once.
 
 ## Platform support
 
 See [`docs/PLATFORM_MATRIX.md`](docs/PLATFORM_MATRIX.md) for the full feature × platform table.
-Short version: Linux and Windows are first-class, macOS builds but is untested, Android is planned.
+Linux and Windows are first-class. Android has a phone shell and native home-screen widgets;
+macOS builds but is untested. iOS and Google Play publishing are planned.
 
 ## Architecture
 
@@ -104,10 +113,11 @@ npm run build                # tsc --noEmit && vite build
 npm run tauri:build          # release bundles in src-tauri/target/release/bundle
 ```
 
-CI runs `tsc`, `vite build`, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, and
+CI runs dashboard and signing tests, `tsc`, `vite build`, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, and
 verifies that `CHANGELOG.md` has a section for the version in `package.json`. Tagging `vX.Y.Z`
-builds Linux + Windows, publishes the GitHub release with notes from `CHANGELOG.md`, and pushes
-winget + Snap.
+builds Linux, Windows and Android after a signing preflight, publishes the GitHub release
+with notes from `CHANGELOG.md`, and updates AUR/Snap plus submits winget updates.
+The separate Android Widgets workflow tests native behavior on an API 35 emulator.
 
 ### Website
 
@@ -117,9 +127,10 @@ private metrics repo with coarse geo), opt-in telemetry ingest, feedback, PayU c
 
 ## Data location
 
-`$XDG_DATA_HOME/dev.nerva.app/nerva.db` (typically `~/.local/share/dev.nerva.app/`) on Linux;
-`%APPDATA%\dev.nerva.app\` on Windows. The database is the single source of truth — safe to back up,
-copy or restore.
+`$XDG_DATA_HOME/ai.bytical.nerva/nerva.db` (typically `~/.local/share/ai.bytical.nerva/`) on Linux;
+`%APPDATA%\ai.bytical.nerva\` on Windows. On Android the database is in Nerva Mobile's
+app-private data directory, isolated from the legacy app. Stop the app before manually
+copying its database and associated WAL files; general backup/export is still planned.
 
 ## Contributing
 

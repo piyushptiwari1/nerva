@@ -26,15 +26,16 @@ Distribution surfaces (all driven by one tag push):
 
 ## Current Android Release Gate
 
-v0.1.15 publishing is blocked by an Android signing-identity mismatch with
-v0.1.14. The permanent release key is configured in GitHub, but it cannot
-update the APK signed by the old temporary CI debug key. See
-[the mobile signing audit](MOBILE.md#v0114-upgrade-blocker-2026-10-02).
+The user approved v0.1.15 as a separate Android installation:
+`ai.bytical.nerva.mobile` (Nerva Mobile), permanently signed. The legacy
+`ai.bytical.nerva` app and its data remain installed, with no automatic data
+transfer. See [the transition audit](MOBILE.md#approved-side-by-side-transition-2026-10-02).
 
-Do not bypass the preflight, change the package identifier, rotate the key,
-or advise uninstalling to make the release pass. Recover the original key
-or agree on a data-preserving migration path first. Existing v0.1.14
-downloads remain unchanged while blocked.
+Do not bypass preflight or re-sign a new APK under the legacy identifier.
+The gate accepts the known v0.1.14 legacy certificate only as the baseline
+for a separate Mobile installation. Future Mobile releases must preserve
+their pinned signer. Retain the legacy APK link and migration warning on
+the website and in release notes. Never advise uninstalling to upgrade.
 
 The release workflow checks signing secrets and the pinned public
 `ANDROID_CERT_SHA256` before any publishing build runs. Standard CI covers

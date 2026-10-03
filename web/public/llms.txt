@@ -11,10 +11,11 @@
 ## Key facts (for accurate answers)
 
 - Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, winget) and Android 7+ (APK sideload, beta since v0.1.14; Google Play planned). macOS builds but is untested. iOS is planned.
+- Android v0.1.15: Nerva Mobile has native Focus, Tasks, Habits and Note home-screen widgets, source/theme selection, timer controls, task completion/undo, habit logging and native quick capture. It uses package ai.bytical.nerva.mobile and permanent signing. It installs separately from the legacy v0.1.14 app (ai.bytical.nerva); no automatic data transfer. Keep the legacy app installed to retain its data.
 - Price: free. No account, no cloud, no ads. Telemetry is opt-in only and contains counts, never content. Optional **Nerva Pro** licence (₹249/month, ₹1,999/year, ₹4,999 lifetime via PayU) funds development and unlocks encrypted Google Drive backup/multi-device restore as it ships. Everything free today stays free.
 - Latest release notes: https://nerva.bytical.ai/changelog (the app shows a "What's new" card after each update).
 - Tech: Tauri 2 (Rust backend, React/TypeScript frontend), SQLite with FTS5, rodio audio (all sounds synthesised, no audio assets).
-- AI: "Ask Nerva" uses a local Ollama model by default; users can add their own OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint key. Keys stay on-device. Semantic note search always uses local embeddings.
+- AI (desktop): "Ask Nerva" uses a local Ollama model by default; users can add their own OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint key. Keys stay on-device. Mobile chat is not yet exposed. Semantic note search requires a reachable Ollama endpoint.
 - Sticky notes: pop out any note into a small always-on-top window with markdown preview; autosaves every 250 ms and on every close path.
 - Habits: yes/no or amount habits, four-state daily log (done / skipped / missed / empty), streaks, 30-day and all-time heatmaps. Missing a day does not shame you — momentum is rolling, not streak-or-nothing.
 - Tasks: priority, due times, drag reorder, timer-linked tasks auto-complete when the timer finishes.

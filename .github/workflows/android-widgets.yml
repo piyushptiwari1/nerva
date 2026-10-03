@@ -57,6 +57,13 @@ jobs:
           workspaces: src-tauri -> target
           key: android-widget-tests
       - run: npm ci
+      - name: Download legacy APK for coexistence check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/nerva-legacy"
+          gh release download v0.1.14 --pattern Nerva_0.1.14_android.apk --dir "$RUNNER_TEMP/nerva-legacy"
+          echo "NERVA_LEGACY_APK=$RUNNER_TEMP/nerva-legacy/Nerva_0.1.14_android.apk" >> "$GITHUB_ENV"
       - name: Build shared Rust core and Android app
         run: |
           export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"

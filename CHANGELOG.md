@@ -4,6 +4,23 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
+## v0.1.15 — 2026-10-02
+
+### Android Installation
+- **Nerva Mobile installs alongside v0.1.14.** The old APK was signed with a temporary build key that was not retained. The new app uses a permanent release key and the separate package `ai.bytical.nerva.mobile`. Your old Nerva installation and its data remain untouched. Data is not imported automatically; keep the old app installed if you need its notes, tasks, habits or history. Desktop installations update normally.
+
+### New
+- **Native Android home-screen widgets:** Focus, Tasks, Habits and Note. Choose a source and light, dark or system theme for each widget. Control a timer, complete and undo tasks, log habits, or read a selected note without opening the full app.
+- **Native quick capture and editing** for tasks and notes, including unsaved-edit protection and rejection of stale note edits.
+- **Phone-first navigation:** working workspace selection and habit management, accessible icon controls, widget setup and notification/alarm permission status.
+- **Persistent Android signing** with certificate and package verification before publication. Google Play and iOS remain planned.
+
+### Fixed
+- Replaced the generated Tauri launcher artwork with the Nerva logo and removed nonfunctional desktop pop-out controls from phones.
+- Native widget refresh clears stale empty messages and Undo controls; task and habit changes persist through process restarts.
+- Android phase alerts use the native alarm scheduler instead of relying on JavaScript while the phone is asleep. Delivery still depends on notification permissions and device power policies.
+- The website's private data dashboard no longer starts hundreds of simultaneous GitHub requests after login. It reports incomplete data and recoverable upstream errors, with a retryable login screen.
+
 ## v0.1.14 — 2026-09-26
 
 ### New

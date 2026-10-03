@@ -93,6 +93,11 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.15" date="2026-10-02">
+      <description>
+        <p>Native Android widgets and mobile usability improvements, with shared persistence and data-dashboard reliability fixes.</p>
+      </description>
+    </release>
     <release version="0.1.12" date="2026-09-25">
       <description>
         <p>Focus release.</p>

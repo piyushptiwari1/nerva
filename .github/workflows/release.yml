@@ -54,7 +54,8 @@ jobs:
           gh release download "$latest" --pattern "Nerva_${latest#v}_android.apk" --dir "$RUNNER_TEMP/nerva-previous"
           previous="$RUNNER_TEMP/nerva-previous/Nerva_${latest#v}_android.apk"
           export APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          bash scripts/verify-android-signing.sh "$previous" "$previous"
+          export APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          bash scripts/verify-android-signing.sh --previous "$previous"
       - name: Retain previous APK for final signature check
         uses: actions/upload-artifact@v4
         with:
@@ -179,7 +180,7 @@ jobs:
             ### Downloads
             - **Linux (Ubuntu 22.04 / 24.04, Fedora, etc.)** — `.AppImage` (portable) or `.deb` / `.rpm` · also `yay -S nerva-desktop-bin`, `snap install nerva`
             - **Windows 10 / 11** — `.msi` (installer) or `-setup.exe` (NSIS) · also `winget install Bytical.Nerva`
-            - **Android 7+ (beta)** — `Nerva_x.y.z_android.apk` (sideload; attached a few minutes after the desktop builds)
+            - **Android 7+ (Nerva Mobile)** — `Nerva_x.y.z_android.apk` (sideload; attached after the desktop builds). Installs separately from v0.1.14; keep the legacy app to retain its data. No automatic import.
             - Direct links that always point at the latest build: https://nerva.bytical.ai/#download
 
             ### Verifying the Windows build
@@ -297,6 +298,7 @@ jobs:
           previous=(previous-android/*.apk)
           [[ ${#previous[@]} -eq 1 ]]
           export APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          export APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
           bash scripts/verify-android-signing.sh "out/Nerva_${V}_android.apk" "${previous[0]}"
           ls -la out
 

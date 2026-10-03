@@ -8,18 +8,19 @@ Single source of truth for feature parity. ✅ shipped · 🟡 partial/known iss
 | Pomodoro auto-structure (phases) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ✅ v0.1.14 | ⛔ | `plan_phases()` in `timers/mod.rs` |
 | Phase-transition sounds (focus/break/resume) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ⛔ (OS notification sound) | ⛔ | Synthesised, no assets; `audio/mobile.rs` no-op |
 | Ambient noise (white/pink/brown) | ✅ | ✅ | ⬜ | ⛔ | ⛔ | |
-| OS notification on completion | ✅ | ✅ | ⬜ | ✅ v0.1.14 (scheduled alarms, background-safe) | ⛔ | tauri-plugin-notification; `src/mobile/alerts.ts` |
+| OS notification on completion | ✅ | ✅ | ⬜ | v0.1.15 native AlarmManager; permissions required | ⛔ | Exact or approximate delivery according to Android permissions and power policy |
 | Do-Not-Disturb toggle | 🟡 GNOME only | ⬜ | ⬜ | ⛔ | ⛔ | gsettings; KDE + Windows Focus Assist planned |
 | Sticky pop-out notes | ✅ (X11 positioned; Wayland compositor-placed) | ✅ | ⬜ | ⛔ | ⛔ | DPI clamp fix v0.1.12; Esc closes |
 | Timer / Habits / Tasks floating widgets | ✅ | ✅ | ⬜ | ⛔ | ⛔ | Pin = always-on-top |
+| Native home-screen Focus / Tasks / Habits / Note widgets | ⛔ | ⛔ | ⛔ | v0.1.15 Nerva Mobile | ⛔ | Separate configurations, direct actions, native capture and light/dark appearance |
 | Markdown notes + FTS5 search | ✅ | ✅ | ⬜ | ✅ v0.1.14 | ⛔ | |
 | Semantic note search (Ollama embeddings) | ✅ | ✅ | ⬜ | 🟡 needs LAN Ollama endpoint | ⛔ | Requires Ollama |
-| Ask Nerva (LLM) — Ollama | ✅ | ✅ | ⬜ | 🟡 needs LAN Ollama endpoint | ⛔ | |
-| Ask Nerva — BYO keys (OpenAI/Anthropic/Gemini/OpenRouter/custom) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ✅ v0.1.14 | ⛔ | Keys stored device-local |
+| Ask Nerva (LLM) — Ollama | ✅ | ✅ | ⬜ | 📐 chat view not exposed | ⛔ | Backend provider settings exist on mobile |
+| Ask Nerva — BYO keys (OpenAI/Anthropic/Gemini/OpenRouter/custom) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | 📐 chat view not exposed | ⛔ | Keys stored device-local |
 | Habits (bool/count/amount, heatmap, streaks) | ✅ | ✅ | ⬜ | ✅ v0.1.14 | ⛔ | Rail refresh bug fixed v0.1.12 |
 | Tasks (priority, due, reorder, timer-linked) | ✅ | ✅ | ⬜ | ✅ v0.1.14 | ⛔ | |
 | Kanban board | 📐 | 📐 | 📐 | 📐 | ⛔ | See WORKLIST §8 |
-| Workspaces | ✅ | ✅ | ⬜ | 🟡 active only (no switcher in shell yet) | ⛔ | |
+| Workspaces | ✅ | ✅ | ⬜ | v0.1.15 creation and selection | ⛔ | Widget sources are independent of the active phone workspace |
 | World clocks | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ⛔ | ⛔ | |
 | Customisable sidebar layout | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ⛔ | ⛔ | Timeline + This week opt-in since v0.1.14 |
 | Light / dark theme | ✅ | ✅ | ⬜ | ✅ v0.1.14 | ✅ | Hard-coded colours audited v0.1.12 |
@@ -28,11 +29,11 @@ Single source of truth for feature parity. ✅ shipped · 🟡 partial/known iss
 | Tray icon | ✅ | ✅ | ⬜ | ⛔ | ⛔ | |
 | Auto-update (signed) | ✅ AppImage | ✅ NSIS | ⬜ | ⛔ (store / sideload) | ⛔ | minisign key in `secrets/` |
 | Crash logs (Diagnostics tab) | ✅ | ✅ | ⬜ | 🟡 tab present; panic hook path best-effort | ⛔ | |
-| Anonymous weekly telemetry (opt-in) | ✅ | ✅ | ⬜ | ✅ v0.1.14 | ✅ (edge fn) | Payload v2 planned (see below) |
+| Anonymous weekly telemetry (opt-in) | ✅ | ✅ | ⬜ | ⬜ not initialized in mobile shell | ✅ (edge fn) | Payload v2 planned (see below) |
 | In-app rating / feedback | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ✅ v0.1.14 | ✅ `/api/feedback` | |
 | Backup export / import (.zip) | 📐 | 📐 | 📐 | 📐 | ⛔ | Foundation for Drive sync |
 | Google Drive encrypted sync (Pro) | 📐 | 📐 | 📐 | 📐 | ⛔ | WORKLIST §4 |
-| Paid licence (PayU) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | ✅ v0.1.14 | ✅ checkout exists | ECDSA device token verified in Rust |
+| Paid licence (PayU) | ✅ v0.1.12 | ✅ v0.1.12 | ⬜ | 🟡 shared activation UI; live phone purchase not certified | ✅ checkout exists | ECDSA device token verified in Rust |
 | Download geo + usage dashboard | ⛔ | ⛔ | ⛔ | ⛔ | ✅ `/data` | Private `nerva-metrics` repo |
 
 ## Telemetry payload v2 (planned, opt-in only)

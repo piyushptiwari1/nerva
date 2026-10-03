@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Timer / break alerts while Nerva is in the background (see src/mobile/alerts.ts). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -19,7 +18,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"
             android:label="@string/main_activity_title"
-            android:name=".MainActivity"
+            android:name="ai.bytical.nerva.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -29,24 +28,24 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name=".widgets.FocusWidgetProvider" android:label="@string/widget_focus_name" android:exported="false">
+        <receiver android:name="ai.bytical.nerva.widgets.FocusWidgetProvider" android:label="@string/widget_focus_name" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_focus_info" />
         </receiver>
-        <receiver android:name=".widgets.TasksWidgetProvider" android:label="@string/widget_tasks_name" android:exported="false">
+        <receiver android:name="ai.bytical.nerva.widgets.TasksWidgetProvider" android:label="@string/widget_tasks_name" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks_info" />
         </receiver>
-        <receiver android:name=".widgets.HabitsWidgetProvider" android:label="@string/widget_habits_name" android:exported="false">
+        <receiver android:name="ai.bytical.nerva.widgets.HabitsWidgetProvider" android:label="@string/widget_habits_name" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habits_info" />
         </receiver>
-        <receiver android:name=".widgets.NotesWidgetProvider" android:label="@string/widget_notes_name" android:exported="false">
+        <receiver android:name="ai.bytical.nerva.widgets.NotesWidgetProvider" android:label="@string/widget_notes_name" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_notes_info" />
         </receiver>
-        <receiver android:name=".widgets.WidgetActionReceiver" android:exported="false" />
-        <receiver android:name=".widgets.WidgetAlarmReceiver" android:exported="false">
+        <receiver android:name="ai.bytical.nerva.widgets.WidgetActionReceiver" android:exported="false" />
+        <receiver android:name="ai.bytical.nerva.widgets.WidgetAlarmReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
@@ -55,11 +54,11 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
-        <service android:name=".widgets.WidgetCollectionService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
-        <activity android:name=".widgets.WidgetConfigureActivity" android:theme="@style/Theme.Nerva.WidgetEditor" android:exported="true">
+        <service android:name="ai.bytical.nerva.widgets.WidgetCollectionService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
+        <activity android:name="ai.bytical.nerva.widgets.WidgetConfigureActivity" android:theme="@style/Theme.Nerva.WidgetEditor" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
         </activity>
-        <activity android:name=".widgets.WidgetCaptureActivity" android:theme="@style/Theme.Nerva.QuickCapture" android:windowSoftInputMode="adjustResize" android:exported="false" />
+        <activity android:name="ai.bytical.nerva.widgets.WidgetCaptureActivity" android:theme="@style/Theme.Nerva.QuickCapture" android:windowSoftInputMode="adjustResize" android:exported="false" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

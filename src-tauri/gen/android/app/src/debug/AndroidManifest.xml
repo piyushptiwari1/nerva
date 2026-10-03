@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="ai.bytical.nerva" />
+    </queries>
     <application>
         <activity android:name="ai.bytical.nerva.widgets.WidgetTestHostActivity" android:exported="true" />
     </application>

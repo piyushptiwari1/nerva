@@ -19,7 +19,15 @@ enum class WidgetKind(val label: String, val providerName: String) {
     FOCUS("Focus", "FocusWidgetProvider"), TASKS("Tasks", "TasksWidgetProvider"),
     HABITS("Habits", "HabitsWidgetProvider"), NOTES("Note", "NotesWidgetProvider");
 
-    fun component(context: Context) = ComponentName(context.packageName, "${context.packageName}.widgets.$providerName")
+    fun component(context: Context): ComponentName {
+        val provider = when (this) {
+            FOCUS -> FocusWidgetProvider::class.java
+            TASKS -> TasksWidgetProvider::class.java
+            HABITS -> HabitsWidgetProvider::class.java
+            NOTES -> NotesWidgetProvider::class.java
+        }
+        return ComponentName(context, provider)
+    }
 
     companion object {
         fun forId(context: Context, widgetId: Int): WidgetKind? {
@@ -80,14 +88,19 @@ object WidgetUi {
     }
 
     fun activity(context: Context, widgetId: Int, target: String, mode: String = ""): PendingIntent {
-        val intent = Intent().setClassName(context, "${context.packageName}.widgets.$target")
+        val activity = when (target) {
+            "WidgetConfigureActivity" -> WidgetConfigureActivity::class.java
+            "WidgetCaptureActivity" -> WidgetCaptureActivity::class.java
+            else -> error("Unknown widget activity")
+        }
+        val intent = Intent(context, activity)
             .setData(Uri.parse("nerva-widget://$widgetId/$target/$mode"))
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId).putExtra("mode", mode)
         return PendingIntent.getActivity(context, widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     fun action(context: Context, widgetId: Int, request: JSONObject, suffix: String): PendingIntent {
-        val intent = Intent("ai.bytical.nerva.WIDGET_ACTION").setClassName(context, "${context.packageName}.widgets.WidgetActionReceiver")
+        val intent = Intent(context, WidgetActionReceiver::class.java).setAction("ai.bytical.nerva.WIDGET_ACTION")
             .setData(Uri.parse("nerva-widget://$widgetId/$suffix"))
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId).putExtra("request", request.toString())
         return PendingIntent.getBroadcast(context, widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

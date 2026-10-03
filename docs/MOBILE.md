@@ -3,8 +3,10 @@
 > **Baseline (v0.1.14):** Android APK available, but no native home-screen
 > widgets. Desktop pop-out controls and the generated Tauri launcher icon
 > were incorrectly retained. A successful APK build did not validate the
-> complete mobile experience. The widget work below is in progress, not a
-> claim about the published APK. iOS and Google Play publishing remain planned.
+> complete mobile experience. v0.1.15 is the Nerva Mobile release candidate,
+> with native widgets under the separate `ai.bytical.nerva.mobile` identity.
+> The legacy app/data stay untouched, with no automatic import. iOS and
+> Google Play publishing remain planned.
 >
 > The earlier native-companion spec (SwiftUI/Compose over a UniFFI core) is
 > archived in `MOBILE_NATIVE_COMPANION_ARCHIVED.md` for the widget ideas.
@@ -89,14 +91,17 @@ or artwork is being copied.
 The `Android Widgets` workflow builds the x86_64 Rust core and debug test
 APKs before starting a fresh API 35 emulator. It runs the persistence/layout
 test, a separate cold-process test, the live collection-button test, and a
-reused-view regression in that order. A failed instrumentation assertion fails the job even when ADB
+reused-view regression, coexistence check and native permission/alarm tests.
+It installs the published legacy APK beside Nerva Mobile and does not clear
+the legacy app's data. A failed instrumentation assertion fails the job even when ADB
 returns exit code zero. Logs, widget state and screenshots are retained as
 `android-widget-results-<attempt>` for 14 days. This workflow does not publish
 a release or use signing secrets.
 
-With those debug APKs built and an isolated emulator running, use
-`bash scripts/test-android-widgets.sh` to repeat the same checks. This clears
-Nerva's data on the connected test device; never run it against a personal
+With those debug APKs built and an isolated emulator running, set
+`NERVA_LEGACY_APK` to the downloaded v0.1.14 APK and run
+`bash scripts/test-android-widgets.sh`. This clears
+Nerva Mobile's data on the connected test device; never run it against a personal
 phone with real data. Output is written under `test-results/android-widgets/`.
 
 ## Decision: Tauri 2 mobile, not native shells
@@ -112,7 +117,7 @@ phone with real data. Output is written under `test-results/android-widgets/`.
 Home-screen widgets are a primary Android workflow. Tauri remains the full
 app shell; native Android components own launcher widgets and quick capture.
 
-## Current Branch (Not Yet Released)
+## v0.1.15 Implementation
 
 - **Shell:** `src/mobile/MobileApp.tsx` — one column, bottom tabs
   Focus · Tasks · Habits · Notes, settings gear. Picked at boot by
@@ -196,14 +201,16 @@ are never printed. Back up the keystore and password offline before release.
 GitHub secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`; public repository variable: `ANDROID_CERT_SHA256`.
 The preflight checks the key against that fingerprint and the last published
-APK. The `android` job also verifies the final APK with
+APK. Only the approved legacy v0.1.14 certificate/package may transition to
+the new, separate Mobile package; subsequent Mobile updates must keep the
+pinned signing key. The `android` job also verifies the final APK with
 `scripts/verify-android-signing.sh` before upload and removes runner signing
 files afterward. AAB generation is preparation only, not Play publishing.
 With Play App
 Signing, the app-signing key and upload key are different roles; a lost
 upload key can be reset through Play Console.
 
-### v0.1.14 Upgrade Blocker (2026-10-02)
+### Approved Side-by-Side Transition (2026-10-02)
 
 The published v0.1.14 APK was incorrectly signed with a temporary GitHub
 runner's Android Debug key. Its verified certificate SHA-256 is:
@@ -216,19 +223,21 @@ now configured; its public certificate SHA-256 is:
 
 `8109b846cb2bd130596af88e6105ff9ffd6c553f0b6fb259087df4846cc69d64`
 
-Real APK signing with the new key was verified. The upgrade-compatibility
-check intentionally fails against v0.1.14. The original private key cannot
-be recovered from the APK's public certificate, and Android key rotation
-also requires the old private key. Do not publish v0.1.15 under the existing
-identifier until this is resolved.
+The user explicitly approved a separate installation. v0.1.15 uses Android
+application ID `ai.bytical.nerva.mobile` and launcher name **Nerva Mobile**.
+The Java namespace and JNI bindings remain `ai.bytical.nerva`, while Android
+assigns a new UID and private data directory. Desktop identifiers are unchanged.
 
-Preferred resolution: recover a backup of the original CI signing key.
-If no backup exists, a separately approved side-by-side migration build can
-leave the old app and its data intact, but cannot automatically read the old
-app's private database. The v0.1.14 app has no general export function; adding
-one now would itself require its old signing key for an in-place update.
-Do not promise automatic transfer or instruct users to uninstall or clear
-data. A new package identifier or any reset requires explicit user approval.
+The signing gate accepts only this transition from the verified legacy
+certificate and refuses an attempt to replace `ai.bytical.nerva` with the new
+signer. Subsequent `ai.bytical.nerva.mobile` updates must keep the permanent key.
+Neither installing the new app nor its tests deletes or resets the legacy app.
+
+There is no automatic data import: Android does not let the new app read the
+old app's private database. The v0.1.14 app lacks general export, and the
+original signing key is required to add one as an in-place update. Keep the
+old app installed to access its content; do not recommend uninstalling it or
+clearing its data. The legacy download remains linked in the website notice.
 
 ## Distribution roadmap
 
@@ -238,7 +247,7 @@ data. A new package identifier or any reset requires explicit user approval.
 | A2 | Google Play internal testing (AAB from CI) | ⬜ needs Play Console account ($25 one-off) |
 | A3 | Play production + Data-safety form ("no data collected" unless telemetry opt-in) | ⬜ |
 | A4 | F-Droid (reproducible build recipe; no proprietary deps — we have none) | ⬜ |
-| A5 | Native RemoteViews widgets using the shared Rust commands over JNI | Implemented on main; not in the published v0.1.14 APK |
+| A5 | Native RemoteViews widgets using shared Rust commands over JNI | v0.1.15 Nerva Mobile; not in legacy v0.1.14 |
 | A6 | Wear OS tile | 📐 |
 
 ## iOS (planned, not started)

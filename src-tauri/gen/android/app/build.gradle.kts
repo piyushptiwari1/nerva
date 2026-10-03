@@ -34,7 +34,7 @@ android {
     namespace = "ai.bytical.nerva"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "ai.bytical.nerva"
+        applicationId = "ai.bytical.nerva.mobile"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
