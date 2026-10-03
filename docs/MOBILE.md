@@ -254,7 +254,7 @@ clearing its data. The legacy download remains linked in the website notice.
 
 | Step | Channel | Status |
 |---|---|---|
-| A1 | GitHub release APK (sideload), website download tile | ✅ v0.1.14 |
+| A1 | GitHub release APK (sideload), website download tile | ✅ v0.1.15 Nerva Mobile; legacy v0.1.14 retained |
 | A2 | Google Play internal testing (AAB from CI) | ⬜ needs Play Console account ($25 one-off) |
 | A3 | Play production + Data-safety form ("no data collected" unless telemetry opt-in) | ⬜ |
 | A4 | F-Droid (reproducible build recipe; no proprietary deps — we have none) | ⬜ |

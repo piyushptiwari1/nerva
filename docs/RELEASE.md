@@ -178,9 +178,9 @@ chmod +x Nerva_0.1.0_amd64.AppImage
 ```
 
 ### Windows 10
-Double-click `Nerva_0.1.0_x64-setup.exe` → SmartScreen warning → "More info" →
-"Run anyway". One-time trust: install `bytical-codesign.crt` into Trusted Root
-Certification Authorities.
+Inspect the installer signature and public `bytical-codesign.crt` before
+running `Nerva_0.1.0_x64-setup.exe`. The early-release self-signed certificate
+does not establish public-CA trust or guarantee SmartScreen acceptance.
 
 ### Windows 11
 Same as Windows 10. MSI alternative: `msiexec /i Nerva_0.1.0_x64_en-US.msi`.
