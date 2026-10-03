@@ -98,8 +98,38 @@ class WidgetScreenTest {
     }
 
     @Test
+    fun seedHabitThroughAppCommand() {
+        val report = appReport("""async () => {
+            const invoke = window.__TAURI_INTERNALS__.invoke;
+            const workspace = await invoke('workspace_active');
+            const habit = await invoke('habit_create', { args: { name: 'Reading pages', kind: 'count', target: 4, color: '#388569', workspace_id: workspace.id } });
+            return { workspace: workspace.id, habit: habit.id };
+        }""")
+        assertTrue(preferences.edit().putString("fixtureWorkspace", report.getJSONObject("value").getString("workspace"))
+            .putString("fixtureHabit", report.getJSONObject("value").getString("habit")).commit())
+    }
+
+    @Test
     fun fullAppUsesMobileDatabaseAfterHeadlessWidgetUse() {
         WidgetBridge.snapshot(context)
+        val report = appReport("""async () => {
+            const invoke = window.__TAURI_INTERNALS__.invoke;
+            const [runtime, , widgets] = await Promise.all([
+                invoke('get_runtime_info'),
+                invoke('android_widgets', { action: 'refresh' }),
+                invoke('android_widgets', { action: 'status' })
+            ]);
+            return { runtime, widgets };
+        }""")
+        val value = report.getJSONObject("value")
+        assertEquals(4, value.getJSONObject("widgets").getJSONObject("counts").length())
+        assertFalse(report.toString(), report.getString("text").contains("Widget refresh failed"))
+        assertEquals(File(context.applicationInfo.dataDir).canonicalPath, File(value.getJSONObject("runtime").getString("data_dir")).canonicalPath)
+        assertTrue(report.getString("text").contains("Focus"))
+        assertFalse("Desktop popup controls must not appear on phones", report.getString("text").contains("Pop up"))
+    }
+
+    private fun appReport(request: String): JSONObject {
         val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         val ready = CountDownLatch(1)
         val handler = Handler(Looper.getMainLooper())
@@ -108,14 +138,10 @@ class WidgetScreenTest {
         val script = """(() => {
             if (window.__TAURI_INTERNALS__ && !window.__nervaTestRequested) {
                 window.__nervaTestRequested = true;
-                Promise.all([
-                    window.__TAURI_INTERNALS__.invoke('get_runtime_info'),
-                    window.__TAURI_INTERNALS__.invoke('android_widgets', { action: 'refresh' }),
-                    window.__TAURI_INTERNALS__.invoke('android_widgets', { action: 'status' })
-                ]).then(([runtime, , widgets]) => { window.__nervaTestRuntime = runtime; window.__nervaTestWidgets = widgets; })
+                ($request)().then(value => window.__nervaTestValue = value)
                   .catch(error => window.__nervaTestError = JSON.stringify(error));
             }
-            return JSON.stringify({ text: document.body.innerText, runtime: window.__nervaTestRuntime, widgets: window.__nervaTestWidgets, error: window.__nervaTestError });
+            return JSON.stringify({ text: document.body.innerText, value: window.__nervaTestValue, error: window.__nervaTestError });
         })()"""
         val inspect = object : Runnable {
             override fun run() {
@@ -124,7 +150,7 @@ class WidgetScreenTest {
                 if (webview == null) { handler.postDelayed(this, 100); return }
                 webview.evaluateJavascript(script) { response ->
                     val data = runCatching { JSONObject(JSONArray("[$response]").getString(0)) }.getOrDefault(JSONObject())
-                    if (data.has("runtime") && data.optString("text").contains("Workspace")) { report = data; ready.countDown() }
+                    if (data.has("value") && data.optString("text").contains("Workspace")) { report = data; ready.countDown() }
                     else if (data.has("error")) { report = data; ready.countDown() }
                     else if (!closed) handler.postDelayed(this, 100)
                 }
@@ -134,11 +160,7 @@ class WidgetScreenTest {
         try {
             assertTrue("Full app and native IPC must become ready", ready.await(45, TimeUnit.SECONDS))
             assertFalse(report.toString(), report.has("error"))
-            assertEquals(4, report.getJSONObject("widgets").getJSONObject("counts").length())
-            assertFalse(report.toString(), report.getString("text").contains("Widget refresh failed"))
-            assertEquals(File(context.applicationInfo.dataDir).canonicalPath, File(report.getJSONObject("runtime").getString("data_dir")).canonicalPath)
-            assertTrue(report.getString("text").contains("Focus"))
-            assertFalse("Desktop popup controls must not appear on phones", report.getString("text").contains("Pop up"))
+            return report
         } finally {
             instrumentation.runOnMainSync { closed = true; handler.removeCallbacks(inspect); activity.finish() }
         }

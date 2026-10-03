@@ -48,6 +48,8 @@ run_test() {
   fi
 }
 
+run_test seedHabitThroughAppCommand ai.bytical.nerva.widgets.WidgetScreenTest
+"$ADB" shell am force-stop "$APP_ID"
 run_test providersActionsPersistenceAndLayouts
 "$ADB" shell am force-stop "$APP_ID"
 run_test coldProcessRecoversAndActsWithoutMainActivity

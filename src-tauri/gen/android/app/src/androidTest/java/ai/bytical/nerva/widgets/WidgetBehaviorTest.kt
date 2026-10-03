@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
@@ -38,9 +37,10 @@ class WidgetBehaviorTest {
 
     @Test
     fun providersActionsPersistenceAndLayouts() {
-        seedHabit()
         val snapshot = WidgetBridge.snapshot(context)
-        val workspace = snapshot.getJSONArray("workspaces").getJSONObject(0).getString("id")
+        val workspace = preferences.getString("fixtureWorkspace", null) ?: error("Seed the habit through the app first")
+        val habitSource = preferences.getString("fixtureHabit", null)!!
+        assertTrue(snapshot.getJSONArray("habits").objects().any { it.getJSONObject("habit").getString("id") == habitSource })
         val task = execute("""{"action":"task_create","title":"Review Android widget release","workspace_id":"$workspace"}""")
         val timer = execute("""{"action":"timer_create","minutes":1,"workspace_id":"$workspace"}""")
         val note = execute("""{"action":"note_save","title":"Launch checklist","body":"Check widgets\nVerify alerts\nReview layout","workspace_id":"$workspace"}""")
@@ -56,7 +56,7 @@ class WidgetBehaviorTest {
                 ids[kind] = id
                 val source = when (kind) {
                     WidgetKind.FOCUS -> timer.getString("id")
-                    WidgetKind.HABITS -> "widget-test-habit"
+                    WidgetKind.HABITS -> habitSource
                     WidgetKind.NOTES -> note.getString("id")
                     WidgetKind.TASKS -> ""
                 }
@@ -83,10 +83,10 @@ class WidgetBehaviorTest {
         val habit = WidgetCollections.rows(WidgetKind.HABITS, WidgetConfig.load(context, habitId), WidgetBridge.snapshot(context)).single()
         WidgetActionReceiver.perform(context, habitId, habit.request)
         WidgetActionReceiver.perform(context, habitId, habit.request)
-        var recorded = WidgetBridge.snapshot(context).getJSONArray("habits").objects().first { it.getJSONObject("habit").getString("id") == "widget-test-habit" }.getJSONObject("entry")
+        var recorded = WidgetBridge.snapshot(context).getJSONArray("habits").objects().first { it.getJSONObject("habit").getString("id") == habitSource }.getJSONObject("entry")
         assertEquals(1.0, recorded.getDouble("value"), 0.001)
         WidgetActionReceiver.perform(context, habitId, JSONObject().put("action", "undo"))
-        assertTrue(WidgetBridge.snapshot(context).getJSONArray("habits").objects().first { it.getJSONObject("habit").getString("id") == "widget-test-habit" }.isNull("entry"))
+        assertTrue(WidgetBridge.snapshot(context).getJSONArray("habits").objects().first { it.getJSONObject("habit").getString("id") == habitSource }.isNull("entry"))
 
         val timerId = timer.getString("id")
         val started = execute("""{"action":"timer","id":"$timerId","operation":"start"}""")
@@ -192,7 +192,7 @@ class WidgetBehaviorTest {
         } finally { instrumentation.runOnMainSync { taskActivity.finish() } }
 
         val habitId = AppWidgetManager.getInstance(context).getAppWidgetIds(WidgetKind.HABITS.component(context)).last()
-        WidgetConfig(workspace, "widget-test-habit", "dark").save(context, habitId)
+        WidgetConfig(workspace, preferences.getString("fixtureHabit", null)!!, "dark").save(context, habitId)
         NervaWidgets.refreshAll(context)
         val habitActivity = launchHost(habitId)
         try {
@@ -352,12 +352,4 @@ class WidgetBehaviorTest {
         }
     }
 
-    private fun seedHabit() {
-        val file = File(context.applicationInfo.dataDir, "nerva.db")
-        val database = SQLiteDatabase.openOrCreateDatabase(file, null)
-        database.execSQL("CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, ts_ms INTEGER NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL)")
-        val payload = JSONObject().put("id", "widget-test-habit").put("name", "Reading pages").put("kind", "count").put("target", 4).put("color", "#388569")
-        database.execSQL("INSERT INTO events(ts_ms, kind, payload) VALUES (?, ?, ?)", arrayOf(System.currentTimeMillis(), "habit.created", payload.toString()))
-        database.close()
-    }
 }
