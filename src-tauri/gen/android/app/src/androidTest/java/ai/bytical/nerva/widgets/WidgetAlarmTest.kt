@@ -28,12 +28,23 @@ class WidgetAlarmTest {
 
     private fun execute(request: JSONObject) = WidgetBridge.execute(context, request) as JSONObject
 
-    private fun startTimer(): String {
+    private fun startTimer(): String = onWidgetWorker {
         val timer = execute(JSONObject().put("action", "timer_create").put("minutes", 1))
         val id = timer.getString("id")
         execute(JSONObject().put("action", "timer").put("id", id).put("operation", "start"))
         WidgetAlarms.sync(context, WidgetBridge.snapshot(context))
-        return id
+        id
+    }
+
+    private fun <Value> onWidgetWorker(action: () -> Value): Value {
+        val completed = CountDownLatch(1)
+        var result: Result<Value>? = null
+        WidgetWorker.run(context) {
+            result = runCatching(action)
+            completed.countDown()
+        }
+        assertTrue("Widget worker operation must finish", completed.await(20, TimeUnit.SECONDS))
+        return checkNotNull(result).getOrThrow()
     }
 
     @Test
@@ -43,8 +54,10 @@ class WidgetAlarmTest {
         val id = startTimer()
         val scheduled = JSONObject(alarms.getString("scheduled", "{}")!!)
         assertFalse(scheduled.getJSONObject(id).getBoolean("exact"))
-        execute(JSONObject().put("action", "timer").put("id", id).put("operation", "pause"))
-        WidgetAlarms.sync(context, WidgetBridge.snapshot(context))
+        onWidgetWorker {
+            execute(JSONObject().put("action", "timer").put("id", id).put("operation", "pause"))
+            WidgetAlarms.sync(context, WidgetBridge.snapshot(context))
+        }
         assertFalse(JSONObject(alarms.getString("scheduled", "{}")!!).has(id))
     }
 
