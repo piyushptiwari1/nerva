@@ -22,11 +22,13 @@ import { WhatsNew } from "@/components/WhatsNew";
 import { initTelemetry } from "@/lib/telemetry";
 import { flushFeedbackQueue, markInstalled } from "@/lib/feedback";
 import { useLicense } from "@/lib/license";
-import { useLayout } from "@/store/layout";
+import { useLayout, usePanes } from "@/store/layout";
+import { PaneResizer } from "@/components/PaneResizer";
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
   const showTimeline = useLayout((s) => s.showTimeline);
+  const panes = usePanes();
   const togglePalette = usePalette((s) => s.toggle);
   const toggleSettings = useSettingsUi((s) => s.toggle);
   const toggleHabits = useHabitsUi((s) => s.toggle);
@@ -92,9 +94,14 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid">
       <ErrorBoundary scope="CommandBar"><CommandBar /></ErrorBoundary>
-      <div className={`flex-1 min-h-0 grid grid-cols-[240px_minmax(0,1fr)_360px] gap-3 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}>
+      <div
+        className={`flex-1 min-h-0 grid gap-0 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}
+        style={{ gridTemplateColumns: `${panes.sidebar}px 12px minmax(0,1fr) 12px ${panes.notes}px` }}
+      >
         <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
+        <PaneResizer side="left" value={panes.sidebar} onChange={panes.setSidebar} onReset={panes.reset} label="Resize sidebar" />
         <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
+        <PaneResizer side="right" value={panes.notes} onChange={panes.setNotes} onReset={panes.reset} label="Resize notes" />
         <ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary>
       </div>
       {showTimeline && <ErrorBoundary scope="TimelineBar"><TimelineBar /></ErrorBoundary>}

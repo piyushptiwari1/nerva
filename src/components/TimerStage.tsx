@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useApp } from "@/store/app";
 import { ipc, formatRemaining, planPhases, phaseLabel, type Timer } from "@/lib/ipc";
 import { settings } from "@/lib/settings";
 import { isMobile } from "@/lib/platform";
 import { inWorkspace } from "@/lib/workspaces";
+import { SectionHead } from "@/components/SectionHead";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
   { label: "25m Focus", ms: 25 * 60_000, color: "#7c9cff" },
@@ -61,33 +62,41 @@ export function TimerStage() {
   const preview = planPhases(Math.max(0, customMin) * 60_000);
   const structured = autoBreaks && preview.length > 1;
 
+  // The timer you are actually doing gets the stage. Running wins; otherwise
+  // the most recently paused one. Everything else is parked in a strip.
+  const hero =
+    timers.find((t) => t.status === "running") ??
+    [...timers].filter((t) => t.status === "paused").sort((a, b) => (b.paused_at_ms ?? 0) - (a.paused_at_ms ?? 0))[0] ??
+    null;
+  const parked = hero ? timers.filter((t) => t.id !== hero.id) : timers;
+
   return (
-    <section className="glass rounded-xl p-4 flex flex-col gap-4 min-h-0">
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-ink-100">Focus stage</h2>
-          <p className="text-xs text-ink-400">
-            Parallel timers, wall-clock math, survives reboot.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isMobile() && (
+    <section className="glass rounded-xl p-4 flex flex-col gap-3 min-h-0">
+      <SectionHead
+        as="h2"
+        title="Focus"
+        count={timers.length}
+        sub={hero ? `${hero.name} is on stage — others wait below` : "Start a session; it takes the stage while it runs"}
+        actions={
+          <>
+            {!isMobile() && (
+              <button
+                onClick={() => ipc.openTimerWidget()}
+                className="control-chip"
+                title="Open as a floating always-on-top widget"
+              >
+                Pop up ↗
+              </button>
+            )}
             <button
-              onClick={() => ipc.openTimerWidget()}
-              className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700 text-ink-300"
-              title="Open as a floating always-on-top widget"
+              onClick={() => setCreating((v) => !v)}
+              className={creating ? "btn" : "btn-primary"}
             >
-              ↗ Pop up
+              {creating ? "Cancel" : "+ New timer"}
             </button>
-          )}
-          <button
-            onClick={() => setCreating((v) => !v)}
-            className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
-          >
-            {creating ? "Cancel" : "+ New timer"}
-          </button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <AnimatePresence>
         {creating && (
@@ -116,21 +125,18 @@ export function TimerStage() {
                   onChange={(e) => setCustomName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && spawnCustom()}
                   placeholder="Custom timer name"
-                  className="flex-1 bg-ink-800 hairline rounded-md px-2.5 py-1.5 text-sm"
+                  className="field flex-1"
                 />
                 <input
                   type="number"
                   min={1}
                   value={customMin}
                   onChange={(e) => setCustomMin(parseInt(e.target.value || "0", 10))}
-                  className="w-20 bg-ink-800 hairline rounded-md px-2 py-1.5 text-sm tnum"
+                  className="field w-20 tnum"
                   aria-label="Duration in minutes"
                 />
                 <span className="text-xs text-ink-400">min</span>
-                <button
-                  onClick={spawnCustom}
-                  className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
-                >
+                <button onClick={spawnCustom} className="btn-primary">
                   Start
                 </button>
               </div>
@@ -171,9 +177,9 @@ export function TimerStage() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 min-h-0 overflow-auto grid grid-cols-1 lg:grid-cols-2 gap-3 content-start">
+      <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-3">
         {timers.length === 0 && (
-          <div className="col-span-full text-center text-ink-400 py-16">
+          <div className="text-center text-ink-400 py-16">
             <p className="text-sm">No active timers.</p>
             <p className="text-xs mt-1">
               Tap{" "}
@@ -188,15 +194,49 @@ export function TimerStage() {
             </p>
           </div>
         )}
-        {timers.map((t) => (
-          <TimerCard key={t.id} timer={t} onChange={refreshTimers} />
-        ))}
+        <LayoutGroup>
+          <AnimatePresence initial={false}>
+            {hero && (
+              <motion.div
+                key={hero.id}
+                layout
+                layoutId={`timer-${hero.id}`}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.8 }}
+                data-testid="timer-hero"
+              >
+                <TimerCard timer={hero} onChange={refreshTimers} hero />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {parked.length > 0 && (
+            <div className={`grid gap-3 content-start ${hero ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-1 lg:grid-cols-2"}`}>
+              <AnimatePresence initial={false}>
+                {parked.map((t) => (
+                  <motion.div
+                    key={t.id}
+                    layout
+                    layoutId={`timer-${t.id}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.8 }}
+                  >
+                    <TimerCard timer={t} onChange={refreshTimers} compact={!!hero} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </LayoutGroup>
       </div>
     </section>
   );
 }
 
-function TimerCard({ timer, onChange }: { timer: Timer; onChange: () => Promise<void> }) {
+function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: Timer; onChange: () => Promise<void>; hero?: boolean; compact?: boolean }) {
   const structured = (timer.phases?.length ?? 1) > 1;
   const isBreak = timer.phase_kind === "break";
   // Ring shows the CURRENT phase for structured sessions (so a break reads
@@ -208,8 +248,8 @@ function TimerCard({ timer, onChange }: { timer: Timer; onChange: () => Promise<
     timer.duration_ms > 0
       ? 1 - Math.max(0, Math.min(1, timer.remaining_ms / timer.duration_ms))
       : 0;
-  const size = 160;
-  const stroke = 10;
+  const size = hero ? 240 : compact ? 112 : 160;
+  const stroke = hero ? 12 : compact ? 8 : 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = c * progress;
@@ -239,8 +279,9 @@ function TimerCard({ timer, onChange }: { timer: Timer; onChange: () => Promise<
 
   return (
     <div
-      className="glass rounded-xl p-4 flex flex-col items-center gap-2"
-      style={{ borderTop: `2px solid ${timer.color}` }}
+      className={`glass rounded-xl flex flex-col items-center ${hero ? "p-6 gap-3 timer-hero" : compact ? "p-3 gap-1.5" : "p-4 gap-2"}`}
+      style={{ borderTop: `2px solid ${timer.color}`, ...(hero ? { boxShadow: `0 18px 60px ${timer.color}33, var(--glass-shadow)` } : {}) }}
+      aria-label={hero ? `${timer.name}, on stage` : undefined}
     >
       <div className="w-full flex items-center justify-between text-xs gap-2">
         <span className="text-ink-200 truncate" title={timer.name}>{timer.name}</span>
@@ -299,12 +340,12 @@ function TimerCard({ timer, onChange }: { timer: Timer; onChange: () => Promise<
           dominantBaseline="central"
           className="tnum text-ink-100"
           fill="currentColor"
-          fontSize="26"
+          fontSize={hero ? 42 : compact ? 20 : 26}
           fontWeight={600}
         >
           {formatRemaining(ringLeft)}
         </text>
-        {structured && (
+        {structured && !compact && (
           <text
             x="50%" y="62%"
             textAnchor="middle"
@@ -339,19 +380,18 @@ function TimerCard({ timer, onChange }: { timer: Timer; onChange: () => Promise<
       <div className="flex gap-2">
         <button
           onClick={toggle}
-          className="text-xs px-3 py-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
+          className={hero ? "btn-primary px-6" : "btn"}
         >
           {timer.status === "running" ? "Pause" : timer.status === "paused" ? "Resume" : "Start"}
         </button>
-        <button
-          onClick={reset}
-          className="text-xs px-3 py-1.5 rounded-md hairline hover:bg-ink-700"
-        >
-          Reset
-        </button>
+        {!compact && (
+          <button onClick={reset} className="btn">
+            Reset
+          </button>
+        )}
         <button
           onClick={remove}
-          className="text-xs px-2.5 py-1.5 rounded-md hairline hover:bg-danger/20 text-ink-400 hover:text-danger"
+          className="icon-button text-ink-400 hover:text-danger"
           title="Delete"
           aria-label={`Delete timer ${timer.name}`}
         >

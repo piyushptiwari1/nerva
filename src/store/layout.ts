@@ -5,18 +5,17 @@ import { persist } from "zustand/middleware";
  * Sidebar layout — which sections show and in what order. UI-only
  * preference, persisted in localStorage (never synced / telemetered).
  */
-export type SectionId = "workspaces" | "tasks" | "habits" | "clocks" | "momentum";
+export type SectionId = "workspaces" | "tasks" | "habits" | "momentum";
 
 export const ALL_SECTIONS: { id: SectionId; label: string; hint: string }[] = [
   { id: "workspaces", label: "Workspaces", hint: "Switch context; timers/notes/tasks are scoped per workspace" },
   { id: "tasks", label: "Tasks", hint: "Today's list for the active workspace" },
   { id: "habits", label: "Habits", hint: "One-tap daily log" },
-  { id: "clocks", label: "World clocks", hint: "Up to 6 time zones" },
   { id: "momentum", label: "This week", hint: "Focus time, sessions and tasks done vs last week" },
 ];
 
-const DEFAULT_ORDER: SectionId[] = ["workspaces", "tasks", "habits", "clocks", "momentum"];
-const DEFAULT_HIDDEN: SectionId[] = ["clocks", "momentum"];
+const DEFAULT_ORDER: SectionId[] = ["workspaces", "tasks", "habits", "momentum"];
+const DEFAULT_HIDDEN: SectionId[] = ["momentum"];
 
 interface LayoutState {
   order: SectionId[];
@@ -64,19 +63,20 @@ export const useLayout = create<LayoutState>()(
         }
         return p as LayoutState;
       },
-      // Tolerate sections added in later versions: append unknown-to-user
-      // ids at the end so new features are discoverable.
+      // Tolerate sections added or removed in later versions: drop unknown
+      // ids (e.g. "clocks", now in the top-bar popover) and append new ones.
       merge: (persisted, current) => {
         const p = (persisted as Partial<LayoutState>) ?? {};
         const order = (p.order ?? []).filter((id) => DEFAULT_ORDER.includes(id));
         for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id);
-        return { ...current, ...p, order, hidden: p.hidden ?? current.hidden };
+        const hidden = (p.hidden ?? current.hidden).filter((id) => DEFAULT_ORDER.includes(id));
+        return { ...current, ...p, order, hidden };
       },
     },
   ),
 );
 
-/** World clocks — list of IANA zone ids shown in the sidebar. */
+/** World clocks — list of IANA zone ids shown in the top-bar popover. */
 interface ClocksState {
   zones: string[];
   add: (zone: string) => void;
@@ -97,5 +97,34 @@ export const useClocks = create<ClocksState>()(
       remove: (zone) => set({ zones: get().zones.filter((x) => x !== zone) }),
     }),
     { name: "nerva-clocks" },
+  ),
+);
+
+/**
+ * Column widths for the three-pane desktop layout. The centre pane takes
+ * whatever is left. Clamped so no pane can be dragged into uselessness.
+ */
+export const PANE_LIMITS = { sidebar: [220, 440] as const, notes: [280, 640] as const };
+const DEFAULT_PANES = { sidebar: 272, notes: 340 };
+
+interface PanesState {
+  sidebar: number;
+  notes: number;
+  setSidebar: (px: number) => void;
+  setNotes: (px: number) => void;
+  reset: () => void;
+}
+
+const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.round(Math.min(hi, Math.max(lo, v)));
+
+export const usePanes = create<PanesState>()(
+  persist(
+    (set) => ({
+      ...DEFAULT_PANES,
+      setSidebar: (px) => set({ sidebar: clamp(px, PANE_LIMITS.sidebar) }),
+      setNotes: (px) => set({ notes: clamp(px, PANE_LIMITS.notes) }),
+      reset: () => set(DEFAULT_PANES),
+    }),
+    { name: "nerva-panes" },
   ),
 );
