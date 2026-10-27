@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ipc, type RuntimeInfo } from "@/lib/ipc";
 import { FocusMenu } from "@/components/FocusMenu";
+import { ClockMenu } from "@/components/ClockMenu";
 import { usePalette } from "@/store/palette";
 import { useTutorial } from "@/store/tutorial";
 import { useHabitsUi } from "@/store/habits";
@@ -28,7 +29,6 @@ function ProBadge() {
 
 export function CommandBar() {
   const [info, setInfo] = useState<RuntimeInfo | null>(null);
-  const [now, setNow] = useState(() => new Date());
   const openPalette = usePalette((s) => s.set);
   const askNerva = usePalette((s) => s.ask);
   const showTutorial = useTutorial((s) => s.show);
@@ -39,8 +39,6 @@ export function CommandBar() {
 
   useEffect(() => {
     ipc.runtime().then(setInfo).catch(() => void 0);
-    const h = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(h);
   }, []);
 
   return (
@@ -117,9 +115,7 @@ export function CommandBar() {
         ⚙
       </button>
 
-      <div className="text-xs text-ink-300 tnum">
-        {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-      </div>
+      <ClockMenu />
     </div>
   );
 }

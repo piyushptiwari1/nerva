@@ -6,7 +6,6 @@ import { useSettingsUi } from "@/store/settings";
 import { useHabitsUi } from "@/store/habits";
 import { useTutorial } from "@/store/tutorial";
 import { useTheme } from "@/store/theme";
-import { useLayout } from "@/store/layout";
 import { useWhatsNew } from "@/components/WhatsNew";
 import { GITHUB_REPO } from "@/lib/changelog";
 import { ipc } from "@/lib/ipc";
@@ -302,11 +301,11 @@ export function CommandPalette() {
       id: "system.clocks",
       group: "System",
       glyph: "◷",
-      title: "Show world clocks",
-      subtitle: "multi-time-zone clocks in the sidebar",
-      keywords: "clock clocks time zone timezone world city utc".toLowerCase(),
+      title: "World clocks",
+      subtitle: "click the time in the top bar → date, local zone and up to 6 cities",
+      keywords: "clock clocks time zone timezone world city utc date".toLowerCase(),
       run: () => {
-        useLayout.getState().setHidden("clocks", false);
+        document.querySelector<HTMLButtonElement>('button[aria-label^="Clock:"]')?.click();
       },
     });
     out.push({
@@ -510,7 +509,7 @@ export function CommandPalette() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-[640px] max-w-[92vw] glass rounded-xl shadow-2xl border border-ink-700/60 overflow-hidden"
+            className="w-[640px] max-w-[92vw] glass glass-modal rounded-xl shadow-2xl border border-ink-700/60 overflow-hidden"
             onKeyDown={onKeyDown}
           >
             <div className="flex items-center gap-2 px-3 py-2 border-b border-ink-700/40">
