@@ -51,6 +51,14 @@ impl Store {
         Ok(Self { pool })
     }
 
+    /// Fold the WAL into the main file so a copy of `nerva.db` alone is
+    /// complete. Used before backup export.
+    pub fn checkpoint(&self) -> Result<()> {
+        let conn = self.pool.get()?;
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(())
+    }
+
     pub fn migrate(&self) -> Result<()> {
         let conn = self.pool.get()?;
         conn.execute_batch(

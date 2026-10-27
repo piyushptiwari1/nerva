@@ -7,6 +7,7 @@
 //!   - Tauri commands + events for IPC with the React frontend.
 
 pub mod audio;
+pub mod backup;
 pub mod diag;
 pub mod error;
 pub mod focus;
@@ -264,6 +265,11 @@ pub fn run() {
             ipc::window_close,
             ipc::reveal_data_dir,
             ipc::reset_all_data,
+            // backup
+            ipc::backup_export,
+            ipc::backup_inspect,
+            ipc::backup_restore,
+            ipc::backup_list,
             // audio
             ipc::audio_state,
             ipc::audio_set_volume,

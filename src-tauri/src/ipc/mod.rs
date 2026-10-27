@@ -1501,6 +1501,87 @@ pub fn reset_all_data(state: State, app: tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 
+// ---------- backup ----------
+
+/// Where exports land when the caller gives no path: the platform Downloads
+/// folder on desktop, the app's external files dir on Android (visible to
+/// the system Files app and to Drive/Share), with a dated filename.
+fn default_backup_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf> {
+    use tauri::Manager;
+    #[cfg(target_os = "android")]
+    {
+        let dir = app
+            .path()
+            .public_dir()
+            .or_else(|_| app.path().app_data_dir())
+            .map_err(|e| NervaError::Storage(e.to_string()))?
+            .join("Nerva backups");
+        return Ok(dir);
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        app.path()
+            .download_dir()
+            .or_else(|_| app.path().document_dir())
+            .or_else(|_| app.path().home_dir())
+            .map(|d| d.join("Nerva backups"))
+            .map_err(|e| NervaError::Storage(e.to_string()))
+    }
+}
+
+#[tauri::command]
+pub fn backup_export(
+    app: tauri::AppHandle,
+    state: State,
+    path: Option<String>,
+) -> Result<crate::backup::BackupInfo> {
+    let destination = match path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => default_backup_dir(&app)?.join(crate::backup::default_filename()),
+    };
+    // Checkpoint first so the exported copy reflects every committed event.
+    state.store.checkpoint()?;
+    crate::backup::export(&state.data_dir.join("nerva.db"), &destination)
+}
+
+#[tauri::command]
+pub fn backup_inspect(path: String) -> Result<crate::backup::BackupInfo> {
+    crate::backup::inspect(std::path::Path::new(path.trim()))
+}
+
+/// Recent exports in the default backup folder, newest first.
+#[tauri::command]
+pub fn backup_list(app: tauri::AppHandle) -> Result<Vec<crate::backup::BackupInfo>> {
+    let dir = default_backup_dir(&app)?;
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) == Some("db") {
+                if let Ok(info) = crate::backup::inspect(&p) {
+                    out.push(info);
+                }
+            }
+        }
+    }
+    out.sort_by(|a, b| b.path.cmp(&a.path));
+    Ok(out)
+}
+
+/// Validate, swap the database files and restart. The previous database is
+/// kept in the data directory so a wrong restore is recoverable.
+#[tauri::command]
+pub fn backup_restore(app: tauri::AppHandle, state: State, path: String) -> Result<String> {
+    let kept = crate::backup::restore(&state.data_dir, std::path::Path::new(path.trim()))?;
+    tracing::warn!(from = %path, kept = %kept.display(), "backup restored; restarting");
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        handle.restart();
+    });
+    Ok(kept.display().to_string())
+}
+
 // ---------- audio ----------
 
 #[derive(Debug, Serialize)]

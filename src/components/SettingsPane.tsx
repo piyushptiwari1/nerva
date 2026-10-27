@@ -4,20 +4,22 @@ import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai, AI_PROVIDERS, type AiProvider } from "@/lib/ai";
-import { ipc } from "@/lib/ipc";
+import { ipc, type BackupInfo } from "@/lib/ipc";
 import {
   consentState as telemetryConsentState,
   setConsent as setTelemetryConsent,
+  launchBeaconEnabled,
+  setLaunchBeacon,
 } from "@/lib/telemetry";
-import { ALL_SECTIONS, useLayout } from "@/store/layout";
+import { ALL_SECTIONS, useLayout, usePanes } from "@/store/layout";
 import { FeedbackForm } from "@/components/Feedback";
 import { BUY_URL, planLabel, useLicense } from "@/lib/license";
 import { isMobile } from "@/lib/platform";
 
-type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "pro" | "feedback" | "diag" | "about";
-const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "pro", "feedback", "diag", "about"];
+type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "data" | "pro" | "feedback" | "diag" | "about";
+const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "data", "pro", "feedback", "diag", "about"];
 // No sidebar layout, DND or synthesized audio on phones.
-const MOBILE_TABS: Tab[] = ["timers", "ai", "pro", "feedback", "diag", "about"];
+const MOBILE_TABS: Tab[] = ["timers", "ai", "data", "pro", "feedback", "diag", "about"];
 const TABS: Tab[] = isMobile() ? MOBILE_TABS : DESKTOP_TABS;
 
 /**
@@ -83,8 +85,8 @@ export function SettingsPane() {
             transition={{ duration: 0.14 }}
             className={
               isMobile()
-                ? "settings-pane w-full h-full glass overflow-hidden flex flex-col"
-                : "w-[680px] max-w-[94vw] h-[460px] glass rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
+                ? "settings-pane w-full h-full glass glass-modal overflow-hidden flex flex-col"
+                : "w-[680px] max-w-[94vw] h-[460px] glass glass-modal rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
             }
           >
             <header className="px-4 py-2.5 border-b border-ink-700/40 flex items-center">
@@ -138,6 +140,7 @@ export function SettingsPane() {
                     {tab === "audio" && <AudioTab />}
                     {tab === "focus" && <FocusTab />}
                     {tab === "layout" && <LayoutTab />}
+                    {tab === "data" && <DataTab />}
                     {tab === "pro" && <ProTab />}
                     {tab === "feedback" && <FeedbackForm />}
                     {tab === "diag" && <DiagTab />}
@@ -639,6 +642,7 @@ function LayoutTab() {
   const showTimeline = useLayout((s) => s.showTimeline);
   const setShowTimeline = useLayout((s) => s.setShowTimeline);
   const reset = useLayout((s) => s.reset);
+  const resetPanes = usePanes((s) => s.reset);
   const meta = Object.fromEntries(ALL_SECTIONS.map((s) => [s.id, s]));
 
   return (
@@ -692,10 +696,16 @@ function LayoutTab() {
         </ul>
         <button
           onClick={reset}
-          className="mt-2 text-[11px] px-2 py-0.5 rounded hairline hover:bg-ink-800 text-ink-300"
+          className="btn mt-2"
         >
           Reset to default
         </button>
+      </Field>
+      <Field
+        label="Column widths"
+        help="Drag the thin handles between the sidebar, Focus and Notes to resize them. Double-click a handle, or use this button, to restore the defaults. World clocks live behind the time in the top bar."
+      >
+        <button onClick={resetPanes} className="btn">Reset column widths</button>
       </Field>
       <Field
         label="Advanced"
@@ -969,6 +979,180 @@ function Status({ saving, error }: { saving?: boolean; error?: string | null }) 
   return null;
 }
 
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function backupName(path: string): string {
+  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+/**
+ * Backup / restore. Free for everyone: a consistent copy of the SQLite
+ * database lands in "Downloads/Nerva backups" (or the app's public folder on
+ * Android) and can be restored from any `.nerva.db` file. Google Drive sync
+ * builds on the same file and is reserved for Pro.
+ */
+function DataTab() {
+  const [recent, setRecent] = useState<BackupInfo[]>([]);
+  const [last, setLast] = useState<BackupInfo | null>(null);
+  const [restorePath, setRestorePath] = useState("");
+  const [preview, setPreview] = useState<BackupInfo | null>(null);
+  const [busy, setBusy] = useState<"export" | "restore" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const pro = useLicense((s) => s.isPro);
+
+  async function refresh() {
+    try {
+      setRecent(await ipc.backupList());
+    } catch {
+      setRecent([]);
+    }
+  }
+  useEffect(() => { void refresh(); }, []);
+
+  async function exportNow() {
+    setErr(null);
+    setBusy("export");
+    try {
+      const info = await ipc.backupExport();
+      setLast(info);
+      await refresh();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function inspect(path: string) {
+    setErr(null);
+    setPreview(null);
+    if (!path.trim()) return;
+    try {
+      setPreview(await ipc.backupInspect(path.trim()));
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
+  async function restore(info: BackupInfo) {
+    const ok = confirm(
+      `Restore "${backupName(info.path)}"?\n\n` +
+        `It holds ${info.events.toLocaleString()} events and ${info.notes.toLocaleString()} notes. ` +
+        "Your current data is kept as a dated copy inside Nerva's data folder, " +
+        "then Nerva relaunches with the restored data.",
+    );
+    if (!ok) return;
+    setErr(null);
+    setBusy("restore");
+    try {
+      await ipc.backupRestore(info.path);
+    } catch (e) {
+      setErr(String(e));
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-4 text-sm">
+      <Field
+        label="Backup"
+        help={
+          isMobile()
+            ? "Writes a single .nerva.db file to the Nerva backups folder, visible in your Files app for sharing or uploading to Drive."
+            : "Writes a single .nerva.db file to Downloads/Nerva backups. Copy it anywhere — a cloud folder, a USB stick — to move Nerva between machines."
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => void exportNow()} disabled={busy !== null} className="btn btn-primary">
+            {busy === "export" ? "Exporting…" : "Export backup now"}
+          </button>
+          {!isMobile() && (
+            <button onClick={() => void ipc.revealDataDir()} className="btn">
+              Open data folder
+            </button>
+          )}
+        </div>
+        {last && (
+          <div className="mt-2 text-[11px] text-emerald-300 leading-snug break-all">
+            Saved {backupName(last.path)} · {fmtBytes(last.bytes)} · {last.events.toLocaleString()} events
+            <div className="text-ink-500 font-mono text-[10px]">{last.path}</div>
+          </div>
+        )}
+      </Field>
+
+      <Field label="Restore" help="Pick a recent backup or paste the full path of any .nerva.db file. Current data is kept, never overwritten silently.">
+        {recent.length > 0 && (
+          <ul className="flex flex-col gap-1 mb-2">
+            {recent.slice(0, 6).map((b) => (
+              <li key={b.path} className="flex items-center gap-2 rounded-md border border-ink-700/60 px-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-ink-100 truncate">{backupName(b.path)}</div>
+                  <div className="text-[10px] text-ink-500 tnum">
+                    {fmtBytes(b.bytes)} · {b.events.toLocaleString()} events · {b.notes.toLocaleString()} notes
+                  </div>
+                </div>
+                <button onClick={() => void restore(b)} disabled={busy !== null} className="btn">
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={restorePath}
+            onChange={(e) => setRestorePath(e.target.value)}
+            onBlur={() => void inspect(restorePath)}
+            onKeyDown={(e) => { if (e.key === "Enter") void inspect(restorePath); }}
+            placeholder={isMobile() ? "/storage/emulated/0/…/nerva-backup-….nerva.db" : "/path/to/nerva-backup-….nerva.db"}
+            className="field flex-1 min-w-[200px] font-mono text-[11px]"
+            spellCheck={false}
+          />
+          <button onClick={() => void inspect(restorePath)} disabled={!restorePath.trim()} className="btn">
+            Check file
+          </button>
+        </div>
+        {preview && (
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-ink-200">
+            <span>
+              Valid Nerva backup · {preview.events.toLocaleString()} events · {preview.notes.toLocaleString()} notes · {fmtBytes(preview.bytes)}
+            </span>
+            <button onClick={() => void restore(preview)} disabled={busy !== null} className="btn btn-primary">
+              {busy === "restore" ? "Restoring…" : "Restore this file"}
+            </button>
+          </div>
+        )}
+        <Status error={err} />
+      </Field>
+
+      <Field
+        label="Google Drive sync"
+        help={
+          pro
+            ? "Coming in the next update: Nerva will keep this backup file in your Drive app folder and merge changes across devices."
+            : "Pro keeps this backup in your own Google Drive app folder and syncs it across your devices. Local export and restore above are free, always."
+        }
+      >
+        <div className="flex items-center gap-2">
+          <button disabled className="btn opacity-60 cursor-not-allowed">
+            {pro ? "Connect Google Drive (soon)" : "Connect Google Drive"}
+          </button>
+          {!pro && (
+            <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">
+              Get Nerva Pro
+            </a>
+          )}
+        </div>
+      </Field>
+    </section>
+  );
+}
+
 function DiagTab() {
   const [list, setList] = useState<CrashEntry[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -1211,6 +1395,11 @@ function AboutTab() {
     setTelemetryConsent(v);
     setTelemetryOn(v);
   }
+  const [beaconOn, setBeaconOn] = useState(() => launchBeaconEnabled());
+  function toggleBeacon(v: boolean) {
+    setLaunchBeacon(v);
+    setBeaconOn(v);
+  }
 
   type UpdateState =
     | { kind: "idle" }
@@ -1285,27 +1474,38 @@ function AboutTab() {
         </h3>
         <p className="text-ink-400">
           The focus workspace that never forgets. Native, offline-first.
-          Apache-2.0. Usage stats are opt-in, anonymous, and never include
-          your content.
+          Apache-2.0. Nerva never sees your content; see Privacy below for
+          exactly what leaves this device.
         </p>
         <p className="text-ink-500">
           v{version} · © 2026 Bytical Solutions Private Limited
         </p>
       </header>
 
-      {/* Privacy — anonymous usage stats opt-in/out. */}
+      {/* Privacy — launch beacon (on by default) and usage stats (opt-in). */}
       <div className="space-y-2">
         <h4 className="text-[11px] uppercase tracking-wider text-ink-300">Privacy</h4>
+        <Toggle
+          label="Count my launches (anonymous, daily)"
+          on={beaconOn}
+          onChange={toggleBeacon}
+        />
+        <p className="text-[10px] text-ink-500 leading-relaxed">
+          On by default. Once per day Nerva reports only: app version, OS,
+          platform and language. No identifier, no device fingerprint, no
+          counts, no content — installations cannot be told apart or followed.
+          The server records the country. This is how we know Nerva is used at all.
+        </p>
         <Toggle
           label="Share anonymous usage stats (weekly)"
           on={telemetryOn}
           onChange={toggleTelemetry}
         />
         <p className="text-[10px] text-ink-500 leading-relaxed">
-          When on, Nerva sends one anonymous ping per week: app version, OS,
-          locale, and feature counts (e.g. “12 notes, 3 timers”). Never the
-          contents of notes, tasks, or anything you type. Off = zero outbound
-          calls except update checks.
+          Off by default. When on, Nerva sends one ping per week with a random
+          anonymous id and feature counts (e.g. “12 notes, 3 timers”). Never
+          the contents of notes, tasks, or anything you type. With both
+          switches off, the only outbound calls are update checks.
         </p>
       </div>
 

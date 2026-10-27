@@ -128,6 +128,13 @@ export type AmbientKind = "white" | "pink" | "brown";
 
 export type CompletionSound = "classic" | "chime" | "bell" | "beep" | "soft";
 
+export interface BackupInfo {
+  path: string;
+  bytes: number;
+  events: number;
+  notes: number;
+}
+
 export interface AudioState {
   volume: number;
   muted: boolean;
@@ -246,6 +253,12 @@ export const ipc = {
   revealDataDir: () => invoke<void>("reveal_data_dir"),
   /** Backup + wipe Nerva's SQLite database and auto-relaunch. */
   resetAllData: () => invoke<void>("reset_all_data"),
+  /** Consistent copy of the database to `path` (or the default backup folder). */
+  backupExport: (path?: string) => invoke<BackupInfo>("backup_export", { path: path ?? null }),
+  backupInspect: (path: string) => invoke<BackupInfo>("backup_inspect", { path }),
+  backupList: () => invoke<BackupInfo[]>("backup_list"),
+  /** Swap the live database for `path`, keep the old one, then relaunch. */
+  backupRestore: (path: string) => invoke<string>("backup_restore", { path }),
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),
