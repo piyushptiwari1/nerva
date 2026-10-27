@@ -28,16 +28,17 @@ export function TelemetryConsent() {
 
   return (
     <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 pointer-events-none">
-      <div className="pointer-events-auto glass rounded-xl border border-ink-700/60 shadow-2xl p-4 max-w-md w-full">
+      <div className="pointer-events-auto glass glass-modal rounded-xl border border-ink-700/60 shadow-2xl p-4 max-w-md w-full">
         <h3 className="text-sm font-semibold text-ink-100">
           Help improve Nerva?
         </h3>
         <p className="text-xs text-ink-400 mt-1.5 leading-relaxed">
-          Share <span className="text-ink-200">anonymous usage stats</span> once a
-          week — app version, OS, and feature counts (e.g. “12 notes, 3 timers”).
-          Never the contents of your notes, tasks, or anything you type. No
-          account, no IP profiling. Off by default; change anytime in
-          Settings&nbsp;→&nbsp;About.
+          Nerva already sends one <span className="text-ink-200">anonymous launch count</span> per
+          day (version, OS, language — no identifier; switch it off in
+          Settings&nbsp;→&nbsp;About). Would you also share{" "}
+          <span className="text-ink-200">weekly usage stats</span>: feature counts like
+          “12 notes, 3 timers”? Never the contents of your notes, tasks, or
+          anything you type. No account, no IP profiling. Off unless you say yes.
         </p>
         <div className="flex items-center justify-end gap-2 mt-3">
           <button

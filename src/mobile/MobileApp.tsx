@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WhatsNew } from "@/components/WhatsNew";
 import { useNativeWidgets } from "./widgets";
 import { WidgetsPane } from "./WidgetsPane";
+import { initTelemetry } from "@/lib/telemetry";
 import { ipc } from "@/lib/ipc";
 import nervaIcon from "../../src-tauri/icons/icon.png";
 import "./mobile.css";
@@ -55,6 +56,8 @@ export function MobileApp() {
   useEffect(() => {
     if (ready) void useLicense.getState().load();
   }, [ready]);
+
+  useEffect(() => initTelemetry(), []);
 
   // UI refresh cadence; the engine itself is wall-clock based.
   useEffect(() => {

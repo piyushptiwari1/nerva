@@ -1,27 +1,30 @@
 import { ipc } from "@/lib/ipc";
+import { isAndroid } from "@/lib/platform";
 
 /**
- * Opt-in anonymous usage telemetry.
+ * Two independent signals, with different defaults:
  *
- * Privacy contract (mirrored in the consent dialog and the website FAQ):
- *  - OFF by default. Nothing is ever sent until the user explicitly accepts
- *    the consent dialog. The choice can be reverted any time in Settings.
- *  - Anonymous: a random UUID generated locally, no account, no email, no
- *    hostname, no IP-side enrichment.
- *  - Content never leaves the machine: only COUNTS (how many notes/tasks/
- *    timers/habits exist, focus minutes) plus app version / OS / locale.
- *  - At most one ping every 7 days, and only when the app is online.
+ *  1. Launch beacon — ON by default, opt-out in Settings → About.
+ *     Once per calendar day: app version, OS, platform, language. No id of
+ *     any kind, no counts, no content. The server adds country only.
+ *     This is the only way to know whether anyone actually uses Nerva.
  *
- * The payload goes to nerva.bytical.ai/api/telemetry which whitelists the
- * fields server-side before forwarding to the analytics sink.
+ *  2. Weekly usage stats — OFF by default, opt-in via the consent dialog.
+ *     Anonymous random id + feature counts (how many notes/tasks/…). Content
+ *     never leaves the machine.
+ *
+ * Both are best-effort and never block or break offline use.
  */
 
 const ENDPOINT = "https://nerva.bytical.ai/api/telemetry";
+const LAUNCH_ENDPOINT = "https://nerva.bytical.ai/api/launch";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const K_CONSENT = "nerva.telemetry.consent"; // "granted" | "denied" | absent (= not asked yet)
 const K_LAST = "nerva.telemetry.lastSent";
 const K_ANON = "nerva.telemetry.anonId";
+const K_BEACON = "nerva.telemetry.launchBeacon"; // "off" disables; absent/"on" = enabled
+const K_BEACON_DAY = "nerva.telemetry.launchDay";
 
 export type ConsentState = "granted" | "denied" | "unset";
 
@@ -36,6 +39,56 @@ export function setConsent(granted: boolean): void {
     // Revoked → forget the anonymous id so a future opt-in starts fresh.
     localStorage.removeItem(K_ANON);
     localStorage.removeItem(K_LAST);
+  }
+}
+
+export function launchBeaconEnabled(): boolean {
+  return localStorage.getItem(K_BEACON) !== "off";
+}
+
+export function setLaunchBeacon(enabled: boolean): void {
+  localStorage.setItem(K_BEACON, enabled ? "on" : "off");
+}
+
+function detectOs(): string {
+  if (isAndroid()) return "android";
+  const ua = navigator.userAgent;
+  if (/Windows/.test(ua)) return "windows";
+  if (/Mac OS|Macintosh/.test(ua)) return "macos";
+  if (/Linux|X11/.test(ua)) return "linux";
+  return "unknown";
+}
+
+function localDay(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Send today's launch beacon if enabled and not yet sent today. Never throws. */
+export async function maybeSendLaunchBeacon(): Promise<void> {
+  try {
+    if (!launchBeaconEnabled()) return;
+    const today = localDay();
+    if (localStorage.getItem(K_BEACON_DAY) === today) return;
+    let version = "unknown";
+    try {
+      version = (await ipc.runtime()).version;
+    } catch {
+      /* runtime info unavailable — still count the launch */
+    }
+    const res = await fetch(LAUNCH_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        app_version: version,
+        os: detectOs(),
+        platform: isAndroid() ? "android" : "desktop",
+        locale: navigator.language,
+      }),
+    });
+    if (res.ok) localStorage.setItem(K_BEACON_DAY, today);
+  } catch {
+    /* offline — try again next launch */
   }
 }
 
@@ -120,10 +173,21 @@ export async function maybeSendWeeklyPing(): Promise<void> {
  * long-running sessions. Main window only — popups must not double-send.
  */
 export function initTelemetry(): () => void {
+  const beacon = window.setTimeout(() => void maybeSendLaunchBeacon(), 8_000);
   const boot = window.setTimeout(() => void maybeSendWeeklyPing(), 30_000);
-  const daily = window.setInterval(() => void maybeSendWeeklyPing(), 24 * 60 * 60 * 1000);
+  const daily = window.setInterval(() => {
+    void maybeSendLaunchBeacon();
+    void maybeSendWeeklyPing();
+  }, 24 * 60 * 60 * 1000);
+  // A phone resumed on a new day should count that day too.
+  const onVisible = () => {
+    if (document.visibilityState === "visible") void maybeSendLaunchBeacon();
+  };
+  document.addEventListener("visibilitychange", onVisible);
   return () => {
+    window.clearTimeout(beacon);
     window.clearTimeout(boot);
     window.clearInterval(daily);
+    document.removeEventListener("visibilitychange", onVisible);
   };
 }
