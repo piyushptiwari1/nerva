@@ -1,3 +1,8 @@
+/* Bundled type: Inter with the optical-size axis (text cuts below ~20px,
+ * display cuts above) and JetBrains Mono for code. Offline, same on every OS. */
+@import "@fontsource-variable/inter/opsz.css";
+@import "@fontsource-variable/jetbrains-mono";
+
  .note-icon { display: inline-grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 6px; }
  .note-icon:disabled { opacity: .35; cursor: default; }
  .note-icon:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: -2px; }
@@ -32,11 +37,11 @@
   --ink-800: 22 26 33;
   --ink-700: 31 36 46;
   --ink-600: 44 50 61;
-  --ink-500: 74 82 96;
-  --ink-400: 122 132 148;
-  --ink-300: 167 175 190;
-  --ink-200: 203 209 220;
-  --ink-100: 236 240 246;
+  --ink-500: 96 106 122;
+  --ink-400: 138 148 165;
+  --ink-300: 172 181 196;
+  --ink-200: 206 212 223;
+  --ink-100: 238 241 247;
   --accent: 124 156 255;
   --accent-deep: 90 124 224;
   --accent-glow: 168 189 255;
@@ -46,10 +51,15 @@
 
   /* glass + grid surfaces */
   --glass-tint: 21 24 30;
-  --glass-alpha: 0.72;
-  --glass-highlight: rgba(255, 255, 255, 0.045);
-  --glass-inner: rgba(255, 255, 255, 0.06);
-  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --glass-alpha: 0.42;
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-inner: rgba(255, 255, 255, 0.10);
+  --glass-rim: linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.16));
+  --glass-specular: radial-gradient(60% 40% at 18% 0%, rgba(255,255,255,0.10), transparent 70%);
+  --glass-shadow: 0 12px 36px rgba(0, 0, 0, 0.34), 0 1px 2px rgba(0,0,0,0.3);
+  --ambient-a: rgba(124, 156, 255, 0.34);
+  --ambient-b: rgba(232, 184, 109, 0.22);
+  --ambient-c: rgba(125, 214, 168, 0.20);
   --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.12);
   --control-bg: rgba(255, 255, 255, 0.05);
@@ -61,7 +71,9 @@
   --on-accent: 10 11 13;
   --dur-fast: 140ms;
   --dur-med: 200ms;
+  --dur-slow: 320ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --grid-dot: rgba(255, 255, 255, 0.025);
   --scrollbar: rgba(255, 255, 255, 0.08);
   --scrollbar-hover: rgba(255, 255, 255, 0.14);
@@ -91,10 +103,15 @@
   --danger: 200 60 60;
 
   --glass-tint: 252 252 254;
-  --glass-alpha: 0.82;
-  --glass-highlight: rgba(255, 255, 255, 0.6);
-  --glass-inner: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 10px 30px rgba(30, 40, 70, 0.10);
+  --glass-alpha: 0.58;
+  --glass-highlight: rgba(255, 255, 255, 0.7);
+  --glass-inner: rgba(255, 255, 255, 0.95);
+  --glass-rim: linear-gradient(135deg, rgba(255,255,255,1), rgba(255,255,255,0.3) 40%, rgba(20,30,60,0.06) 60%, rgba(255,255,255,0.8));
+  --glass-specular: radial-gradient(60% 40% at 18% 0%, rgba(255,255,255,0.9), transparent 70%);
+  --glass-shadow: 0 12px 36px rgba(30, 40, 70, 0.12), 0 1px 2px rgba(30,40,70,0.08);
+  --ambient-a: rgba(70, 100, 220, 0.20);
+  --ambient-b: rgba(198, 138, 30, 0.14);
+  --ambient-c: rgba(50, 152, 110, 0.14);
   --hairline: rgba(20, 30, 60, 0.10);
   --hairline-strong: rgba(20, 30, 60, 0.18);
   --control-bg: rgba(255, 255, 255, 0.7);
@@ -116,50 +133,109 @@
 
 html, body, #root { height: 100%; }
 body {
-  font-feature-settings: "cv11", "ss01", "ss03";
+  font-family: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  font-optical-sizing: auto;
+  font-feature-settings: "cv11", "ss01", "ss03", "calt";
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+code, pre, kbd, .font-mono { font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; }
+
+/* Legibility floor: the app used to whisper at 9–11px. Arbitrary Tailwind
+ * sizes below 12px are lifted here in one place instead of 160 call sites. */
+.text-\[9px\], .text-\[10px\] { font-size: 11px; }
+.text-\[11px\] { font-size: 12px; }
+
+/* Display numerals (hero timer, big counts): tighter, heavier, tabular. */
+.display-num {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv11";
 }
 
-/* Subtle background grid for spatial layering */
+/* Ambient light field: glass needs something behind it to refract. Three
+ * slow-drifting colour pools (accent / focus / rest) under the dot grid. */
 .bg-grid {
+  position: relative;
+  isolation: isolate;
   background-image:
     radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0);
   background-size: 28px 28px;
 }
+.bg-grid::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 50% 30%, var(--ambient-a), transparent 70%),
+    radial-gradient(30% 28% at 86% 12%, var(--ambient-b), transparent 70%),
+    radial-gradient(34% 30% at 12% 88%, var(--ambient-c), transparent 70%);
+  filter: blur(48px);
+  animation: ambient-drift 70s ease-in-out infinite alternate;
+}
+@keyframes ambient-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+}
 
+/* Glass material: tinted blur, a specular bloom at the top-left, and a
+ * gradient rim (bright where light enters, dim opposite) painted through a
+ * mask so it reads like a refracting edge rather than a flat border. */
 .glass {
   background:
-    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
+    var(--glass-specular),
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0) 40%),
     rgb(var(--glass-tint) / var(--glass-alpha));
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border: 1px solid var(--hairline);
+  backdrop-filter: blur(22px) saturate(170%) brightness(1.04);
+  -webkit-backdrop-filter: blur(22px) saturate(170%) brightness(1.04);
+  border: 1px solid transparent;
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-inner);
+}
+/* Zero-specificity so Tailwind's absolute/fixed utilities still win. */
+:where(.glass) { position: relative; }
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* Modal dialogs sit over a dimmed, busy workspace: denser tint keeps text
  * legible without relying on backdrop-filter support. */
 .glass.glass-modal {
   background:
-    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
-    rgb(var(--glass-tint) / 0.94);
-  border-color: var(--hairline-strong);
+    var(--glass-specular),
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0) 40%),
+    rgb(var(--glass-tint) / 0.92);
 }
 
 /* Floating surfaces (menus, popovers) sit one layer above panels. */
 .popover {
   background:
-    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
-    rgb(var(--glass-tint) / 0.92);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+    var(--glass-specular),
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0) 40%),
+    rgb(var(--glass-tint) / 0.90);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid var(--hairline-strong);
   box-shadow: 0 18px 48px rgba(0,0,0,0.35), inset 0 1px 0 var(--glass-inner);
-  animation: popover-in var(--dur-med) var(--ease-out);
+  animation: popover-in var(--dur-slow) var(--ease-spring);
   transform-origin: top right;
 }
 @keyframes popover-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -182,9 +258,10 @@ body {
 }
 .section-head > .min-w-0 { flex: 1 1 140px; }
 .section-head .section-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
   color: rgb(var(--ink-100));
   display: flex;
   align-items: center;
@@ -205,10 +282,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .section-head .section-sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: rgb(var(--ink-400));
   margin-top: 2px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 .section-head .section-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
 .section-rule { height: 1px; background: var(--hairline); }
@@ -246,7 +323,8 @@ body {
 }
 
 /* ── Controls ─────────────────────────────────────────────────────────────
- * Visible by default: a filled surface, a readable border, 32px minimum.
+ * Visible by default: a lit glass surface, a readable rim, 32px minimum.
+ * Press = quick squish, release = spring back (the "touch" of the UI).
  */
 .control-chip,
 .btn,
@@ -257,51 +335,64 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: 8px;
+  border-radius: 9px;
   border: 1px solid var(--control-border);
-  background: var(--control-bg);
+  background: linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0) 55%), var(--control-bg);
   color: rgb(var(--ink-200));
-  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  box-shadow: inset 0 1px 0 var(--glass-inner);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-slow) var(--ease-spring);
 }
-.control-chip { height: 32px; padding: 0 10px; font-size: 12.5px; }
+.control-chip { height: 32px; padding: 0 11px; font-size: 12.5px; font-weight: 500; }
 .btn { height: 32px; padding: 0 12px; font-size: 12.5px; font-weight: 500; }
 .btn-primary {
   height: 32px; padding: 0 14px; font-size: 12.5px; font-weight: 600;
   background: linear-gradient(180deg, rgb(var(--accent-glow)), rgb(var(--accent)));
   border-color: rgb(var(--accent-deep) / 0.6);
   color: rgb(var(--on-accent));
-  box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 4px 14px rgb(var(--accent) / 0.25);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 6px 18px rgb(var(--accent) / 0.28);
 }
 .icon-button { width: 32px; height: 32px; }
-.icon-button-sm { width: 26px; height: 26px; border-radius: 6px; }
+.icon-button-sm { width: 26px; height: 26px; border-radius: 7px; }
 .control-chip:hover, .btn:hover, .icon-button:hover, .icon-button-sm:hover {
-  background: var(--control-bg-hover);
+  background: linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0) 55%), var(--control-bg-hover);
   border-color: var(--control-border-hover);
   color: rgb(var(--ink-100));
+  box-shadow: inset 0 1px 0 var(--glass-inner), 0 4px 12px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
 }
-.btn-primary:hover { filter: brightness(1.06); }
-.control-chip:active, .btn:active, .btn-primary:active, .icon-button:active, .icon-button-sm:active { transform: translateY(1px) scale(0.98); }
-.control-chip.is-active { border-color: rgb(var(--accent) / 0.6); color: rgb(var(--ink-100)); background: rgb(var(--accent) / 0.12); }
-.btn:disabled, .btn-primary:disabled, .icon-button:disabled, .control-chip:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 8px 22px rgb(var(--accent) / 0.34); }
+.control-chip:active, .btn:active, .btn-primary:active, .icon-button:active, .icon-button-sm:active {
+  transform: translateY(0) scale(0.96);
+  transition-duration: 60ms;
+}
+.control-chip.is-active { border-color: rgb(var(--accent) / 0.6); color: rgb(var(--ink-100)); background: rgb(var(--accent) / 0.14); }
+.btn:disabled, .btn-primary:disabled, .icon-button:disabled, .control-chip:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .field {
   height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
+  padding: 0 11px;
+  border-radius: 9px;
   border: 1px solid var(--control-border);
   background: var(--field-bg);
   color: rgb(var(--ink-100));
   font-size: 13px;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-med) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .field::placeholder { color: rgb(var(--ink-500)); }
 .field:hover { border-color: var(--control-border-hover); }
-.field:focus { outline: none; border-color: rgb(var(--accent) / 0.75); box-shadow: 0 0 0 3px rgb(var(--accent) / 0.18); background: var(--field-bg-focus); }
-textarea.field { height: auto; padding: 8px 10px; line-height: 1.5; }
+.field:focus { outline: none; border-color: rgb(var(--accent) / 0.75); box-shadow: inset 0 1px 2px rgba(0,0,0,0.08), 0 0 0 4px rgb(var(--accent) / 0.16); background: var(--field-bg-focus); }
+textarea.field { height: auto; padding: 8px 11px; line-height: 1.5; }
 
 /* Motion: one curve family, honour reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .bg-grid::before { animation: none; }
 }
 
 /* Numeric mono for timers */

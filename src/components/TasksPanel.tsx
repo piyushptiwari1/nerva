@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PictureInPicture2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -84,10 +85,11 @@ export function TasksPanel() {
             {!isMobile() && (
               <button
                 onClick={() => ipc.openTasksWidget()}
-                className="control-chip"
-                title="Pop up as floating widget"
+                className="icon-button"
+                title="Pop out as a floating always-on-top widget"
+                aria-label="Pop out tasks widget"
               >
-                Pop up ↗
+                <PictureInPicture2 size={15} />
               </button>
             )}
             <button

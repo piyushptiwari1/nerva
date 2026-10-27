@@ -6,6 +6,7 @@ import { isMobile } from "@/lib/platform";
 import { useApp } from "@/store/app";
 import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
+import { PictureInPicture2 } from "lucide-react";
 
 /**
  * HabitsRail — compact habits list for the home sidebar.
@@ -149,11 +150,11 @@ export function HabitsRail() {
             {!isMobile() && (
               <button
                 onClick={() => ipc.openHabitsWidget()}
-                className="control-chip"
-                title="Open as a floating always-on-top widget"
+                className="icon-button"
+                title="Pop out as a floating always-on-top widget"
                 aria-label="Pop out habits widget"
               >
-                Pop up ↗
+                <PictureInPicture2 size={15} />
               </button>
             )}
             <button

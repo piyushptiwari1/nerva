@@ -6,6 +6,7 @@ import { settings } from "@/lib/settings";
 import { isMobile } from "@/lib/platform";
 import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
+import { PictureInPicture2 } from "lucide-react";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
   { label: "25m Focus", ms: 25 * 60_000, color: "#7c9cff" },
@@ -82,10 +83,11 @@ export function TimerStage() {
             {!isMobile() && (
               <button
                 onClick={() => ipc.openTimerWidget()}
-                className="control-chip"
-                title="Open as a floating always-on-top widget"
+                className="icon-button"
+                title="Pop out as a floating always-on-top widget"
+                aria-label="Pop out timer widget"
               >
-                Pop up ↗
+                <PictureInPicture2 size={15} />
               </button>
             )}
             <button
@@ -177,7 +179,7 @@ export function TimerStage() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-3">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-3">
         {timers.length === 0 && (
           <div className="text-center text-ink-400 py-16">
             <p className="text-sm">No active timers.</p>
@@ -338,9 +340,9 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
           x="50%" y={structured ? "46%" : "50%"}
           textAnchor="middle"
           dominantBaseline="central"
-          className="tnum text-ink-100"
+          className="display-num text-ink-100"
           fill="currentColor"
-          fontSize={hero ? 42 : compact ? 20 : 26}
+          fontSize={hero ? 46 : compact ? 20 : 26}
           fontWeight={600}
         >
           {formatRemaining(ringLeft)}

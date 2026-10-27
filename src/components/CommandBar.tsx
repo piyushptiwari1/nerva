@@ -8,6 +8,7 @@ import { useHabitsUi } from "@/store/habits";
 import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
 import { useLicense, planLabel } from "@/lib/license";
+import { CheckCheck, CircleHelp, Moon, Settings2, Sparkles, Sun } from "lucide-react";
 
 /** Gold "PRO" chip — the visible difference for licensed installs. Click → Settings → Pro. */
 function ProBadge() {
@@ -56,7 +57,7 @@ export function CommandBar() {
       <div className="flex-1 mx-3">
         <button
           onClick={() => openPalette(true)}
-          className="w-full glass rounded-lg px-3 py-1.5 flex items-center gap-2 text-ink-300 hover:text-ink-100 transition-colors cursor-text text-left"
+          className="w-full glass rounded-lg px-3 h-8 flex items-center gap-2 text-ink-300 hover:text-ink-100 transition-colors cursor-text text-left"
         >
           <kbd className="text-[10px] text-ink-400 border border-ink-600 rounded px-1.5 py-0.5">
             Ctrl
@@ -70,49 +71,29 @@ export function CommandBar() {
 
       <FocusMenu />
 
-      <button
-        onClick={() => askNerva("")}
-        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
-        title="Ask Nerva"
-        aria-label="Ask Nerva"
-      >
-        ✦
+      <button onClick={() => askNerva("")} className="icon-button" title="Ask Nerva" aria-label="Ask Nerva">
+        <Sparkles size={15} />
       </button>
 
-      <button
-        onClick={toggleHabits}
-        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
-        title="Habits (Ctrl+H)"
-        aria-label="Open habits tracker"
-      >
-        ✓
+      <button onClick={toggleHabits} className="icon-button" title="Habits (Ctrl+H)" aria-label="Open habits tracker">
+        <CheckCheck size={15} />
       </button>
 
       <button
         onClick={toggleTheme}
-        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
+        className="icon-button"
         title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
         aria-label="Toggle theme"
       >
-        {theme === "dark" ? "☼" : "☾"}
+        {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
       </button>
 
-      <button
-        onClick={showTutorial}
-        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
-        title="Show quick tour"
-        aria-label="Show quick tour"
-      >
-        ?
+      <button onClick={showTutorial} className="icon-button" title="Show quick tour" aria-label="Show quick tour">
+        <CircleHelp size={15} />
       </button>
 
-      <button
-        onClick={toggleSettings}
-        className="w-7 h-7 grid place-items-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-ink-800 border border-ink-700"
-        title="Settings (Ctrl+,)"
-        aria-label="Open settings"
-      >
-        ⚙
+      <button onClick={toggleSettings} className="icon-button" title="Settings (Ctrl+,)" aria-label="Open settings">
+        <Settings2 size={15} />
       </button>
 
       <ClockMenu />

@@ -8,6 +8,7 @@ import { errorMessage } from "@/lib/errors";
 import { registerNoteFlusher } from "@/lib/noteEdits";
 import { NoteList } from "@/components/NoteList";
 import { SectionHead } from "@/components/SectionHead";
+import { PictureInPicture2 } from "lucide-react";
 
 type Mode = "edit" | "view";
 
@@ -396,10 +397,11 @@ function WorkspaceNotesPanel({ workspaceId }: { workspaceId: string | null }) {
                 <button
                   onClick={popSticky}
                   disabled={!currentId}
-                  className="control-chip"
+                  className="icon-button"
                   title="Open this note in a floating sticky window"
+                  aria-label="Pop out note as sticky"
                 >
-                  Pop up ↗
+                  <PictureInPicture2 size={15} />
                 </button>
               )}
               <button
@@ -496,7 +498,7 @@ function WorkspaceNotesPanel({ workspaceId }: { workspaceId: string | null }) {
                 scheduleSave(title, e.target.value);
               }}
               spellCheck={false}
-              className="flex-1 bg-transparent px-3 py-3 text-sm font-mono leading-relaxed focus:outline-none min-h-0 resize-none placeholder:text-ink-500"
+              className="flex-1 bg-transparent px-3 py-3 text-[14px] leading-relaxed focus:outline-none min-h-0 resize-none placeholder:text-ink-500"
               placeholder="Write a note..."
               aria-label="Note body"
             />
