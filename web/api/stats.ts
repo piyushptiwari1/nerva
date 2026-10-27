@@ -121,8 +121,29 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   // ---- tracked events (last 30 days, from the private metrics store) ----
-  const metrics = await readEventWindows({ downloads: 30, pings: 30, feedback: 90, licenses: 365 });
-  const { downloads: dlEvents, pings: pingEvents, feedback: fbEvents, licenses: licEvents } = metrics.events;
+  const metrics = await readEventWindows({ downloads: 30, pings: 30, feedback: 90, licenses: 365, launches: 30 });
+  const { downloads: dlEvents, pings: pingEvents, feedback: fbEvents, licenses: licEvents, launches: launchEvents } = metrics.events;
+
+  // Launch beacon: one row per installation per day, no identifier. The
+  // honest metric is "launch-days"; a daily peak approximates concurrent users.
+  const launchByDay: Record<string, number> = {};
+  const launchByVersion: Record<string, number> = {};
+  const launchByPlatform: Record<string, number> = {};
+  const launchByCountry: Record<string, number> = {};
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+  let launches7d = 0;
+  for (const e of launchEvents) {
+    const day = String(e.ts ?? "").slice(0, 10);
+    if (!day) continue;
+    launchByDay[day] = (launchByDay[day] ?? 0) + 1;
+    if (day >= sevenDaysAgo) launches7d += 1;
+    const v = String(e.app_version ?? "?");
+    launchByVersion[v] = (launchByVersion[v] ?? 0) + 1;
+    const p = `${String(e.platform ?? "?")}/${String(e.os ?? "?")}`;
+    launchByPlatform[p] = (launchByPlatform[p] ?? 0) + 1;
+    const c = String(e.country ?? "??");
+    launchByCountry[c] = (launchByCountry[c] ?? 0) + 1;
+  }
 
   // Downloads: by day, by country, by platform, by version (tracked window only).
   const byDay: Record<string, number> = {};
@@ -204,12 +225,22 @@ export default async function handler(req: Request): Promise<Response> {
     JSON.stringify({
       generated_at: new Date().toISOString(),
       incomplete_sources: metrics.incomplete,
-      source: "github-releases + nerva-metrics(30d) + feedback(90d) + licenses(365d)",
+      source: "github-releases + nerva-metrics(30d) + launches(30d) + feedback(90d) + licenses(365d)",
       latest_version: latestVersion,
       latest_published_at: latestPublished,
-      note: "Tracked downloads/pings start 2026-07-15 (older downloads exist only in the GitHub cumulative totals). Snap installs: snapcraft.io/nerva/metrics. Per-user timer/habit/note detail ships with the next app release.",
+      note: "Tracked downloads/pings start 2026-07-15 (older downloads exist only in the GitHub cumulative totals). Launch beacon starts with the release after 0.1.15. Snap installs: snapcraft.io/nerva/metrics.",
       totals,
       releases: perRelease,
+      launches: {
+        window_days: 30,
+        launch_days_total: launchEvents.length,
+        launch_days_7d: launches7d,
+        peak_daily: Math.max(0, ...Object.values(launchByDay)),
+        by_day: launchByDay,
+        by_version: launchByVersion,
+        by_platform: launchByPlatform,
+        by_country: launchByCountry,
+      },
       tracked: {
         window_days: 30,
         downloads_total: dlEvents.length,

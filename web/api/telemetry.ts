@@ -40,12 +40,19 @@ const ALLOWED: Record<string, (v: unknown) => boolean> = {
   ai_enabled: (v) => typeof v === "boolean",
 };
 
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "content-type",
+};
+
 export default async function handler(
   req: Request,
   ctx?: { waitUntil?: (p: Promise<unknown>) => void },
 ): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") {
-    return new Response(null, { status: 405 });
+    return new Response(null, { status: 405, headers: cors });
   }
   let anonymousId = "";
   let properties: Record<string, unknown> = {};
@@ -57,11 +64,11 @@ export default async function handler(
     anonymousId = body.anonymousId ?? "";
     properties = body.properties ?? {};
   } catch {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: cors });
   }
   // Anonymous id must look like a UUID — anything else is rejected.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(anonymousId)) {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: cors });
   }
   const clean: Record<string, unknown> = {};
   for (const [k, validate] of Object.entries(ALLOWED)) {
@@ -98,5 +105,5 @@ export default async function handler(
       timestamp: new Date().toISOString(),
     }),
   });
-  return new Response(null, { status: res.ok ? 204 : 502 });
+  return new Response(null, { status: res.ok ? 204 : 502, headers: cors });
 }

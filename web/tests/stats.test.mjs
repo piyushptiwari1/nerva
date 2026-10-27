@@ -46,7 +46,29 @@ test("unavailable tracked data is explicitly marked incomplete", async (context)
   context.mock.method(globalThis, "fetch", async (url) => String(url).includes("/releases?") ? Response.json(releases) : new Response(null, { status: 403 }));
   const response = await handler(request());
   assert.equal(response.status, 200);
-  assert.deepEqual((await response.json()).incomplete_sources, ["downloads", "pings", "feedback", "licenses"]);
+  assert.deepEqual((await response.json()).incomplete_sources, ["downloads", "pings", "feedback", "licenses", "launches"]);
+});
+
+test("launch beacons aggregate into launch-days, peak daily and per-version adoption", async (context) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const rows = {
+    [today]: [{ ts: `${today}T08:00:00Z`, app_version: "0.1.16", os: "linux", platform: "desktop", country: "IN" }, { ts: `${today}T09:00:00Z`, app_version: "0.1.16", os: "android", platform: "android", country: "DE" }],
+    [yesterday]: [{ ts: `${yesterday}T08:00:00Z`, app_version: "0.1.15", os: "windows", platform: "desktop", country: "IN" }],
+  };
+  context.mock.method(globalThis, "fetch", async (url) => {
+    const target = String(url);
+    if (target.includes("/releases?")) return Response.json(releases);
+    if (target.includes("/git/trees/")) return Response.json({ truncated: false, tree: Object.keys(rows).map((day) => ({ type: "blob", path: `events/launches/${day}.json`, sha: `${"a".repeat(30)}${day.replace(/-/g, "")}00` })) });
+    const day = Object.keys(rows).find((d) => target.endsWith(`${"a".repeat(30)}${d.replace(/-/g, "")}00`));
+    return Response.json({ encoding: "base64", content: Buffer.from(JSON.stringify(rows[day])).toString("base64") });
+  });
+  const data = await (await handler(request())).json();
+  assert.equal(data.launches.launch_days_total, 3);
+  assert.equal(data.launches.launch_days_7d, 3);
+  assert.equal(data.launches.peak_daily, 2);
+  assert.deepEqual(data.launches.by_version, { "0.1.16": 2, "0.1.15": 1 });
+  assert.deepEqual(data.launches.by_platform, { "desktop/linux": 1, "android/android": 1, "desktop/windows": 1 });
 });
 
 test("malformed release response returns a controlled upstream error", async (context) => {

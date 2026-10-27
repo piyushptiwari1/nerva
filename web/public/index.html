@@ -63,7 +63,7 @@
       "Ask Nerva: local Ollama or bring-your-own OpenAI / Anthropic / Gemini key",
       "Command palette and global shortcuts",
       "Crash-safe event-sourced local SQLite store",
-      "Offline-first, privacy-first (telemetry opt-in only), no account"
+      "Offline-first, privacy-first (no account, no content ever leaves the device), no account"
     ]
   }
   </script>
@@ -75,7 +75,7 @@
     "mainEntity": [
       {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source and everything in the app today stays free. An optional Pro licence funds development and unlocks encrypted cloud backup."}},
       {"@type":"Question","name":"Does Nerva work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no cloud component. All data lives in a local SQLite database on your machine."}},
-      {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"Not unless you opt in. By default the app makes zero outbound network calls except update checks. Anonymous weekly usage stats (feature counts only, never your content) are strictly opt-in and can be disabled anytime in Settings."}},
+      {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"Very little, and never your content. Once per day the app sends an anonymous launch count (version, OS, platform, language; no identifier) so we know it is being used; you can switch this off in Settings. Detailed weekly usage stats (feature counts only) are strictly opt-in."}},
       {"@type":"Question","name":"Why don't my timers drift after sleep?","acceptedAnswer":{"@type":"Answer","text":"Nerva uses wall-clock math, not interval ticks. When the machine wakes, each timer recomputes elapsed time as now minus started_at, so it stays accurate across sleep, suspend, and reboot."}},
       {"@type":"Question","name":"Will my notes survive a crash?","acceptedAnswer":{"@type":"Answer","text":"Yes. Notes autosave every 250 ms into an append-only event log. On next launch the app replays the log and restores your exact state."}},
       {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}},
@@ -234,7 +234,7 @@
       <a href="#downloads" class="btn btn-primary">Download free →</a>
       <a href="https://github.com/piyushptiwari1/nerva" class="btn btn-ghost" rel="noopener">★ Star on GitHub</a>
     </div>
-    <div class="trust"><strong>No account.</strong> No cloud. Telemetry off by default (opt-in, anonymous). Native Rust core. ≈ 80 MB RAM idle.</div>
+    <div class="trust"><strong>No account.</strong> No cloud. Your content never leaves the device; only an anonymous daily launch count (opt-out). Native Rust core. ≈ 80 MB RAM idle.</div>
 
     <div class="hero-mockup" aria-label="Nerva dashboard preview">
       <svg viewBox="0 0 980 580" xmlns="http://www.w3.org/2000/svg">
@@ -748,7 +748,7 @@
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
         <h4>Private by default</h4>
-        <p>The app makes no outbound calls out of the box. Anonymous usage stats (feature counts only — never your content) are strictly opt-in and can be turned off anytime in Settings.</p>
+        <p>Your notes, tasks and habits never leave the device. The app sends one anonymous launch count per day (version, OS, language — no identifier) so we know it is used; switch it off in Settings. Detailed usage stats are strictly opt-in.</p>
       </div>
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18"/></svg></div>
@@ -909,7 +909,7 @@
       </details>
       <details>
         <summary>Does Nerva send any telemetry?</summary>
-        <p>Not unless you say so. Out of the box the app makes zero outbound network calls except update checks. On first launch it asks whether you'd like to share <em>anonymous</em> weekly usage stats — app version, OS, and feature counts (e.g. “12 notes”), never the contents of your notes or tasks. Decline once and it never asks again; change your mind anytime in Settings → About.</p>
+        <p>Very little, and never your content. Once a day the app reports an anonymous launch: app version, OS, platform and language — no identifier, no device fingerprint, so installations cannot be told apart or followed. The server records the country. Switch it off in Settings → About. Separately, on first launch it asks whether you'd also like to share <em>weekly</em> usage stats (feature counts such as “12 notes”); decline once and it never asks again.</p>
       </details>
       <details>
         <summary>Why don't my timers drift after sleep?</summary>

@@ -8,10 +8,11 @@
 //   events/pings/YYYY-MM-DD.json
 //   events/feedback/YYYY-MM-DD.json
 //   events/licenses/YYYY-MM-DD.json
+//   events/launches/YYYY-MM-DD.json   (anonymous daily launch beacon, no id)
 // Low write volume makes the read-modify-write race window acceptable; a
 // single retry handles the occasional 409 sha conflict.
 
-export type EventKind = "downloads" | "pings" | "feedback" | "licenses";
+export type EventKind = "downloads" | "pings" | "feedback" | "licenses" | "launches";
 
 const METRICS_REPO = "piyushptiwari1/nerva-metrics";
 const SEGMENT_WRITE_KEY = "TCz9WfbBHAUOuOYYrfgbcGGDBfLRBlqR";
@@ -125,13 +126,13 @@ export async function writeJson(path: string, data: unknown, message: string, sh
 }
 
 type MetricEvent = Record<string, unknown>;
-const EVENT_KINDS: EventKind[] = ["downloads", "pings", "feedback", "licenses"];
+const EVENT_KINDS: EventKind[] = ["downloads", "pings", "feedback", "licenses", "launches"];
 
 export async function readEventWindows(windows: Partial<Record<EventKind, number>>): Promise<{
   events: Record<EventKind, MetricEvent[]>;
   incomplete: EventKind[];
 }> {
-  const events: Record<EventKind, MetricEvent[]> = { downloads: [], pings: [], feedback: [], licenses: [] };
+  const events: Record<EventKind, MetricEvent[]> = { downloads: [], pings: [], feedback: [], licenses: [], launches: [] };
   const requested = EVENT_KINDS.filter((kind) => Number.isFinite(windows[kind]) && Number(windows[kind]) > 0);
   const incomplete = new Set<EventKind>();
   const token = (globalThis as { process?: { env?: Record<string, string> } }).process?.env?.GH_METRICS_TOKEN;
@@ -149,7 +150,7 @@ export async function readEventWindows(windows: Partial<Record<EventKind, number
     const today = new Date(now).toISOString().slice(0, 10);
     const files = index.tree.flatMap((entry) => {
       if (entry.type !== "blob" || !/^[a-f0-9]{40,64}$/.test(entry.sha)) return [];
-      const match = /^events\/(downloads|pings|feedback|licenses)\/(\d{4}-\d{2}-\d{2})\.json$/.exec(entry.path);
+      const match = /^events\/(downloads|pings|feedback|licenses|launches)\/(\d{4}-\d{2}-\d{2})\.json$/.exec(entry.path);
       if (!match) return [];
       const kind = match[1] as EventKind;
       if (!requested.includes(kind)) return [];

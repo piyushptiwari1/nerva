@@ -87,6 +87,17 @@
       </div>
 
       <div class="card">
+        <h2>Real usage — anonymous launch beacon (30d)</h2>
+        <div class="kpis" id="launchkpis"></div>
+        <div class="chart" id="launchchart"></div>
+        <div class="grid2" style="margin-top:12px">
+          <div class="scroll"><table id="launchversion"><thead><tr><th>Version</th><th class="num">Launch-days</th></tr></thead><tbody></tbody></table></div>
+          <div class="scroll"><table id="launchplatform"><thead><tr><th>Platform</th><th class="num">Launch-days</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="note">One row per installation per day with no identifier (version, OS, platform, language, country). “Peak daily” is the best estimate of how many distinct people opened Nerva on a single day. On by default from the release after 0.1.15; users can switch it off in Settings → About.</div>
+      </div>
+
+      <div class="card">
         <h2>App usage — active installations (opt-in weekly pings, 30d)</h2>
         <div class="scroll">
           <table id="users"><thead><tr>
@@ -236,6 +247,30 @@
       $("#pro tbody").innerHTML = (pro.recent ?? [])
         .map((e) => `<tr><td>${esc(String(e.ts).slice(0, 16).replace("T", " "))}</td><td><span class="pill">${esc(e.plan)}</span></td><td class="num">${esc(e.amount)}</td><td>${esc(e.country)}</td><td>${esc(e.txnid)}</td><td>${e.license_issued ? "✓" : "✗ " + esc(e.error ?? "")}</td></tr>`)
         .join("") || `<tr><td colspan="6" style="color:#5a6273">No Pro purchases yet.</td></tr>`;
+
+      // ---- launch beacon ----
+      const L = d.launches ?? {};
+      const lByDay = L.by_day ?? {};
+      $("#launchkpis").innerHTML = `
+        <div class="kpi"><div class="v">${n(L.peak_daily ?? 0)}</div><div class="l">Peak daily users (30d)</div></div>
+        <div class="kpi"><div class="v">${n(L.launch_days_7d ?? 0)}</div><div class="l">Launch-days 7d</div></div>
+        <div class="kpi"><div class="v">${n(L.launch_days_total ?? 0)}</div><div class="l">Launch-days 30d</div></div>
+        <div class="kpi"><div class="v">${Object.keys(L.by_country ?? {}).length}</div><div class="l">Countries</div></div>`;
+      const lDays = [];
+      for (let i = 29; i >= 0; i--) {
+        const day = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        lDays.push([day, lByDay[day] ?? 0]);
+      }
+      const lMax = Math.max(1, ...lDays.map((x) => x[1]));
+      $("#launchchart").innerHTML = lDays
+        .map(([day, c]) => `<div class="bar" style="height:${Math.max(2, (c / lMax) * 100)}%"><span class="tip">${day}: ${c}</span></div>`)
+        .join("");
+      const lv = Object.entries(L.by_version ?? {}).sort((a, b) => b[1] - a[1]);
+      $("#launchversion tbody").innerHTML = lv.map(([v, c]) => `<tr><td>${esc(v)}</td><td class="num">${c.toLocaleString()}</td></tr>`).join("")
+        || `<tr><td colspan="2" style="color:#5a6273">No launches recorded yet — the beacon ships in the release after 0.1.15.</td></tr>`;
+      const lp = Object.entries(L.by_platform ?? {}).sort((a, b) => b[1] - a[1]);
+      $("#launchplatform tbody").innerHTML = lp.map(([p, c]) => `<tr><td>${esc(p)}</td><td class="num">${c.toLocaleString()}</td></tr>`).join("")
+        || `<tr><td colspan="2" style="color:#5a6273">—</td></tr>`;
 
       // ---- usage table ----
       const rows = (u.users ?? []).map((r) => {
