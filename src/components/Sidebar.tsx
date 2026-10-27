@@ -4,9 +4,9 @@ import { ipc } from "@/lib/ipc";
 import { useState, type ReactNode } from "react";
 import { TasksPanel } from "@/components/TasksPanel";
 import { HabitsRail } from "@/components/HabitsRail";
-import { WorldClock } from "@/components/WorldClock";
 import { WorkspaceDeleteDialog } from "@/components/WorkspaceDeleteDialog";
-import { Trash2 } from "lucide-react";
+import { SectionHead } from "@/components/SectionHead";
+import { Plus, Trash2, X } from "lucide-react";
 
 export function Sidebar() {
   const order = useLayout((s) => s.order);
@@ -18,10 +18,9 @@ export function Sidebar() {
     workspaces: <WorkspacesSection />,
     tasks: <TasksPanel />,
     habits: <HabitsRail />,
-    clocks: <WorldClock />,
     momentum: (
       <>
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-400 mb-2">This week</h3>
+        <SectionHead title="This week" sub="Focus time, sessions and tasks vs last week" />
         <ThisWeek />
       </>
     ),
@@ -29,11 +28,9 @@ export function Sidebar() {
   const visible = order.filter((id) => !hidden.includes(id));
 
   return (
-    <aside className="glass rounded-xl p-3 flex flex-col gap-3 min-h-0 overflow-y-auto">
-      {visible.map((id, i) => (
-        <div key={id} className={i === 0 ? "" : "border-t border-ink-700/40 pt-3"}>
-          {sections[id]}
-        </div>
+    <aside className="glass rounded-xl p-3 flex flex-col gap-4 min-h-0 overflow-y-auto">
+      {visible.map((id) => (
+        <section key={id}>{sections[id]}</section>
       ))}
       {visible.length === 0 && (
         <div className="text-xs text-ink-400">
@@ -61,33 +58,37 @@ function WorkspacesSection() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-400">Workspaces</h3>
-        <button disabled={!active} onClick={() => setDeleting(true)} aria-label="Delete workspace" title="Delete workspace" className="workspace-icon ml-auto"><Trash2 size={16} /></button>
-        <button
-          onClick={() => setCreating((v) => !v)}
-          className="text-ink-400 hover:text-ink-100 text-sm leading-none"
-          title="New workspace"
-          aria-label={creating ? "Cancel new workspace" : "New workspace"}
-        >
-          {creating ? "×" : "+"}
-        </button>
-      </div>
+      <SectionHead
+        title="Workspaces"
+        count={workspaces.length}
+        sub="Each workspace keeps its own timers, tasks, habits and notes"
+        actions={
+          <>
+            <button disabled={!active} onClick={() => setDeleting(true)} aria-label="Delete workspace" title="Delete workspace" className="icon-button"><Trash2 size={15} /></button>
+            <button
+              onClick={() => setCreating((v) => !v)}
+              className={`icon-button ${creating ? "is-active" : ""}`}
+              title="New workspace"
+              aria-label={creating ? "Cancel new workspace" : "New workspace"}
+            >
+              {creating ? <X size={15} /> : <Plus size={15} />}
+            </button>
+          </>
+        }
+      />
       {deleting && active && <WorkspaceDeleteDialog workspace={active} onClose={() => setDeleting(false)} />}
       {creating && (
-        <div className="mb-2 flex gap-1">
+        <div className="mb-2 flex gap-1.5">
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
-            placeholder="Name…"
-            className="flex-1 min-w-0 bg-ink-800 hairline rounded-md px-2 py-1 text-sm"
+            placeholder="Workspace name…"
+            className="field flex-1 min-w-0"
+            aria-label="New workspace name"
           />
-          <button
-            onClick={create}
-            className="text-xs px-2 rounded-md bg-accent/20 hover:bg-accent/30 text-accent-glow"
-          >
+          <button onClick={create} disabled={!name.trim()} className="btn-primary">
             Add
           </button>
         </div>

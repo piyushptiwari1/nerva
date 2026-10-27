@@ -7,6 +7,7 @@ import { inWorkspace } from "@/lib/workspaces";
 import { errorMessage } from "@/lib/errors";
 import { registerNoteFlusher } from "@/lib/noteEdits";
 import { NoteList } from "@/components/NoteList";
+import { SectionHead } from "@/components/SectionHead";
 
 type Mode = "edit" | "view";
 
@@ -375,55 +376,51 @@ function WorkspaceNotesPanel({ workspaceId }: { workspaceId: string | null }) {
   return (
     <aside className="glass rounded-xl flex flex-col min-h-0">
       {error && <p role="alert" className="px-3 py-2 text-sm text-red-400">{error}</p>}
-      <header className="flex items-center justify-between p-3 border-b border-ink-700/40 gap-2">
-        <div className="flex flex-col min-w-0">
-          <h3 className="text-[11px] uppercase tracking-wider text-ink-400">
-            Persistent notes
-          </h3>
-          <span className="text-[10px] text-ink-500 mt-0.5 truncate">
-            {savedAt
-              ? `Saved · ${new Date(savedAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}`
-              : "Not saved yet"}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
-            className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700"
-            title="Toggle Markdown preview"
-          >
-            {mode === "edit" ? "View" : "Edit"}
-          </button>
-          {!isMobile() && (
-            <button
-              onClick={popSticky}
-              disabled={!currentId}
-              className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-md hairline hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Open this note in a floating sticky window"
-            >
-              Pop up
-            </button>
-          )}
-          <button
-            onClick={newNote}
-            className="text-xs font-semibold px-2.5 py-1 rounded-md bg-accent text-ink-950 hover:bg-accent-glow shadow-glow transition-colors"
-            title="Create a new note (starts blank)"
-          >
-            + New
-          </button>
-        </div>
-      </header>
+      <div className="px-3 pt-3">
+        <SectionHead
+          title="Notes"
+          count={workspaceNotes.length}
+          sub={savedAt
+            ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · autosaves as you type`
+            : "Autosaves as you type · Markdown"}
+          actions={
+            <>
+              <button
+                onClick={() => setMode((m) => (m === "edit" ? "view" : "edit"))}
+                className={`control-chip ${mode === "view" ? "is-active" : ""}`}
+                title="Toggle Markdown preview"
+              >
+                {mode === "edit" ? "View" : "Edit"}
+              </button>
+              {!isMobile() && (
+                <button
+                  onClick={popSticky}
+                  disabled={!currentId}
+                  className="control-chip"
+                  title="Open this note in a floating sticky window"
+                >
+                  Pop up ↗
+                </button>
+              )}
+              <button
+                onClick={newNote}
+                className="btn-primary"
+                title="Create a new note (starts blank)"
+              >
+                + New
+              </button>
+            </>
+          }
+        />
+      </div>
 
-      <div className="px-3 py-2 border-b border-ink-700/40">
+      <div className="px-3 pb-2">
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="Search notes…"
-          className="w-full bg-ink-800/60 hairline rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent/50"
+          className="field w-full h-8 text-xs"
+          aria-label="Search notes"
         />
       </div>
 

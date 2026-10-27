@@ -46,8 +46,22 @@
 
   /* glass + grid surfaces */
   --glass-tint: 21 24 30;
-  --glass-alpha: 0.65;
-  --hairline: rgba(255, 255, 255, 0.06);
+  --glass-alpha: 0.72;
+  --glass-highlight: rgba(255, 255, 255, 0.045);
+  --glass-inner: rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --hairline: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --control-bg: rgba(255, 255, 255, 0.05);
+  --control-bg-hover: rgba(255, 255, 255, 0.09);
+  --control-border: rgba(255, 255, 255, 0.14);
+  --control-border-hover: rgba(255, 255, 255, 0.24);
+  --field-bg: rgba(0, 0, 0, 0.28);
+  --field-bg-focus: rgba(0, 0, 0, 0.36);
+  --on-accent: 10 11 13;
+  --dur-fast: 140ms;
+  --dur-med: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --grid-dot: rgba(255, 255, 255, 0.025);
   --scrollbar: rgba(255, 255, 255, 0.08);
   --scrollbar-hover: rgba(255, 255, 255, 0.14);
@@ -77,8 +91,19 @@
   --danger: 200 60 60;
 
   --glass-tint: 252 252 254;
-  --glass-alpha: 0.80;
+  --glass-alpha: 0.82;
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+  --glass-inner: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 10px 30px rgba(30, 40, 70, 0.10);
   --hairline: rgba(20, 30, 60, 0.10);
+  --hairline-strong: rgba(20, 30, 60, 0.18);
+  --control-bg: rgba(255, 255, 255, 0.7);
+  --control-bg-hover: rgba(255, 255, 255, 0.95);
+  --control-border: rgba(20, 30, 60, 0.18);
+  --control-border-hover: rgba(20, 30, 60, 0.32);
+  --field-bg: rgba(255, 255, 255, 0.85);
+  --field-bg-focus: rgba(255, 255, 255, 1);
+  --on-accent: 255 255 255;
   --grid-dot: rgba(20, 30, 60, 0.045);
   --scrollbar: rgba(20, 30, 60, 0.14);
   --scrollbar-hover: rgba(20, 30, 60, 0.24);
@@ -104,14 +129,180 @@ body {
 
 .glass {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0)),
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
     rgb(var(--glass-tint) / var(--glass-alpha));
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   border: 1px solid var(--hairline);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-inner);
+}
+
+/* Modal dialogs sit over a dimmed, busy workspace: denser tint keeps text
+ * legible without relying on backdrop-filter support. */
+.glass.glass-modal {
+  background:
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
+    rgb(var(--glass-tint) / 0.94);
+  border-color: var(--hairline-strong);
+}
+
+/* Floating surfaces (menus, popovers) sit one layer above panels. */
+.popover {
+  background:
+    linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0)),
+    rgb(var(--glass-tint) / 0.92);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.35), inset 0 1px 0 var(--glass-inner);
+  animation: popover-in var(--dur-med) var(--ease-out);
+  transform-origin: top right;
+}
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
 
 .hairline { border: 1px solid var(--hairline); }
+
+/* ── Section anatomy ──────────────────────────────────────────────────────
+ * Every panel/section starts with .section-head: a clearly larger title,
+ * an accent rule, and a one-line purpose. Users asked for sections that
+ * announce themselves instead of 11px uppercase whispers.
+ */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.section-head > .min-w-0 { flex: 1 1 140px; }
+.section-head .section-title {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: rgb(var(--ink-100));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-head .section-title::before {
+  content: "";
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgb(var(--accent-glow)), rgb(var(--accent)));
+  flex-shrink: 0;
+}
+.section-head .section-title .count {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(var(--ink-400));
+  font-variant-numeric: tabular-nums;
+}
+.section-head .section-sub {
+  font-size: 11.5px;
+  color: rgb(var(--ink-400));
+  margin-top: 2px;
+  line-height: 1.35;
+}
+.section-head .section-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.section-rule { height: 1px; background: var(--hairline); }
+
+/* Pane resizers: 12px column, 2px visible grip that widens on hover/drag. */
+.pane-resizer {
+  position: relative;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  border-radius: 6px;
+}
+.pane-resizer-grip {
+  width: 2px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--hairline-strong);
+  transition: height var(--dur-med) var(--ease-out), background-color var(--dur-fast) var(--ease-out), width var(--dur-fast) var(--ease-out);
+}
+.pane-resizer:hover .pane-resizer-grip,
+.pane-resizer:focus-visible .pane-resizer-grip,
+.pane-resizer:active .pane-resizer-grip { height: 72px; width: 3px; background: rgb(var(--accent) / 0.8); }
+.pane-resizer:focus-visible { outline: none; }
+
+/* Hero timer gets a soft tinted halo so the eye lands on it. */
+.timer-hero { position: relative; }
+.timer-hero::after {
+  content: "";
+  position: absolute; inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 60% at 50% 0%, rgb(var(--accent) / 0.10), transparent 70%);
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────
+ * Visible by default: a filled surface, a readable border, 32px minimum.
+ */
+.control-chip,
+.btn,
+.btn-primary,
+.icon-button,
+.icon-button-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: rgb(var(--ink-200));
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.control-chip { height: 32px; padding: 0 10px; font-size: 12.5px; }
+.btn { height: 32px; padding: 0 12px; font-size: 12.5px; font-weight: 500; }
+.btn-primary {
+  height: 32px; padding: 0 14px; font-size: 12.5px; font-weight: 600;
+  background: linear-gradient(180deg, rgb(var(--accent-glow)), rgb(var(--accent)));
+  border-color: rgb(var(--accent-deep) / 0.6);
+  color: rgb(var(--on-accent));
+  box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 4px 14px rgb(var(--accent) / 0.25);
+}
+.icon-button { width: 32px; height: 32px; }
+.icon-button-sm { width: 26px; height: 26px; border-radius: 6px; }
+.control-chip:hover, .btn:hover, .icon-button:hover, .icon-button-sm:hover {
+  background: var(--control-bg-hover);
+  border-color: var(--control-border-hover);
+  color: rgb(var(--ink-100));
+}
+.btn-primary:hover { filter: brightness(1.06); }
+.control-chip:active, .btn:active, .btn-primary:active, .icon-button:active, .icon-button-sm:active { transform: translateY(1px) scale(0.98); }
+.control-chip.is-active { border-color: rgb(var(--accent) / 0.6); color: rgb(var(--ink-100)); background: rgb(var(--accent) / 0.12); }
+.btn:disabled, .btn-primary:disabled, .icon-button:disabled, .control-chip:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.field {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--field-bg);
+  color: rgb(var(--ink-100));
+  font-size: 13px;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.field::placeholder { color: rgb(var(--ink-500)); }
+.field:hover { border-color: var(--control-border-hover); }
+.field:focus { outline: none; border-color: rgb(var(--accent) / 0.75); box-shadow: 0 0 0 3px rgb(var(--accent) / 0.18); background: var(--field-bg-focus); }
+textarea.field { height: auto; padding: 8px 10px; line-height: 1.5; }
+
+/* Motion: one curve family, honour reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
 
 /* Numeric mono for timers */
 .tnum { font-variant-numeric: tabular-nums; }

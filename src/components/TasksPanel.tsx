@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/store/app";
 import { inWorkspace } from "@/lib/workspaces";
+import { SectionHead } from "@/components/SectionHead";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
 import { isMobile } from "@/lib/platform";
 
@@ -74,29 +75,31 @@ export function TasksPanel() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-300">
-          Tasks {todo.length > 0 && <span className="text-ink-500">· {todo.length}</span>}
-        </h3>
-        <div className="flex items-center gap-2">
-          {!isMobile() && (
+      <SectionHead
+        title="Tasks"
+        count={todo.length}
+        sub="Today's list for this workspace — drag to reorder"
+        actions={
+          <>
+            {!isMobile() && (
+              <button
+                onClick={() => ipc.openTasksWidget()}
+                className="control-chip"
+                title="Pop up as floating widget"
+              >
+                Pop up ↗
+              </button>
+            )}
             <button
-              onClick={() => ipc.openTasksWidget()}
-              className="text-[10px] text-ink-400 hover:text-ink-100"
-              title="Pop up as floating widget"
+              onClick={() => setShowDone((v) => !v)}
+              className={`control-chip ${showDone ? "is-active" : ""}`}
+              title="Toggle completed"
             >
-              pop up ↗
+              {showDone ? "Hide done" : `${done.length} done`}
             </button>
-          )}
-          <button
-            onClick={() => setShowDone((v) => !v)}
-            className="text-[10px] text-ink-300 hover:text-ink-100"
-            title="Toggle completed"
-          >
-            {showDone ? "hide done" : `${done.length} done`}
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="flex flex-col gap-1 max-h-[280px] overflow-y-auto pr-1 mb-2">
         {todo.length === 0 && !showDone && (
           <div className="text-[11px] text-ink-400 px-1 py-2">
@@ -132,18 +135,19 @@ export function TasksPanel() {
             />
           ))}
       </div>
-      <div className="flex gap-1 pt-2 border-t border-ink-700/40">
+      <div className="flex gap-1.5 pt-2">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Add a task…"
-          className="flex-1 min-w-0 bg-ink-800 hairline rounded-md px-2 py-1 text-sm text-ink-100 placeholder:text-ink-400"
+          className="field flex-1 min-w-0"
+          aria-label="New task"
         />
         <button
           onClick={submit}
           disabled={!draft.trim()}
-          className="text-xs px-2 rounded-md bg-accent/25 hover:bg-accent/40 text-accent-glow disabled:opacity-40"
+          className="btn-primary"
         >
           Add
         </button>

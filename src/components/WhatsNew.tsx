@@ -82,7 +82,7 @@ export function WhatsNew() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-[560px] max-w-[94vw] max-h-[80vh] glass rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
+            className="w-[560px] max-w-[94vw] max-h-[80vh] glass glass-modal rounded-xl border border-ink-700/60 overflow-hidden flex flex-col"
           >
             <header className="px-5 py-3 border-b border-ink-700/40 flex items-center gap-3">
               <span className="w-7 h-7 rounded-md bg-accent/20 border border-accent/30 grid place-items-center text-accent-glow text-xs font-semibold">

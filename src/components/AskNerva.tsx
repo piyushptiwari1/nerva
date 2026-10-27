@@ -157,7 +157,7 @@ export function AskNerva() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-[720px] max-w-[94vw] glass rounded-xl shadow-2xl border border-ink-700/60 overflow-hidden flex flex-col"
+            className="w-[720px] max-w-[94vw] glass glass-modal rounded-xl shadow-2xl border border-ink-700/60 overflow-hidden flex flex-col"
             onKeyDown={onKeyDown}
           >
             {/* Header */}

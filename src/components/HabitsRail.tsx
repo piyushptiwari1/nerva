@@ -5,6 +5,7 @@ import { BoolCycleButton, boolState } from "@/components/HabitsWidget";
 import { isMobile } from "@/lib/platform";
 import { useApp } from "@/store/app";
 import { inWorkspace } from "@/lib/workspaces";
+import { SectionHead } from "@/components/SectionHead";
 
 /**
  * HabitsRail — compact habits list for the home sidebar.
@@ -139,31 +140,33 @@ export function HabitsRail() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-400">
-          Habits
-        </h3>
-        <div className="flex items-center gap-2">
-          {!isMobile() && (
+      <SectionHead
+        title="Habits"
+        count={visible.length}
+        sub="Tap to log today; streaks live in the full tracker"
+        actions={
+          <>
+            {!isMobile() && (
+              <button
+                onClick={() => ipc.openHabitsWidget()}
+                className="control-chip"
+                title="Open as a floating always-on-top widget"
+                aria-label="Pop out habits widget"
+              >
+                Pop up ↗
+              </button>
+            )}
             <button
-              onClick={() => ipc.openHabitsWidget()}
-              className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
-              title="Open as a floating always-on-top widget"
-              aria-label="Pop out habits widget"
+              onClick={openHabits}
+              className="control-chip"
+              title="Open habits tracker (Ctrl+H)"
+              aria-label="Open all habits"
             >
-              ↗ Pop up
+              All →
             </button>
-          )}
-          <button
-            onClick={openHabits}
-            className="text-[10px] text-ink-400 hover:text-ink-100 transition-colors"
-            title="Open habits tracker (Ctrl+H)"
-            aria-label="Open all habits"
-          >
-            all →
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
       {visible.length === 0 ? (
         <button
           onClick={openHabits}

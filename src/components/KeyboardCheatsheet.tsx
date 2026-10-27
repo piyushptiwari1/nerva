@@ -43,7 +43,7 @@ export function KeyboardCheatsheet() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-[640px] max-w-[94vw] glass rounded-xl border border-ink-700/60 overflow-hidden"
+            className="w-[640px] max-w-[94vw] glass glass-modal rounded-xl border border-ink-700/60 overflow-hidden"
           >
             <div className="px-4 py-3 border-b border-ink-700/40 flex items-center">
               <span className="text-sm font-medium text-ink-100">Keyboard shortcuts</span>
