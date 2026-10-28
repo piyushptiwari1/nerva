@@ -200,6 +200,8 @@ jobs:
           # Google Drive sync (Pro): installed-app OAuth client baked in at compile time.
           NERVA_GOOGLE_CLIENT_ID: ${{ vars.NERVA_GOOGLE_CLIENT_ID }}
           NERVA_GOOGLE_CLIENT_SECRET: ${{ secrets.NERVA_GOOGLE_CLIENT_SECRET }}
+          NERVA_GOOGLE_DEVICE_CLIENT_ID: ${{ vars.NERVA_GOOGLE_DEVICE_CLIENT_ID }}
+          NERVA_GOOGLE_DEVICE_CLIENT_SECRET: ${{ secrets.NERVA_GOOGLE_DEVICE_CLIENT_SECRET }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: 'Nerva ${{ env.RELEASE_TAG }}'
@@ -347,6 +349,8 @@ jobs:
           ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
           NERVA_GOOGLE_CLIENT_ID: ${{ vars.NERVA_GOOGLE_CLIENT_ID }}
           NERVA_GOOGLE_CLIENT_SECRET: ${{ secrets.NERVA_GOOGLE_CLIENT_SECRET }}
+          NERVA_GOOGLE_DEVICE_CLIENT_ID: ${{ vars.NERVA_GOOGLE_DEVICE_CLIENT_ID }}
+          NERVA_GOOGLE_DEVICE_CLIENT_SECRET: ${{ secrets.NERVA_GOOGLE_DEVICE_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"

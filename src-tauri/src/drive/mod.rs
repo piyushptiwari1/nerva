@@ -1,6 +1,10 @@
 //! Google Drive sync (Pro). One file — the same `.nerva.db` the free backup
-//! produces — kept in the account's hidden `appDataFolder`, so Nerva never
-//! sees the rest of the user's Drive and nothing else can see Nerva's file.
+//! produces — kept at the top of the user's Drive as `Nerva sync.nerva.db`.
+//! Scope is `drive.file`: Nerva can only see files it created itself, never
+//! the rest of the Drive. (The hidden `appDataFolder` would be tidier, but
+//! Google's device-code sign-in, which phones need, refuses that scope.)
+//! Both OAuth clients live in one Cloud project, so a file uploaded from a
+//! desktop is visible to a phone signed in with the device-code client.
 //!
 //! Credentials and sync bookkeeping live in `drive.json` beside the
 //! database, *not* inside it: tokens must not travel with a backup, and a
@@ -16,17 +20,23 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-pub const SCOPE: &str = "https://www.googleapis.com/auth/drive.appdata";
+pub const SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const FILES_URL: &str = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD_URL: &str = "https://www.googleapis.com/upload/drive/v3/files";
-const REMOTE_NAME: &str = "nerva.db";
+pub const REMOTE_NAME: &str = "Nerva sync.nerva.db";
 
 /// Compile-time client id (set `NERVA_GOOGLE_CLIENT_ID` when building the
 /// public binaries); a dev override can be stored in `drive.json`.
 const BUILT_IN_CLIENT_ID: Option<&str> = option_env!("NERVA_GOOGLE_CLIENT_ID");
 const BUILT_IN_CLIENT_SECRET: Option<&str> = option_env!("NERVA_GOOGLE_CLIENT_SECRET");
+/// "TVs and limited input" client for the device-code flow (phones, or
+/// desktops where no browser can be opened).
+const BUILT_IN_DEVICE_CLIENT_ID: Option<&str> = option_env!("NERVA_GOOGLE_DEVICE_CLIENT_ID");
+const BUILT_IN_DEVICE_CLIENT_SECRET: Option<&str> =
+    option_env!("NERVA_GOOGLE_DEVICE_CLIENT_SECRET");
+const DEVICE_CODE_URL: &str = "https://oauth2.googleapis.com/device/code";
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct DriveFile {
@@ -34,6 +44,15 @@ pub struct DriveFile {
     pub client_id: Option<String>,
     #[serde(default)]
     pub client_secret: Option<String>,
+    #[serde(default)]
+    pub device_client_id: Option<String>,
+    #[serde(default)]
+    pub device_client_secret: Option<String>,
+    /// Client that issued `refresh_token`; refreshes must use the same one.
+    #[serde(default)]
+    pub auth_client_id: Option<String>,
+    #[serde(default)]
+    pub auth_client_secret: Option<String>,
     #[serde(default)]
     pub refresh_token: Option<String>,
     #[serde(default)]
@@ -56,11 +75,24 @@ pub struct DriveFile {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DriveStatus {
+    /// Browser (loopback) sign-in is possible.
     pub configured: bool,
+    /// Device-code sign-in is possible.
+    pub device_configured: bool,
     pub connected: bool,
     pub file_id: Option<String>,
     pub last_sync_ms: Option<i64>,
     pub last_error: Option<String>,
+}
+
+/// What the user must do to finish a device-code sign-in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevicePrompt {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_url: String,
+    pub expires_in: i64,
+    pub interval: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -109,11 +141,25 @@ fn client_secret(f: &DriveFile) -> Option<String> {
         .or_else(|| BUILT_IN_CLIENT_SECRET.map(str::to_string))
         .filter(|s| !s.is_empty())
 }
+fn device_client(f: &DriveFile) -> Option<(String, String)> {
+    let id = f
+        .device_client_id
+        .clone()
+        .or_else(|| BUILT_IN_DEVICE_CLIENT_ID.map(str::to_string))
+        .filter(|s| !s.is_empty())?;
+    let secret = f
+        .device_client_secret
+        .clone()
+        .or_else(|| BUILT_IN_DEVICE_CLIENT_SECRET.map(str::to_string))
+        .filter(|s| !s.is_empty())?;
+    Some((id, secret))
+}
 
 pub fn status(data_dir: &Path) -> DriveStatus {
     let f = load(data_dir);
     DriveStatus {
         configured: client_id(&f).is_some(),
+        device_configured: device_client(&f).is_some(),
         connected: f.refresh_token.is_some(),
         file_id: f.file_id.clone(),
         last_sync_ms: f.last_sync_ms,
@@ -128,6 +174,8 @@ pub fn disconnect(data_dir: &Path) -> Result<()> {
         &DriveFile {
             client_id: f.client_id,
             client_secret: f.client_secret,
+            device_client_id: f.device_client_id,
+            device_client_secret: f.device_client_secret,
             ..Default::default()
         },
     )
@@ -288,6 +336,8 @@ pub async fn connect(data_dir: PathBuf) -> Result<DriveStatus> {
         .await?
         .json()
         .await?;
+    f.auth_client_id = Some(cid);
+    f.auth_client_secret = client_secret(&f);
     f.refresh_token = tok.refresh_token.or(f.refresh_token);
     f.access_token = Some(tok.access_token);
     f.access_expires_ms = crate::store::now_ms() + tok.expires_in * 1000 - 60_000;
@@ -298,7 +348,117 @@ pub async fn connect(data_dir: PathBuf) -> Result<DriveStatus> {
 
 #[cfg(not(desktop))]
 pub async fn connect(_data_dir: PathBuf) -> Result<DriveStatus> {
-    Err(NervaError::Invalid("Connect Google Drive from the desktop app for now; the phone follows in the next mobile update".into()))
+    Err(NervaError::Invalid(
+        "Use the code sign-in on this device".into(),
+    ))
+}
+
+// ── OAuth (device code) ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct DeviceCodeResponse {
+    device_code: String,
+    user_code: String,
+    #[serde(alias = "verification_uri")]
+    verification_url: String,
+    expires_in: i64,
+    #[serde(default = "default_interval")]
+    interval: i64,
+}
+fn default_interval() -> i64 {
+    5
+}
+
+/// Ask Google for a short user code. The caller shows `user_code` and
+/// `verification_url`, then calls `device_wait`.
+pub async fn device_start(data_dir: &Path) -> Result<DevicePrompt> {
+    let f = load(data_dir);
+    let (cid, _) = device_client(&f).ok_or_else(|| {
+        NervaError::Invalid("Code sign-in is not configured in this build".into())
+    })?;
+    let resp = http()?
+        .post(DEVICE_CODE_URL)
+        .form(&[("client_id", cid.as_str()), ("scope", SCOPE)])
+        .send()
+        .await?;
+    let d: DeviceCodeResponse = checked(resp).await?.json().await?;
+    Ok(DevicePrompt {
+        device_code: d.device_code,
+        user_code: d.user_code,
+        verification_url: d.verification_url,
+        expires_in: d.expires_in,
+        interval: d.interval.max(1),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct DevicePoll {
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    access_token: Option<String>,
+    #[serde(default)]
+    refresh_token: Option<String>,
+    #[serde(default)]
+    expires_in: i64,
+}
+
+/// Poll until the user approves, declines, or the code expires.
+pub async fn device_wait(data_dir: PathBuf, prompt: DevicePrompt) -> Result<DriveStatus> {
+    let mut f = load(&data_dir);
+    let (cid, secret) = device_client(&f)
+        .ok_or_else(|| NervaError::Invalid("Code sign-in is not configured".into()))?;
+    let deadline = std::time::Instant::now()
+        + std::time::Duration::from_secs(prompt.expires_in.clamp(30, 1800) as u64);
+    let mut interval = prompt.interval.clamp(1, 60) as u64;
+    let client = http()?;
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
+        if std::time::Instant::now() > deadline {
+            return Err(NervaError::Invalid(
+                "The code expired before it was entered; start again".into(),
+            ));
+        }
+        let resp = client
+            .post(TOKEN_URL)
+            .form(&[
+                ("client_id", cid.as_str()),
+                ("client_secret", secret.as_str()),
+                ("device_code", prompt.device_code.as_str()),
+                ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+            ])
+            .send()
+            .await?;
+        let poll: DevicePoll = resp.json().await?;
+        match (poll.error.as_deref(), poll.access_token) {
+            (None, Some(access)) => {
+                f.auth_client_id = Some(cid);
+                f.auth_client_secret = Some(secret);
+                f.refresh_token = poll.refresh_token.or(f.refresh_token);
+                f.access_token = Some(access);
+                f.access_expires_ms = crate::store::now_ms() + poll.expires_in * 1000 - 60_000;
+                f.last_error = None;
+                save(&data_dir, &f)?;
+                return Ok(status(&data_dir));
+            }
+            (Some("authorization_pending"), _) => {}
+            (Some("slow_down"), _) => interval += 5,
+            (Some("access_denied"), _) => {
+                return Err(NervaError::Invalid("Sign-in was declined".into()))
+            }
+            (Some("expired_token"), _) => {
+                return Err(NervaError::Invalid(
+                    "The code expired before it was entered; start again".into(),
+                ))
+            }
+            (Some(other), _) => {
+                return Err(NervaError::Invalid(format!(
+                    "Google sign-in failed: {other}"
+                )))
+            }
+            (None, None) => {}
+        }
+    }
 }
 
 fn http() -> Result<reqwest::Client> {
@@ -374,8 +534,11 @@ async fn access_token(data_dir: &Path, f: &mut DriveFile) -> Result<String> {
             return Ok(t.clone());
         }
     }
-    let cid =
-        client_id(f).ok_or_else(|| NervaError::Invalid("Google Drive is not configured".into()))?;
+    let cid = f
+        .auth_client_id
+        .clone()
+        .or_else(|| client_id(f))
+        .ok_or_else(|| NervaError::Invalid("Google Drive is not configured".into()))?;
     let refresh = f
         .refresh_token
         .clone()
@@ -385,7 +548,7 @@ async fn access_token(data_dir: &Path, f: &mut DriveFile) -> Result<String> {
         ("refresh_token", refresh),
         ("grant_type", "refresh_token".to_string()),
     ];
-    if let Some(secret) = client_secret(f) {
+    if let Some(secret) = f.auth_client_secret.clone().or_else(|| client_secret(f)) {
         form.push(("client_secret", secret));
     }
     let resp = http()?.post(TOKEN_URL).form(&form).send().await?;
@@ -427,10 +590,9 @@ async fn find_remote(token: &str) -> Result<Option<RemoteFile>> {
         .get(FILES_URL)
         .bearer_auth(token)
         .query(&[
-            ("spaces", "appDataFolder"),
-            ("q", &format!("name = '{REMOTE_NAME}' and trashed = false")),
-            ("fields", "files(id,modifiedTime)"),
-            ("pageSize", "5"),
+            ("q", format!("name = '{REMOTE_NAME}' and trashed = false")),
+            ("fields", "files(id,modifiedTime)".to_string()),
+            ("pageSize", "5".to_string()),
         ])
         .send()
         .await?;
@@ -443,11 +605,7 @@ async fn find_remote(token: &str) -> Result<Option<RemoteFile>> {
 
 async fn upload(token: &str, existing: Option<&str>, bytes: Vec<u8>) -> Result<RemoteFile> {
     let boundary = format!("nerva{}", uuid::Uuid::new_v4().simple());
-    let meta = if existing.is_some() {
-        serde_json::json!({ "name": REMOTE_NAME })
-    } else {
-        serde_json::json!({ "name": REMOTE_NAME, "parents": ["appDataFolder"] })
-    };
+    let meta = serde_json::json!({ "name": REMOTE_NAME, "description": "Nerva by Bytical — synced database. Nerva keeps this file up to date; do not edit it." });
     let mut body = Vec::with_capacity(bytes.len() + 512);
     body.extend_from_slice(format!("--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{meta}\r\n--{boundary}\r\nContent-Type: application/octet-stream\r\n\r\n").as_bytes());
     body.extend_from_slice(&bytes);
@@ -636,6 +794,90 @@ mod tests {
         let s = status(dir.path());
         assert!(s.configured && !s.connected);
         assert_eq!(rfc3339_ms("2026-10-27T12:00:00.000Z"), 1_793_102_400_000);
+    }
+
+    #[test]
+    fn device_client_requires_both_halves_and_disconnect_keeps_them() {
+        let dir = tempfile::tempdir().unwrap();
+        save(
+            dir.path(),
+            &DriveFile {
+                device_client_id: Some("tv".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(!status(dir.path()).device_configured);
+        save(
+            dir.path(),
+            &DriveFile {
+                device_client_id: Some("tv".into()),
+                device_client_secret: Some("s".into()),
+                auth_client_id: Some("tv".into()),
+                auth_client_secret: Some("s".into()),
+                refresh_token: Some("r".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(status(dir.path()).device_configured && status(dir.path()).connected);
+        disconnect(dir.path()).unwrap();
+        let f = load(dir.path());
+        assert!(
+            f.device_client_id.is_some() && f.auth_client_id.is_none() && f.refresh_token.is_none()
+        );
+    }
+
+    /// Live device-code sign-in: prints a code; enter it at the URL shown.
+    /// Run: `NERVA_DRIVE_DEVICE_LIVE_TEST=../secrets/google-oauth-device.json cargo test drive_device_live -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn drive_device_live_sign_in_and_sync() {
+        let Ok(cfg) = std::env::var("NERVA_DRIVE_DEVICE_LIVE_TEST") else {
+            return;
+        };
+        let creds: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&cfg).unwrap()).unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let cache =
+            std::path::Path::new(&cfg).with_file_name("google-oauth-device-live-test.refresh");
+        let dir = tempfile::tempdir().unwrap();
+        let state = AppState::initialize_at(dir.path().into()).unwrap();
+        let cid = creds["client_id"].as_str().map(str::to_string);
+        let secret = creds["client_secret"].as_str().map(str::to_string);
+        let cached = std::fs::read_to_string(&cache)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        save(
+            dir.path(),
+            &DriveFile {
+                device_client_id: cid.clone(),
+                device_client_secret: secret.clone(),
+                auth_client_id: cached.as_ref().and(cid),
+                auth_client_secret: cached.as_ref().and(secret),
+                refresh_token: cached,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        if !status(dir.path()).connected {
+            let prompt = rt.block_on(device_start(dir.path())).unwrap();
+            println!(
+                "\n==> Open {} and enter code {}  (expires in {}s)\n",
+                prompt.verification_url, prompt.user_code, prompt.expires_in
+            );
+            let st = rt.block_on(device_wait(dir.path().into(), prompt)).unwrap();
+            assert!(st.connected);
+            if let Some(r) = &load(dir.path()).refresh_token {
+                let _ = std::fs::write(&cache, r);
+            }
+        }
+        let report = rt.block_on(sync(&state)).unwrap();
+        // Pristine temp dir + account that already has a file → Downloaded;
+        // empty account → Uploaded. Both prove the device-issued token works.
+        println!("device flow sync outcome: {:?}", report.outcome);
+        assert!(load(dir.path()).synced_remote_modified.is_some());
     }
 
     /// Live round trip against Google. Needs a browser and

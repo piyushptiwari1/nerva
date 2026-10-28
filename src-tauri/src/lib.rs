@@ -285,6 +285,8 @@ pub fn run() {
             // drive (Pro)
             ipc::drive_status,
             ipc::drive_connect,
+            ipc::drive_device_start,
+            ipc::drive_device_wait,
             ipc::drive_disconnect,
             ipc::drive_sync,
             ipc::drive_set_client,

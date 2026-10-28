@@ -4,7 +4,7 @@ import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai, AI_PROVIDERS, type AiProvider } from "@/lib/ai";
-import { ipc, type BackupInfo, type DriveStatus } from "@/lib/ipc";
+import { ipc, type BackupInfo, type DevicePrompt, type DriveStatus } from "@/lib/ipc";
 import {
   consentState as telemetryConsentState,
   setConsent as setTelemetryConsent,
@@ -1137,10 +1137,12 @@ function DataTab() {
 
 function DriveField({ pro }: { pro: boolean }) {
   const [st, setSt] = useState<DriveStatus | null>(null);
-  const [busy, setBusy] = useState<"connect" | "sync" | null>(null);
+  const [busy, setBusy] = useState<"connect" | "code" | "sync" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [clientId, setClientId] = useState("");
+  const [prompt, setPrompt] = useState<DevicePrompt | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function refresh() {
     try { setSt(await ipc.driveStatus()); } catch { setSt(null); }
@@ -1155,6 +1157,24 @@ function DriveField({ pro }: { pro: boolean }) {
       await syncNow();
     } catch (e) { setErr(String(e)); setMsg(null); }
     finally { setBusy(null); }
+  }
+
+  async function connectWithCode() {
+    setErr(null); setMsg(null); setBusy("code");
+    try {
+      const p = await ipc.driveDeviceStart();
+      setPrompt(p);
+      setSt(await ipc.driveDeviceWait(p));
+      setPrompt(null);
+      setMsg("Connected. First sync starts now.");
+      await syncNow();
+    } catch (e) { setErr(String(e)); setPrompt(null); }
+    finally { setBusy(null); }
+  }
+
+  async function copyCode() {
+    if (!prompt) return;
+    try { await navigator.clipboard.writeText(prompt.user_code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
   }
 
   async function syncNow() {
@@ -1176,11 +1196,17 @@ function DriveField({ pro }: { pro: boolean }) {
     try { setSt(await ipc.driveDisconnect()); setMsg(null); } catch (e) { setErr(String(e)); }
   }
 
+  const mobile = isMobile();
   const help = !pro
-    ? "Pro keeps this backup in your own Google Drive app folder (hidden from your files, visible to no other app) and syncs it across your devices. Newest wins; the replaced copy is kept locally. Local export and restore above are free, always."
+    ? "Pro keeps one file, “Nerva sync.nerva.db”, in your own Google Drive and syncs it across your devices. Nerva can only see files it created — never the rest of your Drive. Newest wins; the replaced copy is kept locally. Local export and restore above are free, always."
     : st?.connected
-      ? "Syncs 20 seconds after launch and every 15 minutes while Nerva runs. Newest wins; the replaced copy is kept locally."
-      : "Signs in with Google in your browser. Nerva only asks for its own hidden app folder — it cannot see the rest of your Drive.";
+      ? "Syncs 20 seconds after launch and every 15 minutes while Nerva runs. Newest wins; the replaced copy is kept locally. Nerva can only see files it created."
+      : mobile
+        ? "Sign in with a short code: Nerva shows a code, you enter it at google.com/device in any browser. Nerva can only see files it created — never the rest of your Drive."
+        : "Signs in with Google in your browser. Nerva can only see files it created — never the rest of your Drive.";
+
+  const canBrowser = !!st?.configured && !mobile;
+  const canCode = !!st?.device_configured;
 
   return (
     <Field label="Google Drive sync" help={help}>
@@ -1191,17 +1217,42 @@ function DriveField({ pro }: { pro: boolean }) {
             <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">Get Nerva Pro</a>
           </>
         )}
-        {pro && st && !st.configured && (
+        {pro && st && !canBrowser && !canCode && (
           <div className="flex flex-wrap items-center gap-2 w-full">
             <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Google OAuth client ID" className="field flex-1 min-w-[220px] font-mono text-[11px]" spellCheck={false} />
             <button onClick={() => void ipc.driveSetClient(clientId).then(setSt).catch((e) => setErr(String(e)))} disabled={!clientId.trim()} className="btn">Save</button>
             <span className="text-[11px] text-ink-500 basis-full">This build has no Drive client baked in. Paste the client ID from Google Cloud Console once.</span>
           </div>
         )}
-        {pro && st?.configured && !st.connected && (
-          <button onClick={() => void connect()} disabled={busy !== null} className="btn-primary">
-            {busy === "connect" ? "Waiting for Google…" : "Connect Google Drive"}
-          </button>
+        {pro && st && !st.connected && !prompt && (
+          <>
+            {canBrowser && (
+              <button onClick={() => void connect()} disabled={busy !== null} className="btn-primary">
+                {busy === "connect" ? "Waiting for Google…" : "Connect Google Drive"}
+              </button>
+            )}
+            {canCode && (
+              <button onClick={() => void connectWithCode()} disabled={busy !== null} className={canBrowser ? "btn" : "btn-primary"}>
+                {busy === "code" ? "Getting a code…" : canBrowser ? "Use a code instead" : "Connect with a code"}
+              </button>
+            )}
+          </>
+        )}
+        {pro && prompt && (
+          <div className="w-full rounded-lg border border-ink-700/60 p-3 flex flex-col gap-2">
+            <div className="text-[12px] text-ink-300">
+              On any device, open{" "}
+              <a href={prompt.verification_url} target="_blank" rel="noreferrer" className="text-accent-glow underline">
+                {prompt.verification_url.replace(/^https?:\/\//, "")}
+              </a>{" "}
+              and enter this code:
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="display-num text-[26px] tracking-[0.12em] text-ink-100 select-all" aria-label="Sign-in code">{prompt.user_code}</code>
+              <button onClick={() => void copyCode()} className="btn">{copied ? "Copied" : "Copy"}</button>
+            </div>
+            <div className="text-[11px] text-ink-500">Waiting for approval… the code is valid for {Math.round(prompt.expires_in / 60)} minutes.</div>
+          </div>
         )}
         {pro && st?.connected && (
           <>

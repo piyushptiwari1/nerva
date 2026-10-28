@@ -137,10 +137,19 @@ export interface BackupInfo {
 
 export interface DriveStatus {
   configured: boolean;
+  device_configured: boolean;
   connected: boolean;
   file_id: string | null;
   last_sync_ms: number | null;
   last_error: string | null;
+}
+
+export interface DevicePrompt {
+  device_code: string;
+  user_code: string;
+  verification_url: string;
+  expires_in: number;
+  interval: number;
 }
 
 export interface SyncReport {
@@ -299,6 +308,8 @@ export const ipc = {
   // Google Drive (Pro)
   driveStatus: () => invoke<DriveStatus>("drive_status"),
   driveConnect: () => invoke<DriveStatus>("drive_connect"),
+  driveDeviceStart: () => invoke<DevicePrompt>("drive_device_start"),
+  driveDeviceWait: (prompt: DevicePrompt) => invoke<DriveStatus>("drive_device_wait", { prompt }),
   driveDisconnect: () => invoke<DriveStatus>("drive_disconnect"),
   driveSync: () => invoke<SyncReport>("drive_sync"),
   driveSetClient: (clientId: string, clientSecret?: string) =>

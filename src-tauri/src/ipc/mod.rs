@@ -1766,18 +1766,25 @@ pub fn drive_status(state: State) -> Result<crate::drive::DriveStatus> {
     Ok(crate::drive::status(&state.data_dir))
 }
 
-/// Dev/self-hosted override for the OAuth client; public builds bake it in.
+/// Dev/self-hosted override for the OAuth clients; public builds bake them in.
 #[tauri::command]
 pub fn drive_set_client(
     state: State,
     client_id: String,
     client_secret: Option<String>,
+    device_client_id: Option<String>,
+    device_client_secret: Option<String>,
 ) -> Result<crate::drive::DriveStatus> {
+    let clean = |s: String| Some(s.trim().to_string()).filter(|s| !s.is_empty());
     let mut f = crate::drive::load(&state.data_dir);
-    f.client_id = Some(client_id.trim().to_string()).filter(|s| !s.is_empty());
-    f.client_secret = client_secret
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
+    f.client_id = clean(client_id);
+    f.client_secret = client_secret.and_then(clean);
+    if let Some(id) = device_client_id {
+        f.device_client_id = clean(id);
+    }
+    if let Some(secret) = device_client_secret {
+        f.device_client_secret = clean(secret);
+    }
     crate::drive::save(&state.data_dir, &f)?;
     Ok(crate::drive::status(&state.data_dir))
 }
@@ -1786,6 +1793,23 @@ pub fn drive_set_client(
 pub async fn drive_connect(state: State<'_>) -> Result<crate::drive::DriveStatus> {
     require_pro(&state)?;
     crate::drive::connect(state.data_dir.clone()).await
+}
+
+/// Device-code sign-in, step 1: returns the code the user must enter.
+#[tauri::command]
+pub async fn drive_device_start(state: State<'_>) -> Result<crate::drive::DevicePrompt> {
+    require_pro(&state)?;
+    crate::drive::device_start(&state.data_dir).await
+}
+
+/// Device-code sign-in, step 2: blocks until approved/declined/expired.
+#[tauri::command]
+pub async fn drive_device_wait(
+    state: State<'_>,
+    prompt: crate::drive::DevicePrompt,
+) -> Result<crate::drive::DriveStatus> {
+    require_pro(&state)?;
+    crate::drive::device_wait(state.data_dir.clone(), prompt).await
 }
 
 #[tauri::command]
