@@ -49,7 +49,7 @@
     "description": "Free, offline-first focus workspace for deep work on Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, year-long habit heatmap, tasks, command palette. No account required.",
     "url": "https://nerva.bytical.ai/",
     "downloadUrl": "https://nerva.bytical.ai/download/linux/deb",
-    "softwareVersion": "0.1.15",
+    "softwareVersion": "0.1.16",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "author": {"@type":"Organization","name":"Bytical Solutions Private Limited","url":"https://bytical.ai"},
     "offers": {"@type":"Offer","price":"0","priceCurrency":"USD"},
@@ -59,7 +59,9 @@
       "Sticky markdown notes that float above any window",
       "Year-long habit heatmap with streaks",
       "Tasks with priority and due times",
-      "World clocks and customisable dashboard",
+      "Reminders: once, daily, weekdays or weekly, with system notifications on desktop and Android",
+      "One-file local backup and restore",
+      "World clocks in the title bar and resizable, customisable dashboard",
       "Ask Nerva: local Ollama or bring-your-own OpenAI / Anthropic / Gemini key",
       "Command palette and global shortcuts",
       "Crash-safe event-sourced local SQLite store",
@@ -73,7 +75,7 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source and everything in the app today stays free. An optional Pro licence funds development and unlocks encrypted cloud backup."}},
+      {"@type":"Question","name":"Is Nerva free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Nerva is Apache-2.0 licensed open source and everything in the app today stays free, including local backup and restore. An optional Pro licence funds development and unlocks Google Drive sync across your devices."}},
       {"@type":"Question","name":"Does Nerva work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no cloud component. All data lives in a local SQLite database on your machine."}},
       {"@type":"Question","name":"Does Nerva send telemetry?","acceptedAnswer":{"@type":"Answer","text":"Very little, and never your content. Once per day the app sends an anonymous launch count (version, OS, platform, language; no identifier) so we know it is being used; you can switch this off in Settings. Detailed weekly usage stats (feature counts only) are strictly opt-in."}},
       {"@type":"Question","name":"Why don't my timers drift after sleep?","acceptedAnswer":{"@type":"Answer","text":"Nerva uses wall-clock math, not interval ticks. When the machine wakes, each timer recomputes elapsed time as now minus started_at, so it stays accurate across sleep, suspend, and reboot."}},
@@ -783,7 +785,17 @@
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
         <h4>Your dashboard, your order</h4>
-        <p>Show, hide and reorder sidebar sections. Add up to six world clocks for the people you work with.</p>
+        <p>Show, hide and reorder sidebar sections, drag the column dividers, and keep world clocks one click away in the title bar.</p>
+      </div>
+      <div class="tile">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <h4>Reminders that reach you</h4>
+        <p>“Remind me” in one line: once, daily, weekdays or weekly. Task deadlines alert too. System notifications on desktop and Android, snooze or finish from the app.</p>
+      </div>
+      <div class="tile">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></div>
+        <h4>Your data is one file</h4>
+        <p>Export a complete backup to a single file and restore it anywhere — free. Pro keeps that file in your Google Drive and syncs it across your devices.</p>
       </div>
     </div>
     <p class="section-tag" style="margin-top:28px">New in every release → <a href="/changelog">changelog</a>. The app shows a “What's new” card after each update.</p>
@@ -834,7 +846,7 @@
       </div>
     </div>
     <div class="note">
-      <strong>Latest: v0.1.15.</strong> Desktop direct-download builds use signed updates, verified locally. Android downloads are signed with a persistent release key; install subsequent Nerva Mobile APKs over the existing Mobile app to keep its data.
+      <strong>Latest: v0.1.16.</strong> Desktop direct-download builds use signed updates, verified locally. Android downloads are signed with a persistent release key; install subsequent Nerva Mobile APKs over the existing Mobile app to keep its data.
       Windows installers use Bytical's self-signed certificate. The <a href="/cert">public certificate</a> identifies the signer,
       but does not establish public-CA trust or SmartScreen reputation. Windows may still show an <strong>"Unrecognized app"</strong> warning.
     </div>
@@ -867,7 +879,7 @@
       </div>
     </div>
     <div class="note">
-      <strong>What Pro unlocks:</strong> encrypted Google Drive backup &amp; multi-device restore (shipping in the next releases — your key already covers it), priority on feature requests, and a Pro badge. <strong>Works on all your machines:</strong> one key, Monthly 2 · Yearly 3 · Lifetime 5 devices at once; swap devices any time from Settings → Pro. Payments are processed by PayU in INR — international Visa / Mastercard / Amex are accepted and your bank converts to your currency (≈ $3 / $24 / $59). Key + invoice are emailed instantly. No auto-renew — we only charge when you click. Early-access pricing.
+      <strong>What Pro unlocks:</strong> Google Drive sync across your devices — Nerva keeps one file in your own Drive and can only see files it created, never the rest of your Drive; newest wins and the replaced local copy is kept. Plus priority on feature requests and a Pro badge. Local export and restore stay free for everyone. <strong>Works on all your machines:</strong> one key, Monthly 2 · Yearly 3 · Lifetime 5 devices at once; swap devices any time from Settings → Pro. Payments are processed by PayU in INR — international Visa / Mastercard / Amex are accepted and your bank converts to your currency (≈ $3 / $24 / $59). Key + invoice are emailed instantly. No auto-renew — we only charge when you click. Early-access pricing.
     </div>
     <form id="recover" style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;max-width:560px">
       <span style="color:#8a93a6;font-size:14px">Already bought? Lost your key?</span>
@@ -901,7 +913,7 @@
     <div class="faq" style="margin-top:40px">
       <details open>
         <summary>Is Nerva free?</summary>
-        <p>Yes — Apache-2.0 licensed open source, and everything in the app today stays free. There is an <a href="#pro">optional Pro licence</a> that funds development and unlocks encrypted cloud backup as it ships. No upgrade nags.</p>
+        <p>Yes — Apache-2.0 licensed open source, and everything in the app today stays free, including one-file backup and restore. There is an <a href="#pro">optional Pro licence</a> that funds development and unlocks Google Drive sync across your devices. No upgrade nags.</p>
       </details>
       <details>
         <summary>Does Nerva work offline?</summary>

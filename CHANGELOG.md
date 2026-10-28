@@ -4,6 +4,22 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
+## v0.1.16 — 2026-10-28
+
+### New
+- **Reminders.** “Remind me” sits above your timers: once, daily, weekdays or weekly. Task deadlines alert too. System notifications on desktop and Android (scheduled with the OS so they fire when the app is closed); snooze or finish from the in-app banner. Nothing fires twice after a restart.
+- **Backup and restore (free).** Settings → Data exports your whole database to one `.nerva.db` file and restores from any such file. The replaced database is always kept beside the new one.
+- **Google Drive sync (Pro).** Keeps that one file in your own Drive and syncs it across devices; newest wins, the replaced local copy is kept. Nerva can only see files it created. Sign in with your browser on desktop or with a short code on the phone.
+- **Real usage, honestly counted.** Once a day the app sends an anonymous launch beacon (version, OS, platform, language — no identifier). Switch it off in Settings → About. The website wording now describes exactly this.
+
+### Changed
+- **Redesign.** Bundled Inter and JetBrains Mono so the app looks the same on every OS; a legibility floor (nothing below 11px); clearer section headers with a purpose line; visible buttons and fields; a quiet ambient light field behind translucent glass panels; spring-like press feedback. Modal dialogs are denser so text stays readable.
+- **Layout.** Drag the sidebar and notes column dividers (double-click or Settings → Layout to reset). The running timer takes the stage; others park beneath it. World clocks moved from the sidebar into the clock in the title bar.
+
+### Fixed
+- Android home-screen widgets no longer crash on launchers that re-apply views (OnePlus and similar), workspaces are fully isolated, and notes keep their order.
+- Telemetry pings from the app were silently blocked by missing CORS headers on the website; fixed.
+
 ## v0.1.15 — 2026-10-02
 
 ### Android Installation
