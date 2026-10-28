@@ -19,6 +19,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TelemetryConsent } from "@/components/TelemetryConsent";
 import { RatingPrompt } from "@/components/Feedback";
 import { WhatsNew } from "@/components/WhatsNew";
+import { ReminderToasts } from "@/components/ReminderToasts";
+import { initReminders } from "@/store/reminders";
 import { initTelemetry } from "@/lib/telemetry";
 import { flushFeedbackQueue, markInstalled } from "@/lib/feedback";
 import { useLicense } from "@/lib/license";
@@ -60,6 +62,10 @@ export default function App() {
   // Pro licence: trust cache immediately, re-verify in the background.
   useEffect(() => {
     if (ready) void useLicense.getState().load();
+  }, [ready]);
+
+  useEffect(() => {
+    if (ready) void initReminders();
   }, [ready]);
 
   // 250ms tick — wall-clock math means we just need UI refresh cadence.
@@ -116,6 +122,7 @@ export default function App() {
       <ErrorBoundary scope="TelemetryConsent"><TelemetryConsent /></ErrorBoundary>
       <ErrorBoundary scope="RatingPrompt"><RatingPrompt /></ErrorBoundary>
       <ErrorBoundary scope="WhatsNew"><WhatsNew /></ErrorBoundary>
+      <ErrorBoundary scope="ReminderToasts"><ReminderToasts /></ErrorBoundary>
     </div>
   );
 }

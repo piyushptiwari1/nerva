@@ -16,6 +16,8 @@ import { WhatsNew } from "@/components/WhatsNew";
 import { useNativeWidgets } from "./widgets";
 import { WidgetsPane } from "./WidgetsPane";
 import { initTelemetry } from "@/lib/telemetry";
+import { initReminders } from "@/store/reminders";
+import { ReminderToasts } from "@/components/ReminderToasts";
 import { ipc } from "@/lib/ipc";
 import nervaIcon from "../../src-tauri/icons/icon.png";
 import "./mobile.css";
@@ -55,6 +57,10 @@ export function MobileApp() {
 
   useEffect(() => {
     if (ready) void useLicense.getState().load();
+  }, [ready]);
+
+  useEffect(() => {
+    if (ready) void initReminders();
   }, [ready]);
 
   useEffect(() => initTelemetry(), []);
@@ -197,6 +203,7 @@ export function MobileApp() {
       <ErrorBoundary scope="HabitsPane"><HabitsPane /></ErrorBoundary>
       {widgetsOpen && <ErrorBoundary scope="WidgetsPane"><WidgetsPane onClose={() => setWidgetsOpen(false)} /></ErrorBoundary>}
       <ErrorBoundary scope="WhatsNew"><WhatsNew /></ErrorBoundary>
+      <ErrorBoundary scope="ReminderToasts"><ReminderToasts /></ErrorBoundary>
     </div>
   );
 }

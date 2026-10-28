@@ -16,6 +16,7 @@ pub mod intelligence;
 pub mod ipc;
 pub mod license;
 pub mod notes;
+pub mod reminders;
 pub mod state;
 pub mod store;
 pub mod tasks;
@@ -131,6 +132,7 @@ pub fn run() {
             let state = widgets::android::shared_state(handle.path().app_data_dir()?)
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             app.manage(state.clone());
+            reminders::scheduler::spawn(handle.clone(), state.clone());
             #[cfg(target_os = "android")]
             widgets::android::attach(handle.clone());
 
@@ -253,6 +255,14 @@ pub fn run() {
             ipc::task_reorder,
             ipc::task_set_priority,
             ipc::task_set_due,
+            // reminders
+            ipc::reminder_list,
+            ipc::reminder_upcoming,
+            ipc::reminder_create,
+            ipc::reminder_update,
+            ipc::reminder_snooze,
+            ipc::reminder_done,
+            ipc::reminder_delete,
             // momentum
             ipc::momentum_snapshot,
             // sticky / widgets

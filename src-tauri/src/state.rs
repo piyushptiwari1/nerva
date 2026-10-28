@@ -5,6 +5,7 @@ use crate::error::{NervaError, Result};
 use crate::habits::HabitsProjection;
 use crate::intelligence::{OllamaClient, OllamaConfig};
 use crate::notes::NotesProjection;
+use crate::reminders::RemindersProjection;
 use crate::store::Store;
 use crate::tasks::TasksProjection;
 use crate::timers::TimerEngine;
@@ -21,6 +22,7 @@ pub struct AppState {
     pub workspaces: Arc<Mutex<WorkspacesProjection>>,
     pub tasks: Arc<Mutex<TasksProjection>>,
     pub habits: Arc<Mutex<HabitsProjection>>,
+    pub reminders: Arc<Mutex<RemindersProjection>>,
     pub audio: Arc<AudioEngine>,
     pub ai: Arc<OllamaClient>,
     pub data_dir: PathBuf,
@@ -46,6 +48,7 @@ impl AppState {
         let mut workspaces = WorkspacesProjection::new();
         let mut tasks = TasksProjection::new();
         let mut habits = HabitsProjection::new();
+        let mut reminders = RemindersProjection::new();
 
         let events = store.replay_all()?;
         tracing::info!(count = events.len(), "replaying events");
@@ -55,6 +58,7 @@ impl AppState {
             workspaces.apply(ev);
             tasks.apply(ev);
             habits.apply(ev);
+            reminders.apply(ev);
         }
 
         // Ensure a default workspace exists.
@@ -93,6 +97,7 @@ impl AppState {
             habits.apply(&event);
             notes.apply(&event);
             workspaces.apply(&event);
+            reminders.apply(&event);
         }
 
         if workspaces.active().is_none() {
@@ -168,6 +173,7 @@ impl AppState {
             workspaces: Arc::new(Mutex::new(workspaces)),
             tasks: Arc::new(Mutex::new(tasks)),
             habits: Arc::new(Mutex::new(habits)),
+            reminders: Arc::new(Mutex::new(reminders)),
             audio,
             ai,
             data_dir,

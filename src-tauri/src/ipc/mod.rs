@@ -899,7 +899,11 @@ pub struct SetTaskDueArgs {
 /// Set or clear a task's due-by timestamp. Emits `task.due_set`.
 #[tauri::command]
 pub fn task_set_due(state: State, args: SetTaskDueArgs) -> Result<Task> {
-    let payload = serde_json::json!({ "id": args.id, "due_ms": args.due_ms });
+    task_set_due_for(&state, args.id, args.due_ms)
+}
+
+pub(crate) fn task_set_due_for(state: &AppState, id: String, due_ms: Option<i64>) -> Result<Task> {
+    let payload = serde_json::json!({ "id": id, "due_ms": due_ms });
     let evt_id = state.store.append_event("task.due_set", &payload)?;
     let ev = StoredEvent {
         id: evt_id,
@@ -911,8 +915,163 @@ pub fn task_set_due(state: State, args: SetTaskDueArgs) -> Result<Task> {
     proj.apply(&ev);
     proj.list()
         .into_iter()
-        .find(|t| t.id == args.id)
+        .find(|t| t.id == id)
+        .ok_or_else(|| NervaError::NotFound(id))
+}
+
+// ---------- reminders ----------
+
+use crate::reminders::{scheduler::Fired, Reminder, Repeat};
+
+#[derive(Debug, Deserialize)]
+pub struct CreateReminderArgs {
+    pub title: String,
+    pub due_ms: i64,
+    pub repeat: Option<String>,
+    pub tz_offset_min: Option<i32>,
+    pub task_id: Option<String>,
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateReminderArgs {
+    pub id: String,
+    pub title: Option<String>,
+    pub due_ms: Option<i64>,
+    pub repeat: Option<String>,
+    pub tz_offset_min: Option<i32>,
+}
+
+fn reminder_apply(state: &AppState, kind: &str, payload: serde_json::Value) -> Result<()> {
+    let evt_id = state.store.append_event(kind, &payload)?;
+    let ev = StoredEvent {
+        id: evt_id,
+        ts_ms: crate::store::now_ms(),
+        kind: kind.into(),
+        payload,
+    };
+    state.reminders.lock().apply(&ev);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reminder_list(state: State) -> Result<Vec<Reminder>> {
+    Ok(state.reminders.lock().list())
+}
+
+/// Reminders and task deadlines due within `horizon_ms` (default 7 days).
+#[tauri::command]
+pub fn reminder_upcoming(
+    state: State,
+    horizon_ms: Option<i64>,
+    workspace_id: Option<String>,
+) -> Result<Vec<Fired>> {
+    let horizon = horizon_ms
+        .unwrap_or(7 * crate::reminders::DAY_MS)
+        .clamp(60_000, 90 * crate::reminders::DAY_MS);
+    Ok(crate::reminders::scheduler::upcoming(
+        &state,
+        crate::store::now_ms(),
+        horizon,
+        workspace_id.as_deref(),
+    ))
+}
+
+#[tauri::command]
+pub fn reminder_create(state: State, args: CreateReminderArgs) -> Result<Reminder> {
+    reminder_create_for(&state, args)
+}
+
+pub(crate) fn reminder_create_for(state: &AppState, args: CreateReminderArgs) -> Result<Reminder> {
+    let title = args.title.trim();
+    if title.is_empty() {
+        return Err(NervaError::Invalid("reminder title required".into()));
+    }
+    if args.due_ms <= 0 {
+        return Err(NervaError::Invalid("reminder time required".into()));
+    }
+    let id = Uuid::new_v4().to_string();
+    let ws = state.workspaces.lock().resolve(args.workspace_id)?;
+    let repeat = args
+        .repeat
+        .as_deref()
+        .map(Repeat::from_label)
+        .unwrap_or_default();
+    reminder_apply(
+        state,
+        "reminder.created",
+        serde_json::json!({
+            "id": id,
+            "title": title,
+            "due_ms": args.due_ms,
+            "repeat": repeat.label(),
+            "tz_offset_min": args.tz_offset_min.unwrap_or(0),
+            "task_id": args.task_id,
+            "workspace_id": ws,
+        }),
+    )?;
+    state
+        .reminders
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::Invalid("reminder create failed".into()))
+}
+
+#[tauri::command]
+pub fn reminder_update(state: State, args: UpdateReminderArgs) -> Result<Reminder> {
+    if let Some(t) = &args.title {
+        if t.trim().is_empty() {
+            return Err(NervaError::Invalid("reminder title required".into()));
+        }
+    }
+    let mut payload = serde_json::json!({ "id": args.id });
+    if let Some(t) = args.title {
+        payload["title"] = serde_json::Value::String(t.trim().to_string());
+    }
+    if let Some(d) = args.due_ms {
+        payload["due_ms"] = serde_json::json!(d);
+    }
+    if let Some(r) = args.repeat {
+        payload["repeat"] = serde_json::json!(Repeat::from_label(&r).label());
+    }
+    if let Some(tz) = args.tz_offset_min {
+        payload["tz_offset_min"] = serde_json::json!(tz);
+    }
+    reminder_apply(&state, "reminder.updated", payload)?;
+    state
+        .reminders
+        .lock()
+        .get(&args.id)
+        .cloned()
         .ok_or_else(|| NervaError::NotFound(args.id))
+}
+
+#[tauri::command]
+pub fn reminder_snooze(state: State, id: String, minutes: Option<i64>) -> Result<Reminder> {
+    let mins = minutes.unwrap_or(10).clamp(1, 7 * 24 * 60);
+    let due = crate::store::now_ms() + mins * 60_000;
+    reminder_apply(
+        &state,
+        "reminder.snoozed",
+        serde_json::json!({ "id": id, "due_ms": due }),
+    )?;
+    state
+        .reminders
+        .lock()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| NervaError::NotFound(id))
+}
+
+#[tauri::command]
+pub fn reminder_done(state: State, id: String) -> Result<()> {
+    reminder_apply(&state, "reminder.done", serde_json::json!({ "id": id }))
+}
+
+#[tauri::command]
+pub fn reminder_delete(state: State, id: String) -> Result<()> {
+    reminder_apply(&state, "reminder.deleted", serde_json::json!({ "id": id }))
 }
 
 #[derive(Debug, Deserialize)]

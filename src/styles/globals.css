@@ -322,6 +322,40 @@ code, pre, kbd, .font-mono { font-family: "JetBrains Mono Variable", "JetBrains 
   background: radial-gradient(120% 60% at 50% 0%, rgb(var(--accent) / 0.10), transparent 70%);
 }
 
+/* "Up next" strip: one quiet row above the timers. */
+.up-next {
+  padding: 6px 8px 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--control-bg);
+}
+.up-next-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--control-border);
+  background: rgb(var(--accent) / 0.10);
+  color: rgb(var(--ink-100));
+  font-size: 11.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.up-next-chip.is-task { background: rgb(var(--focus) / 0.12); }
+.up-next-chip.is-overdue { border-color: rgb(var(--danger) / 0.6); }
+.up-next-chip.is-overdue .tnum { color: rgb(var(--danger)); }
+.up-next-x {
+  display: inline-grid; place-items: center;
+  width: 16px; height: 16px; border-radius: 999px;
+  color: rgb(var(--ink-400));
+}
+.up-next-x:hover { background: var(--control-bg-hover); color: rgb(var(--ink-100)); }
+@media (hover: hover) {
+  .up-next-chip:not(:hover):not(:focus-within) .up-next-x { opacity: 0; width: 0; overflow: hidden; }
+}
+
 /* ── Controls ─────────────────────────────────────────────────────────────
  * Visible by default: a lit glass surface, a readable rim, 32px minimum.
  * Press = quick squish, release = spring back (the "touch" of the UI).

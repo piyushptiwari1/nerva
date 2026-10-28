@@ -6,6 +6,7 @@ import { settings } from "@/lib/settings";
 import { isMobile } from "@/lib/platform";
 import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
+import { UpNext } from "@/components/UpNext";
 import { PictureInPicture2 } from "lucide-react";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
@@ -99,6 +100,8 @@ export function TimerStage() {
           </>
         }
       />
+
+      <UpNext />
 
       <AnimatePresence>
         {creating && (

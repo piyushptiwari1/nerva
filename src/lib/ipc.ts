@@ -171,6 +171,30 @@ export interface MomentumBucket {
   focus_ms: number;
 }
 
+export type Repeat = "none" | "daily" | "weekdays" | "weekly";
+
+export interface Reminder {
+  id: string;
+  workspace_id: string | null;
+  title: string;
+  due_ms: number;
+  repeat: Repeat;
+  tz_offset_min: number;
+  task_id: string | null;
+  created_ms: number;
+  fired_ms: number | null;
+  done: boolean;
+}
+
+/** One upcoming or just-fired item: a reminder or a task deadline. */
+export interface Upcoming {
+  kind: "reminder" | "task";
+  id: string;
+  title: string;
+  due_ms: number;
+  workspace_id: string | null;
+}
+
 export type HabitKind = "bool" | "count" | "amount";
 
 export interface Habit {
@@ -296,6 +320,32 @@ export const ipc = {
     mutate<Task>("task_set_priority", { args }, "task:changed"),
   taskSetDue: (args: { id: string; due_ms: number | null }) =>
     mutate<Task>("task_set_due", { args }, "task:changed"),
+  // reminders
+  reminderList: () => invoke<Reminder[]>("reminder_list"),
+  reminderUpcoming: (horizonMs?: number, workspaceId?: string) =>
+    invoke<Upcoming[]>("reminder_upcoming", { horizonMs, workspaceId }),
+  reminderCreate: (args: {
+    title: string;
+    due_ms: number;
+    repeat?: Repeat;
+    task_id?: string;
+    workspace_id?: string;
+  }) =>
+    mutate<Reminder>(
+      "reminder_create",
+      { args: { ...args, tz_offset_min: -new Date().getTimezoneOffset() } },
+      "reminder:changed",
+    ),
+  reminderUpdate: (args: { id: string; title?: string; due_ms?: number; repeat?: Repeat }) =>
+    mutate<Reminder>(
+      "reminder_update",
+      { args: { ...args, tz_offset_min: -new Date().getTimezoneOffset() } },
+      "reminder:changed",
+    ),
+  reminderSnooze: (id: string, minutes = 10) =>
+    mutate<Reminder>("reminder_snooze", { id, minutes }, "reminder:changed"),
+  reminderDone: (id: string) => mutate<void>("reminder_done", { id }, "reminder:changed"),
+  reminderDelete: (id: string) => mutate<void>("reminder_delete", { id }, "reminder:changed"),
   // momentum
   momentumSnapshot: (days?: number, workspaceId?: string) =>
     invoke<MomentumBucket[]>("momentum_snapshot", { days, workspaceId }),
