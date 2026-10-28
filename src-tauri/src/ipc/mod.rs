@@ -1741,6 +1741,105 @@ pub fn backup_restore(app: tauri::AppHandle, state: State, path: String) -> Resu
     Ok(kept.display().to_string())
 }
 
+// ---------- drive sync (Pro) ----------
+
+fn pro_active(state: &AppState) -> bool {
+    let Ok(device) = device_id_for(state) else {
+        return false;
+    };
+    let token = state.store.meta_get(META_LICENSE_TOKEN).ok().flatten();
+    status_from(device, token, crate::store::now_ms() / 1000).active
+}
+
+fn require_pro(state: &AppState) -> Result<()> {
+    if pro_active(state) {
+        Ok(())
+    } else {
+        Err(NervaError::Invalid(
+            "Google Drive sync is part of Nerva Pro".into(),
+        ))
+    }
+}
+
+#[tauri::command]
+pub fn drive_status(state: State) -> Result<crate::drive::DriveStatus> {
+    Ok(crate::drive::status(&state.data_dir))
+}
+
+/// Dev/self-hosted override for the OAuth client; public builds bake it in.
+#[tauri::command]
+pub fn drive_set_client(
+    state: State,
+    client_id: String,
+    client_secret: Option<String>,
+) -> Result<crate::drive::DriveStatus> {
+    let mut f = crate::drive::load(&state.data_dir);
+    f.client_id = Some(client_id.trim().to_string()).filter(|s| !s.is_empty());
+    f.client_secret = client_secret
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    crate::drive::save(&state.data_dir, &f)?;
+    Ok(crate::drive::status(&state.data_dir))
+}
+
+#[tauri::command]
+pub async fn drive_connect(state: State<'_>) -> Result<crate::drive::DriveStatus> {
+    require_pro(&state)?;
+    crate::drive::connect(state.data_dir.clone()).await
+}
+
+#[tauri::command]
+pub fn drive_disconnect(state: State) -> Result<crate::drive::DriveStatus> {
+    crate::drive::disconnect(&state.data_dir)?;
+    Ok(crate::drive::status(&state.data_dir))
+}
+
+/// Manual "Sync now". On a download the app restarts shortly after replying.
+#[tauri::command]
+pub async fn drive_sync(
+    app: tauri::AppHandle,
+    state: State<'_>,
+) -> Result<crate::drive::SyncReport> {
+    require_pro(&state)?;
+    let report = crate::drive::sync(&state).await?;
+    if report.outcome == crate::drive::Outcome::Downloaded {
+        schedule_restart(app, 400);
+    }
+    Ok(report)
+}
+
+fn schedule_restart(app: tauri::AppHandle, delay_ms: u64) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+        app.restart();
+    });
+}
+
+/// Pro + connected: sync 20 s after launch, then every 15 min. Upload-only
+/// results are silent; a download restarts the app and tells the UI first.
+pub fn spawn_drive_autosync(app: tauri::AppHandle, state: Arc<AppState>) {
+    tauri::async_runtime::spawn(async move {
+        use tauri::Emitter;
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        loop {
+            let st = crate::drive::status(&state.data_dir);
+            if st.connected && pro_active(&state) {
+                match crate::drive::sync(&state).await {
+                    Ok(report) => {
+                        let _ = app.emit("drive:synced", &report);
+                        if report.outcome == crate::drive::Outcome::Downloaded {
+                            schedule_restart(app.clone(), 1500);
+                            return;
+                        }
+                    }
+                    Err(e) => tracing::warn!(err = %e, "drive autosync"),
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(15 * 60)).await;
+        }
+    });
+}
+
 // ---------- audio ----------
 
 #[derive(Debug, Serialize)]
@@ -2316,6 +2415,10 @@ const META_LICENSE_KEY: &str = "license.key";
 /// Stable per-installation id (UUID v4, created on first use).
 #[tauri::command]
 pub fn device_id(state: State) -> Result<String> {
+    device_id_for(&state)
+}
+
+pub(crate) fn device_id_for(state: &AppState) -> Result<String> {
     if let Some(id) = state.store.meta_get(META_DEVICE_ID)? {
         if !id.is_empty() {
             return Ok(id);

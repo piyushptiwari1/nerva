@@ -163,6 +163,17 @@ impl Store {
         }
     }
 
+    /// `(id, ts_ms)` of the newest event, or `None` on an empty log.
+    pub fn last_event(&self) -> Result<Option<(i64, i64)>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare("SELECT id, ts_ms FROM events ORDER BY id DESC LIMIT 1")?;
+        let mut rows = stmt.query([])?;
+        Ok(match rows.next()? {
+            Some(row) => Some((row.get(0)?, row.get(1)?)),
+            None => None,
+        })
+    }
+
     /// Full-text search across notes. Returns (id, workspace_id, title, snippet, rank).
     pub fn note_search(&self, query: &str, limit: i64) -> Result<Vec<NoteSearchHit>> {
         let conn = self.pool.get()?;

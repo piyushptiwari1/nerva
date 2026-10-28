@@ -12,6 +12,8 @@ pub enum NervaError {
     Serde(#[from] serde_json::Error),
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+    #[error("network: {0}")]
+    Network(#[from] reqwest::Error),
     #[error("not found: {0}")]
     NotFound(String),
     #[error("invalid: {0}")]

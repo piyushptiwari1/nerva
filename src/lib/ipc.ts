@@ -135,6 +135,19 @@ export interface BackupInfo {
   notes: number;
 }
 
+export interface DriveStatus {
+  configured: boolean;
+  connected: boolean;
+  file_id: string | null;
+  last_sync_ms: number | null;
+  last_error: string | null;
+}
+
+export interface SyncReport {
+  outcome: "in_sync" | "uploaded" | "downloaded";
+  kept_local_copy: string | null;
+}
+
 export interface AudioState {
   volume: number;
   muted: boolean;
@@ -283,6 +296,13 @@ export const ipc = {
   backupList: () => invoke<BackupInfo[]>("backup_list"),
   /** Swap the live database for `path`, keep the old one, then relaunch. */
   backupRestore: (path: string) => invoke<string>("backup_restore", { path }),
+  // Google Drive (Pro)
+  driveStatus: () => invoke<DriveStatus>("drive_status"),
+  driveConnect: () => invoke<DriveStatus>("drive_connect"),
+  driveDisconnect: () => invoke<DriveStatus>("drive_disconnect"),
+  driveSync: () => invoke<SyncReport>("drive_sync"),
+  driveSetClient: (clientId: string, clientSecret?: string) =>
+    invoke<DriveStatus>("drive_set_client", { clientId, clientSecret: clientSecret ?? null }),
   audioState: () => invoke<AudioState>("audio_state"),
   audioSetVolume: (volume: number) => invoke<AudioState>("audio_set_volume", { volume }),
   audioSetMuted: (muted: boolean) => invoke<AudioState>("audio_set_muted", { muted }),

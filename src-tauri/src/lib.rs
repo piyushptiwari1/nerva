@@ -9,6 +9,7 @@
 pub mod audio;
 pub mod backup;
 pub mod diag;
+pub mod drive;
 pub mod error;
 pub mod focus;
 pub mod habits;
@@ -133,6 +134,7 @@ pub fn run() {
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             app.manage(state.clone());
             reminders::scheduler::spawn(handle.clone(), state.clone());
+            ipc::spawn_drive_autosync(handle.clone(), state.clone());
             #[cfg(target_os = "android")]
             widgets::android::attach(handle.clone());
 
@@ -280,6 +282,12 @@ pub fn run() {
             ipc::backup_inspect,
             ipc::backup_restore,
             ipc::backup_list,
+            // drive (Pro)
+            ipc::drive_status,
+            ipc::drive_connect,
+            ipc::drive_disconnect,
+            ipc::drive_sync,
+            ipc::drive_set_client,
             // audio
             ipc::audio_state,
             ipc::audio_set_volume,

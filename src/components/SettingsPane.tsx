@@ -4,7 +4,7 @@ import { useSettingsUi } from "@/store/settings";
 import { useApp } from "@/store/app";
 import { settings as settingsApi, type SettingsBundle, diag, type CrashEntry } from "@/lib/settings";
 import { ai, AI_PROVIDERS, type AiProvider } from "@/lib/ai";
-import { ipc, type BackupInfo } from "@/lib/ipc";
+import { ipc, type BackupInfo, type DriveStatus } from "@/lib/ipc";
 import {
   consentState as telemetryConsentState,
   setConsent as setTelemetryConsent,
@@ -1130,26 +1130,94 @@ function DataTab() {
         <Status error={err} />
       </Field>
 
-      <Field
-        label="Google Drive sync"
-        help={
-          pro
-            ? "Coming in the next update: Nerva will keep this backup file in your Drive app folder and merge changes across devices."
-            : "Pro keeps this backup in your own Google Drive app folder and syncs it across your devices. Local export and restore above are free, always."
-        }
-      >
-        <div className="flex items-center gap-2">
-          <button disabled className="btn opacity-60 cursor-not-allowed">
-            {pro ? "Connect Google Drive (soon)" : "Connect Google Drive"}
-          </button>
-          {!pro && (
-            <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">
-              Get Nerva Pro
-            </a>
-          )}
-        </div>
-      </Field>
+      <DriveField pro={pro} />
     </section>
+  );
+}
+
+function DriveField({ pro }: { pro: boolean }) {
+  const [st, setSt] = useState<DriveStatus | null>(null);
+  const [busy, setBusy] = useState<"connect" | "sync" | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [clientId, setClientId] = useState("");
+
+  async function refresh() {
+    try { setSt(await ipc.driveStatus()); } catch { setSt(null); }
+  }
+  useEffect(() => { void refresh(); }, []);
+
+  async function connect() {
+    setErr(null); setMsg("Finish signing in with Google in your browser…"); setBusy("connect");
+    try {
+      setSt(await ipc.driveConnect());
+      setMsg("Connected. First sync starts now.");
+      await syncNow();
+    } catch (e) { setErr(String(e)); setMsg(null); }
+    finally { setBusy(null); }
+  }
+
+  async function syncNow() {
+    setErr(null); setBusy("sync");
+    try {
+      const r = await ipc.driveSync();
+      setMsg(
+        r.outcome === "uploaded" ? "Uploaded this device's data to Drive."
+        : r.outcome === "downloaded" ? "Drive had newer data — Nerva is restarting with it. Your previous data is kept in the data folder."
+        : "Already in sync.",
+      );
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+    finally { setBusy(null); }
+  }
+
+  async function disconnect() {
+    if (!confirm("Disconnect Google Drive? The file in your Drive is kept; this device just stops syncing.")) return;
+    try { setSt(await ipc.driveDisconnect()); setMsg(null); } catch (e) { setErr(String(e)); }
+  }
+
+  const help = !pro
+    ? "Pro keeps this backup in your own Google Drive app folder (hidden from your files, visible to no other app) and syncs it across your devices. Newest wins; the replaced copy is kept locally. Local export and restore above are free, always."
+    : st?.connected
+      ? "Syncs 20 seconds after launch and every 15 minutes while Nerva runs. Newest wins; the replaced copy is kept locally."
+      : "Signs in with Google in your browser. Nerva only asks for its own hidden app folder — it cannot see the rest of your Drive.";
+
+  return (
+    <Field label="Google Drive sync" help={help}>
+      <div className="flex flex-wrap items-center gap-2">
+        {!pro && (
+          <>
+            <button disabled className="btn opacity-60 cursor-not-allowed">Connect Google Drive</button>
+            <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">Get Nerva Pro</a>
+          </>
+        )}
+        {pro && st && !st.configured && (
+          <div className="flex flex-wrap items-center gap-2 w-full">
+            <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Google OAuth client ID" className="field flex-1 min-w-[220px] font-mono text-[11px]" spellCheck={false} />
+            <button onClick={() => void ipc.driveSetClient(clientId).then(setSt).catch((e) => setErr(String(e)))} disabled={!clientId.trim()} className="btn">Save</button>
+            <span className="text-[11px] text-ink-500 basis-full">This build has no Drive client baked in. Paste the client ID from Google Cloud Console once.</span>
+          </div>
+        )}
+        {pro && st?.configured && !st.connected && (
+          <button onClick={() => void connect()} disabled={busy !== null} className="btn-primary">
+            {busy === "connect" ? "Waiting for Google…" : "Connect Google Drive"}
+          </button>
+        )}
+        {pro && st?.connected && (
+          <>
+            <button onClick={() => void syncNow()} disabled={busy !== null} className="btn-primary">
+              {busy === "sync" ? "Syncing…" : "Sync now"}
+            </button>
+            <button onClick={() => void disconnect()} disabled={busy !== null} className="btn">Disconnect</button>
+            <span className="text-[11px] text-ink-400 tnum">
+              {st.last_sync_ms ? `Last sync ${new Date(st.last_sync_ms).toLocaleString()}` : "Not synced yet"}
+            </span>
+          </>
+        )}
+      </div>
+      {msg && <div className="mt-2 text-[11px] text-emerald-300 leading-snug">{msg}</div>}
+      <Status error={err ?? (st?.connected ? st.last_error : null)} />
+    </Field>
   );
 }
 

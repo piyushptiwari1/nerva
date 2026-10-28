@@ -41,6 +41,7 @@ futures-util = "0.3"
 # Pro licence: verify ECDSA P-256 device tokens issued by nerva.bytical.ai.
 p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
 base64 = "0.22"
+sha2 = "0.10"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
