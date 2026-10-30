@@ -34,14 +34,15 @@ class WidgetRenderingTest {
                 NervaWidgets.views(context, widgetId, WidgetKind.TASKS, snapshot, config).reapply(context, view)
                 assertEquals(View.GONE, view.findViewById<View>(R.id.widget_empty).visibility)
                 assertEquals(View.VISIBLE, view.findViewById<View>(R.id.widget_note).visibility)
-                assertEquals("Undo Review release", view.findViewById<View>(R.id.widget_secondary).contentDescription)
+                assertEquals("Undo Review release", view.findViewById<View>(R.id.widget_undo).contentDescription)
                 preferences.edit().remove("undo.$widgetId").commit()
                 snapshot.put("tasks", JSONArray())
                 NervaWidgets.views(context, widgetId, WidgetKind.TASKS, snapshot, config).reapply(context, view)
                 assertEquals(View.VISIBLE, view.findViewById<View>(R.id.widget_empty).visibility)
                 assertEquals(View.GONE, view.findViewById<View>(R.id.widget_note).visibility)
-                assertEquals("No open tasks", view.findViewById<TextView>(R.id.widget_empty).text.toString())
-                assertEquals("Refresh widget", view.findViewById<View>(R.id.widget_secondary).contentDescription)
+                assertEquals(View.GONE, view.findViewById<View>(R.id.widget_undo).visibility)
+                assertEquals("All clear — nothing to do", view.findViewById<TextView>(R.id.widget_empty).text.toString())
+                assertEquals("Add task", view.findViewById<View>(R.id.widget_action).contentDescription)
             } finally {
                 preferences.edit().remove("undo.$widgetId").commit()
             }

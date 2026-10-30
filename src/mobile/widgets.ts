@@ -14,8 +14,24 @@ export interface WidgetStatus {
   counts: Record<WidgetKind, number>;
 }
 
-export function androidWidgets<T = null>(action: "refresh" | "status" | "pin" | "alarmSettings", kind?: WidgetKind): Promise<T> {
+export function androidWidgets<T = null>(action: "refresh" | "status" | "pin" | "alarmSettings" | "pendingTab", kind?: WidgetKind): Promise<T> {
   return invoke<T>("android_widgets", { action, kind });
+}
+
+/** A widget tap asked to open a pane: deliver it on launch and on each resume. */
+export function useWidgetDeepLink(onTab: (tab: WidgetKind) => void): void {
+  useEffect(() => {
+    if (!isAndroid() || !isTauri()) return;
+    const check = () => {
+      void androidWidgets<{ tab: string | null }>("pendingTab")
+        .then((r) => { if (r?.tab && ["focus", "tasks", "habits", "notes"].includes(r.tab)) onTab(r.tab as WidgetKind); })
+        .catch(() => void 0);
+    };
+    check();
+    const onVisibility = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [onTab]);
 }
 
 export function useNativeWidgets(): string | null {

@@ -33,7 +33,7 @@ pub fn call(
     action: &str,
     kind: Option<String>,
 ) -> Result<serde_json::Value> {
-    if !matches!(action, "refresh" | "status" | "pin" | "alarmSettings") {
+    if !matches!(action, "refresh" | "status" | "pin" | "alarmSettings" | "pendingTab") {
         return Err(NervaError::Invalid("unknown widget operation".into()));
     }
     app.state::<WidgetPlugin>()

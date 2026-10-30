@@ -15,9 +15,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
-enum class WidgetKind(val label: String, val providerName: String) {
-    FOCUS("Focus", "FocusWidgetProvider"), TASKS("Tasks", "TasksWidgetProvider"),
-    HABITS("Habits", "HabitsWidgetProvider"), NOTES("Note", "NotesWidgetProvider");
+enum class WidgetKind(val label: String, val providerName: String, val icon: Int, val tab: String, val defaultWidthDp: Int, val defaultHeightDp: Int) {
+    FOCUS("Focus", "FocusWidgetProvider", ai.bytical.nerva.R.drawable.widget_ic_play, "focus", 160, 110),
+    TASKS("Tasks", "TasksWidgetProvider", ai.bytical.nerva.R.drawable.widget_ic_checked, "tasks", 320, 180),
+    HABITS("Habits", "HabitsWidgetProvider", ai.bytical.nerva.R.drawable.widget_ic_refresh, "habits", 320, 180),
+    NOTES("Note", "NotesWidgetProvider", ai.bytical.nerva.R.drawable.widget_ic_edit, "notes", 160, 110);
 
     fun component(context: Context): ComponentName {
         val provider = when (this) {
@@ -104,6 +106,15 @@ object WidgetUi {
             .setData(Uri.parse("nerva-widget://$widgetId/$suffix"))
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId).putExtra("request", request.toString())
         return PendingIntent.getBroadcast(context, widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    // Open the app on the pane this widget shows; MainActivity records the tab.
+    fun open(context: Context, widgetId: Int, kind: WidgetKind): PendingIntent {
+        val intent = Intent(context, ai.bytical.nerva.MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("nerva://open/${kind.tab}?widget=$widgetId"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(context, 100_000 + widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     fun undo(context: Context, widgetId: Int): JSONObject? {

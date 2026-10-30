@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
@@ -66,24 +67,30 @@ object NervaWidgets {
         val config = preview ?: WidgetConfig.load(context, widgetId)
         val palette = config.palette(context)
         val views = RemoteViews(context.packageName, R.layout.nerva_widget)
-        listOf(R.id.widget_timer, R.id.widget_list, R.id.widget_note, R.id.widget_empty).forEach {
+        listOf(R.id.widget_timer, R.id.widget_list, R.id.widget_note, R.id.widget_empty, R.id.widget_undo, R.id.widget_action).forEach {
             views.setViewVisibility(it, View.GONE)
         }
-        views.setImageViewResource(R.id.widget_secondary, R.drawable.widget_ic_refresh)
-        views.setContentDescription(R.id.widget_secondary, "Refresh widget")
-        views.setViewVisibility(R.id.widget_secondary, View.VISIBLE)
         views.setInt(android.R.id.background, "setBackgroundResource", if (palette.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light)
         listOf(R.id.widget_title, R.id.widget_countdown, R.id.widget_remaining, R.id.widget_note).forEach { views.setTextColor(it, palette.text) }
         listOf(R.id.widget_subtitle, R.id.widget_phase, R.id.widget_empty).forEach { views.setTextColor(it, palette.secondary) }
-        views.setTextViewText(R.id.widget_title, "Nerva ${kind.label}")
+        views.setImageViewResource(R.id.widget_kind_icon, kind.icon)
+        views.setTextViewText(R.id.widget_title, kind.label)
         val workspace = snapshot.getJSONArray("workspaces").objects().firstOrNull { it.getString("id") == config.workspace }
         views.setTextViewText(R.id.widget_subtitle, workspace?.getString("name") ?: "All workspaces")
-        val height = if (preview != null) 250 else AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 220)
+
+        // Size tiers from the host's cell geometry (dp). Previews render the default tier.
+        val options = if (preview != null) null else AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
+        val width = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)?.takeIf { it > 0 } ?: kind.defaultWidthDp
+        val height = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)?.takeIf { it > 0 } ?: kind.defaultHeightDp
         val largeText = context.resources.configuration.fontScale > 1.3f
-        views.setViewVisibility(R.id.widget_subtitle, if (height < 210 || (largeText && height < 320)) View.GONE else View.VISIBLE)
+        val tier = when {
+            height < 150 || width < 200 -> Tier.SMALL
+            height < 260 -> Tier.MEDIUM
+            else -> Tier.LARGE
+        }
+        views.setViewVisibility(R.id.widget_subtitle, if (tier == Tier.SMALL || largeText) View.GONE else View.VISIBLE)
         views.setOnClickPendingIntent(R.id.widget_configure, WidgetUi.activity(context, widgetId, "WidgetConfigureActivity"))
-        views.setOnClickPendingIntent(R.id.widget_secondary, WidgetUi.action(context, widgetId, JSONObject().put("action", "refresh"), "refresh"))
-        views.setViewVisibility(R.id.widget_primary, View.INVISIBLE)
+        views.setOnClickPendingIntent(R.id.widget_open, WidgetUi.open(context, widgetId, kind))
         if (!config.workspaceExists(snapshot)) {
             empty(views, "Workspace no longer available")
             return views
@@ -91,7 +98,7 @@ object NervaWidgets {
         when (kind) {
             WidgetKind.FOCUS -> {
                 val timer = snapshot.getJSONArray("timers").objects().firstOrNull { it.getString("id") == config.source && config.includes(it) }
-                if (timer == null) { empty(views, "No session selected"); return views }
+                if (timer == null) { empty(views, "Tap ⚙ to choose a session"); return views }
                 views.setTextViewText(R.id.widget_title, timer.getString("name"))
                 views.setViewVisibility(R.id.widget_timer, View.VISIBLE)
                 val running = timer.getString("status") == "running"
@@ -101,32 +108,35 @@ object NervaWidgets {
                 views.setChronometer(R.id.widget_countdown, SystemClock.elapsedRealtime() + remaining, null, running)
                 views.setChronometerCountDown(R.id.widget_countdown, true)
                 views.setTextViewText(R.id.widget_remaining, duration(remaining))
+                val digits = if (tier == Tier.SMALL) 34f else if (tier == Tier.MEDIUM) 40f else 48f
+                views.setTextViewTextSize(R.id.widget_countdown, TypedValue.COMPLEX_UNIT_SP, digits)
+                views.setTextViewTextSize(R.id.widget_remaining, TypedValue.COMPLEX_UNIT_SP, digits)
                 val status = timer.getString("status")
                 val phase = if (timer.getString("phase_kind") == "break") "Break" else "Focus"
                 val finish = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(snapshot.getLong("generated_ms") + remaining))
                 val description = when (status) {
-                    "completed" -> "Session complete"
-                    "paused" -> "$phase paused"
-                    "idle" -> "$phase ready"
-                    else -> "$phase until $finish"
+                    "completed" -> "Done"
+                    "paused" -> "$phase · paused"
+                    "idle" -> "$phase · ready"
+                    else -> "$phase · until $finish"
                 }
                 val alertState = when {
-                    !WidgetAlarms.notificationsAllowed(context) -> "\nAlerts off"
-                    !WidgetAlarms.exactAllowed(context) -> "\nApproximate alerts"
+                    !WidgetAlarms.notificationsAllowed(context) -> " · alerts off"
+                    !WidgetAlarms.exactAllowed(context) -> " · approx. alerts"
                     else -> ""
                 }
                 views.setTextViewText(R.id.widget_phase, description + alertState)
+                views.setViewVisibility(R.id.widget_phase, if (tier == Tier.SMALL && largeText) View.GONE else View.VISIBLE)
                 views.setProgressBar(R.id.widget_progress, 100, (100 * (1.0 - remaining.toDouble() / timer.optLong("phase_duration_ms", 1).coerceAtLeast(1))).toInt().coerceIn(0, 100), false)
-                views.setViewVisibility(R.id.widget_progress, if (height >= 230 && (!largeText || height >= 320)) View.VISIBLE else View.GONE)
+                views.setViewVisibility(R.id.widget_progress, if (tier == Tier.SMALL) View.GONE else View.VISIBLE)
                 val operation = when (status) { "running" -> "pause"; "paused" -> "resume"; "completed", "cancelled" -> "restart"; else -> "start" }
                 views.setImageViewResource(R.id.widget_primary, if (running) R.drawable.widget_ic_pause else R.drawable.widget_ic_play)
                 views.setContentDescription(R.id.widget_primary, "$operation ${timer.getString("name")}")
                 views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.action(context, widgetId, JSONObject().put("action", "timer").put("id", config.source).put("operation", operation), "timer-$operation"))
-                views.setViewVisibility(R.id.widget_primary, View.VISIBLE)
             }
             WidgetKind.TASKS, WidgetKind.HABITS -> {
                 val rows = WidgetCollections.rows(kind, config, snapshot)
-                if (rows.isEmpty()) empty(views, if (kind == WidgetKind.TASKS) "No open tasks" else "No habits in this selection")
+                if (rows.isEmpty()) empty(views, if (kind == WidgetKind.TASKS) "All clear — nothing to do" else "No habits here yet")
                 else if (preview != null) {
                     views.setViewVisibility(R.id.widget_note, View.VISIBLE)
                     views.setTextViewText(R.id.widget_note, rows.take(3).joinToString("\n\n") { "${it.title}\n${it.detail}" })
@@ -140,40 +150,40 @@ object NervaWidgets {
                     views.setPendingIntentTemplate(R.id.widget_list, PendingIntent.getBroadcast(context, widgetId, template, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
                 }
                 if (kind == WidgetKind.TASKS) {
-                    views.setImageViewResource(R.id.widget_primary, R.drawable.widget_ic_add)
-                    views.setContentDescription(R.id.widget_primary, "Add task")
-                    views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "task"))
-                    views.setViewVisibility(R.id.widget_primary, View.VISIBLE)
+                    views.setImageViewResource(R.id.widget_action, R.drawable.widget_ic_add)
+                    views.setContentDescription(R.id.widget_action, "Add task")
+                    views.setOnClickPendingIntent(R.id.widget_action, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "task"))
+                    views.setViewVisibility(R.id.widget_action, View.VISIBLE)
                 }
                 val undo = WidgetUi.undo(context, widgetId)
                 if (undo != null) {
-                    val control = if (kind == WidgetKind.TASKS) R.id.widget_secondary else R.id.widget_primary
-                    views.setImageViewResource(control, R.drawable.widget_ic_undo)
-                    views.setContentDescription(control, "Undo ${undo.optString("label", "last change")}")
-                    views.setOnClickPendingIntent(control, WidgetUi.action(context, widgetId, JSONObject().put("action", "undo"), "undo"))
-                    views.setViewVisibility(control, View.VISIBLE)
+                    views.setTextViewText(R.id.widget_undo, "Undo")
+                    views.setContentDescription(R.id.widget_undo, "Undo ${undo.optString("label", "last change")}")
+                    views.setOnClickPendingIntent(R.id.widget_undo, WidgetUi.action(context, widgetId, JSONObject().put("action", "undo"), "undo"))
+                    views.setViewVisibility(R.id.widget_undo, View.VISIBLE)
                 }
             }
             WidgetKind.NOTES -> {
-                views.setImageViewResource(R.id.widget_primary, R.drawable.widget_ic_edit)
-                views.setContentDescription(R.id.widget_primary, "Edit selected note")
-                views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "edit"))
-                views.setImageViewResource(R.id.widget_secondary, R.drawable.widget_ic_add)
-                views.setContentDescription(R.id.widget_secondary, "New note")
-                views.setOnClickPendingIntent(R.id.widget_secondary, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "note"))
                 val note = if (config.source.isNotEmpty()) runCatching { WidgetBridge.note(context, config.source) }.getOrNull() else null
-                if (note == null) empty(views, "No note selected")
+                views.setImageViewResource(R.id.widget_action, if (note == null) R.drawable.widget_ic_add else R.drawable.widget_ic_edit)
+                views.setContentDescription(R.id.widget_action, if (note == null) "New note" else "Edit note")
+                views.setOnClickPendingIntent(R.id.widget_action, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", if (note == null) "note" else "edit"))
+                views.setViewVisibility(R.id.widget_action, View.VISIBLE)
+                if (note == null) empty(views, "Tap ⚙ to pick a note, or + to write one")
                 else {
                     views.setTextViewText(R.id.widget_title, note.getString("title"))
                     views.setViewVisibility(R.id.widget_note, View.VISIBLE)
-                    views.setInt(R.id.widget_note, "setMaxLines", ((height - 100) / 22).coerceIn(2, 30))
+                    views.setInt(R.id.widget_note, "setMaxLines", ((height - 70) / 22).coerceIn(2, 40))
                     views.setTextViewText(R.id.widget_note, note.getString("body").take(6000).ifEmpty { "Empty note" })
-                    views.setViewVisibility(R.id.widget_primary, View.VISIBLE)
+                    // Tapping the body edits it — the natural gesture for a note.
+                    views.setOnClickPendingIntent(R.id.widget_note, WidgetUi.activity(context, widgetId, "WidgetCaptureActivity", "edit"))
                 }
             }
         }
         return views
     }
+
+    private enum class Tier { SMALL, MEDIUM, LARGE }
 
     private fun empty(views: RemoteViews, message: String) {
         views.setViewVisibility(R.id.widget_empty, View.VISIBLE)

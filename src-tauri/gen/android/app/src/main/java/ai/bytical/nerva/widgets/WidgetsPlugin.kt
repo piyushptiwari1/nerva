@@ -45,6 +45,14 @@ class WidgetsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun pendingTab(invoke: Invoke) {
+        val result = JSObject()
+        result.put("tab", ai.bytical.nerva.MainActivity.pendingTab)
+        ai.bytical.nerva.MainActivity.pendingTab = null
+        invoke.resolve(result)
+    }
+
+    @Command
     fun pin(invoke: Invoke) {
         val args = invoke.parseArgs(WidgetPluginArgs::class.java)
         val kind = WidgetKind.entries.firstOrNull { it.name.equals(args.kind, ignoreCase = true) }

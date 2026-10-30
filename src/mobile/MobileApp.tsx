@@ -14,7 +14,7 @@ import { WorkspaceDeleteDialog } from "@/components/WorkspaceDeleteDialog";
 import { SettingsPane } from "@/components/SettingsPane";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WhatsNew } from "@/components/WhatsNew";
-import { useNativeWidgets } from "./widgets";
+import { useNativeWidgets, useWidgetDeepLink } from "./widgets";
 import { WidgetsPane } from "./WidgetsPane";
 import { initTelemetry } from "@/lib/telemetry";
 import { initReminders } from "@/store/reminders";
@@ -41,6 +41,7 @@ export function MobileApp() {
   const { ready, bootstrap, refreshTimers, workspaces, active, activateWorkspace } = useApp();
   const widgetError = useNativeWidgets();
   const [tab, setTab] = useState<Tab>("focus");
+  useWidgetDeepLink(setTab);
   const [widgetsOpen, setWidgetsOpen] = useState(false);
   const [workspaceSheet, setWorkspaceSheet] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState<string | null>(null);

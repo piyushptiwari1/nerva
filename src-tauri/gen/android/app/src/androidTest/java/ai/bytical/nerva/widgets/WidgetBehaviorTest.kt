@@ -111,8 +111,8 @@ class WidgetBehaviorTest {
             assertEquals(WidgetConfig.load(context, id).workspace, workspace)
             for (theme in listOf("light", "dark")) {
                 val config = WidgetConfig.load(context, id).copy(theme = theme)
-                val minimumHeight = if (kind == WidgetKind.FOCUS) 260 else 180
-                for ((width, height) in listOf(172 to minimumHeight, 300 to maxOf(250, minimumHeight))) {
+                // Smallest resizable tier, the default tier, and a tall one.
+                for ((width, height) in listOf(110 to 70, kind.defaultWidthDp to kind.defaultHeightDp, 300 to 300)) {
                     for (fontScale in listOf(1f, 1.5f, 2f)) {
                         render(kind, id, config, renderedSnapshot, width, height, fontScale)
                     }
@@ -163,8 +163,8 @@ class WidgetBehaviorTest {
         try {
             awaitText(taskActivity, task.getString("title"), true)
             instrumentation.runOnMainSync {
-                assertNull("Widget IDs are isolated from the Activity namespace", taskActivity.findViewById<View>(R.id.widget_secondary))
-                assertNotNull("Widget controls resolve inside the host", taskActivity.widgetView.findViewById<View>(R.id.widget_secondary))
+                assertNull("Widget IDs are isolated from the Activity namespace", taskActivity.findViewById<View>(R.id.widget_action))
+                assertNotNull("Widget controls resolve inside the host", taskActivity.widgetView.findViewById<View>(R.id.widget_action))
             }
             instrumentation.uiAutomation.takeScreenshot().let { bitmap ->
                 val file = File(context.getExternalFilesDir(null), "widget-test-screenshots/tasks-live.png")
@@ -175,7 +175,7 @@ class WidgetBehaviorTest {
                 val title = findText(taskActivity.container, task.getString("title"))
                 (title?.parent?.parent as? View)?.findViewById(R.id.widget_row_action)
             }
-            awaitControl(taskActivity, R.id.widget_secondary, "Undo ${task.getString("title")}")
+            awaitControl(taskActivity, R.id.widget_undo, "Undo ${task.getString("title")}")
             awaitText(taskActivity, task.getString("title"), false)
             assertEquals("done", findTask(task.getString("id")).getString("status"))
             instrumentation.runOnMainSync {
@@ -183,7 +183,7 @@ class WidgetBehaviorTest {
                 assertEquals(View.VISIBLE, taskActivity.widgetView.findViewById<View>(R.id.widget_empty).visibility)
             }
             clickWhenReady(taskActivity, "Undo task completion") {
-                taskActivity.widgetView.findViewById<View>(R.id.widget_secondary)?.takeIf {
+                taskActivity.widgetView.findViewById<View>(R.id.widget_undo)?.takeIf {
                     it.contentDescription?.toString() == "Undo ${task.getString("title")}"
                 }
             }
@@ -314,10 +314,11 @@ class WidgetBehaviorTest {
             container.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
             container.layout(0, 0, width, height)
             val bounds = mutableListOf<Rect>()
-            for (control in listOf(R.id.widget_primary, R.id.widget_secondary, R.id.widget_configure)) {
+            for (control in listOf(R.id.widget_primary, R.id.widget_action, R.id.widget_configure, R.id.widget_undo)) {
                 val button = view.findViewById<View>(control)
                 if (button.visibility == View.VISIBLE) {
-                    assertTrue("48dp target", button.width >= 47 * density && button.height >= 47 * density)
+                    val minimum = if (control == R.id.widget_primary) 55 else 39
+                    assertTrue("${minimum + 1}dp target", button.width >= minimum * density && button.height >= minimum * density)
                     assertTrue(button.contentDescription.isNotBlank())
                     val rectangle = Rect()
                     button.getDrawingRect(rectangle)
