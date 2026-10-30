@@ -22,6 +22,7 @@ import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
 import { ipc, type Task, type TaskPriority } from "@/lib/ipc";
 import { isMobile } from "@/lib/platform";
+import { MobileTaskRow } from "@/components/MobileTaskRow";
 
 /**
  * Compact tasks list. Workspace-scoped; the backend defaults new tasks to the
@@ -72,6 +73,66 @@ export function TasksPanel() {
     const to = ids.indexOf(String(over.id));
     if (from < 0 || to < 0) return;
     void reorderTasks(arrayMove(ids, from, to));
+  }
+
+  if (isMobile()) {
+    return (
+      <div className="mobile-tasks">
+        <SectionHead
+          title="Tasks"
+          count={todo.length}
+          sub="Tap a task for details · swipe left to delete"
+          actions={
+            <button onClick={() => setShowDone((v) => !v)} className={`control-chip ${showDone ? "is-active" : ""}`}>
+              {showDone ? "Hide done" : `${done.length} done`}
+            </button>
+          }
+        />
+        <div className="mobile-task-list">
+          {todo.length === 0 && !showDone && (
+            <div className="mobile-empty">Nothing to do here. Add a task below.</div>
+          )}
+          {todo.map((t) => (
+            <MobileTaskRow
+              key={t.id}
+              task={t}
+              onToggle={() => toggleTask(t.id)}
+              onDelete={() => deleteTask(t.id)}
+              onRename={(title) => renameTask(t.id, title)}
+              onSetPriority={(p) => setTaskPriority(t.id, p)}
+              onSetDue={(ms) => setTaskDue(t.id, ms)}
+            />
+          ))}
+          {showDone && done.length > 0 && <div className="mobile-list-divider">Done</div>}
+          {showDone &&
+            done.map((t) => (
+              <MobileTaskRow
+                key={t.id}
+                task={t}
+                onToggle={() => toggleTask(t.id)}
+                onDelete={() => deleteTask(t.id)}
+                onRename={(title) => renameTask(t.id, title)}
+                onSetPriority={(p) => setTaskPriority(t.id, p)}
+                onSetDue={(ms) => setTaskDue(t.id, ms)}
+              />
+            ))}
+        </div>
+        <div className="mobile-addbar">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Add a task…"
+            className="field flex-1 min-w-0"
+            aria-label="New task"
+            enterKeyHint="done"
+          />
+          <button onClick={submit} disabled={!draft.trim()} className="btn-primary" aria-label="Add task">
+            Add
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

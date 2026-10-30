@@ -18,8 +18,8 @@ import { isMobile } from "@/lib/platform";
 
 type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "data" | "pro" | "feedback" | "diag" | "about";
 const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "data", "pro", "feedback", "diag", "about"];
-// No sidebar layout, DND or synthesized audio on phones.
-const MOBILE_TABS: Tab[] = ["timers", "ai", "data", "pro", "feedback", "diag", "about"];
+// Phones: the things you reach for on a phone first — data, timers, Pro — AI last.
+const MOBILE_TABS: Tab[] = ["data", "timers", "pro", "ai", "feedback", "diag", "about"];
 const TABS: Tab[] = isMobile() ? MOBILE_TABS : DESKTOP_TABS;
 
 /**

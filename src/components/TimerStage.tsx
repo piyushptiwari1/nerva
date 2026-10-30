@@ -7,7 +7,7 @@ import { isMobile } from "@/lib/platform";
 import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
 import { UpNext } from "@/components/UpNext";
-import { PictureInPicture2 } from "lucide-react";
+import { PictureInPicture2, X } from "lucide-react";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
   { label: "25m Focus", ms: 25 * 60_000, color: "#7c9cff" },
@@ -36,26 +36,25 @@ export function TimerStage() {
   }, [creating]);
 
   async function spawnPreset(p: typeof PRESETS[number]) {
-    const t = await ipc.timerCreate({
+    await ipc.timerCreate({
       name: p.label,
       duration_ms: p.ms,
       color: p.color,
       workspace_id: active?.id,
       auto_breaks: autoBreaks,
     });
-    await ipc.timerStart(t.id);
+    setCreating(false);
     await refreshTimers();
   }
 
   async function spawnCustom() {
     if (!customName.trim() || customMin <= 0) return;
-    const t = await ipc.timerCreate({
+    await ipc.timerCreate({
       name: customName.trim(),
       duration_ms: customMin * 60_000,
       workspace_id: active?.id,
       auto_breaks: autoBreaks,
     });
-    await ipc.timerStart(t.id);
     setCustomName("");
     setCreating(false);
     await refreshTimers();
@@ -65,12 +64,21 @@ export function TimerStage() {
   const structured = autoBreaks && preview.length > 1;
 
   // The timer you are actually doing gets the stage. Running wins; otherwise
-  // the most recently paused one. Everything else is parked in a strip.
+  // the most recently paused one; otherwise the newest idle one, so a timer
+  // you just created is right there with its Start button. Others park below.
   const hero =
     timers.find((t) => t.status === "running") ??
     [...timers].filter((t) => t.status === "paused").sort((a, b) => (b.paused_at_ms ?? 0) - (a.paused_at_ms ?? 0))[0] ??
+    [...timers].filter((t) => t.status === "idle").sort((a, b) => (b.created_ms ?? 0) - (a.created_ms ?? 0))[0] ??
     null;
   const parked = hero ? timers.filter((t) => t.id !== hero.id) : timers;
+  const heroSub = !hero
+    ? "Create a timer, then press Start when you're ready"
+    : hero.status === "running"
+      ? `${hero.name} is on stage — others wait below`
+      : hero.status === "paused"
+        ? `${hero.name} is paused — resume when ready`
+        : `${hero.name} is ready — press Start`;
 
   return (
     <section className="glass rounded-xl p-4 flex flex-col gap-3 min-h-0">
@@ -78,7 +86,7 @@ export function TimerStage() {
         as="h2"
         title="Focus"
         count={timers.length}
-        sub={hero ? `${hero.name} is on stage — others wait below` : "Start a session; it takes the stage while it runs"}
+        sub={heroSub}
         actions={
           <>
             {!isMobile() && (
@@ -142,7 +150,7 @@ export function TimerStage() {
                 />
                 <span className="text-xs text-ink-400">min</span>
                 <button onClick={spawnCustom} className="btn-primary">
-                  Start
+                  Create
                 </button>
               </div>
               {/* Session structure: ≥30 min timers get pomodoro breaks baked
@@ -253,7 +261,8 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
     timer.duration_ms > 0
       ? 1 - Math.max(0, Math.min(1, timer.remaining_ms / timer.duration_ms))
       : 0;
-  const size = hero ? 240 : compact ? 112 : 160;
+  const mobile = isMobile();
+  const size = hero ? (mobile ? 260 : 240) : compact ? (mobile ? 96 : 112) : 160;
   const stroke = hero ? 12 : compact ? 8 : 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -345,7 +354,7 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
           dominantBaseline="central"
           className="display-num text-ink-100"
           fill="currentColor"
-          fontSize={hero ? 46 : compact ? 20 : 26}
+          fontSize={hero ? (mobile ? 52 : 46) : compact ? 20 : 26}
           fontWeight={600}
         >
           {formatRemaining(ringLeft)}
@@ -357,7 +366,7 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
             dominantBaseline="central"
             className="tnum text-ink-400"
             fill="currentColor"
-            fontSize="10"
+            fontSize={mobile ? 13 : 10}
           >
             {formatRemaining(timer.remaining_ms)} total
           </text>
@@ -382,10 +391,10 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className={`flex gap-2 ${hero && mobile ? "w-full" : ""}`}>
         <button
           onClick={toggle}
-          className={hero ? "btn-primary px-6" : "btn"}
+          className={hero ? `btn-primary px-6 ${mobile ? "flex-1" : ""}` : "btn"}
         >
           {timer.status === "running" ? "Pause" : timer.status === "paused" ? "Resume" : "Start"}
         </button>
@@ -400,7 +409,7 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
           title="Delete"
           aria-label={`Delete timer ${timer.name}`}
         >
-          ×
+          <X size={16} />
         </button>
       </div>
     </div>

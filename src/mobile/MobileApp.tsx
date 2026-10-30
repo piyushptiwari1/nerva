@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Flame, LayoutGrid, ListTodo, Moon, NotebookPen, Plus, Settings, Sun, Timer, Trash2, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, ChevronDown, Flame, LayoutGrid, ListTodo, Moon, NotebookPen, Plus, Settings, Sun, Timer, Trash2, X } from "lucide-react";
 import { useApp } from "@/store/app";
 import { useSettingsUi } from "@/store/settings";
 import { useTheme } from "@/store/theme";
@@ -41,6 +42,7 @@ export function MobileApp() {
   const widgetError = useNativeWidgets();
   const [tab, setTab] = useState<Tab>("focus");
   const [widgetsOpen, setWidgetsOpen] = useState(false);
+  const [workspaceSheet, setWorkspaceSheet] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState<string | null>(null);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [deletingWorkspace, setDeletingWorkspace] = useState(false);
@@ -87,7 +89,7 @@ export function MobileApp() {
   async function changeWorkspace(id: string) {
     setWorkspaceBusy(true);
     setError(null);
-    try { await activateWorkspace(id); }
+    try { await activateWorkspace(id); setWorkspaceSheet(false); }
     catch (failure) { setError(String(failure)); }
     finally { setWorkspaceBusy(false); }
   }
@@ -101,6 +103,7 @@ export function MobileApp() {
       await bootstrap();
       await activateWorkspace(workspace.id);
       setWorkspaceDraft(null);
+      setWorkspaceSheet(false);
     } catch (failure) { setError(String(failure)); }
     finally { setWorkspaceBusy(false); }
   }
@@ -108,25 +111,30 @@ export function MobileApp() {
   return (
     <div className="mobile-app bg-ink-950 text-ink-100">
       <header className="mobile-header">
-        <img className="mobile-brand-icon" src={nervaIcon} alt="" />
-        <div className="mobile-brand"><strong>Nerva</strong><span>by Bytical</span></div>
+        <img className="mobile-brand-icon" src={nervaIcon} alt="Nerva" />
+        <button
+          onClick={() => setWorkspaceSheet(true)}
+          className="mobile-workspace-chip"
+          aria-haspopup="dialog"
+          aria-expanded={workspaceSheet}
+          aria-label={`Workspace: ${active?.name ?? "none"}. Switch workspace`}
+        >
+          <span className="mobile-workspace-dot" style={{ background: active?.color ?? "#7c9cff" }} aria-hidden="true" />
+          <span className="truncate">{active?.name ?? "Workspace"}</span>
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
         {isPro && (
-          <span
-            className="text-[10px] font-semibold text-focus"
-            title={`Nerva Pro: ${planLabel(plan)}`}
-          >
-            Pro
-          </span>
+          <span className="mobile-pro" title={`Nerva Pro: ${planLabel(plan)}`}>Pro</span>
         )}
         <div className="ml-auto flex items-center">
-          <button onClick={() => setWidgetsOpen(true)} className="mobile-icon" aria-label="Home-screen widgets" title="Home-screen widgets"><LayoutGrid size={20} /></button>
+          <button onClick={() => setWidgetsOpen(true)} className="mobile-icon" aria-label="Home-screen widgets" title="Home-screen widgets"><LayoutGrid size={22} /></button>
           <button
             onClick={toggleTheme}
             className="mobile-icon"
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             title={theme === "dark" ? "Light theme" : "Dark theme"}
           >
-            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            {theme === "dark" ? <Sun size={22} /> : <Moon size={22} />}
           </button>
           <button
             onClick={() => openSettings(true)}
@@ -134,25 +142,68 @@ export function MobileApp() {
             aria-label="Settings"
             title="Settings"
           >
-            <Settings size={20} />
+            <Settings size={22} />
           </button>
         </div>
       </header>
-      <div className="mobile-workspace">
-        {workspaceDraft === null ? <>
-          <label className="flex-1 min-w-0"><span>Workspace</span>
-            <select value={active?.id ?? ""} disabled={workspaceBusy} onChange={(event) => void changeWorkspace(event.target.value)} aria-label="Active workspace">
-              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-            </select>
-          </label>
-          <button onClick={() => setWorkspaceDraft("")} className="mobile-icon" aria-label="New workspace" title="New workspace"><Plus size={20} /></button>
-          <button disabled={!active || workspaceBusy} onClick={() => setDeletingWorkspace(true)} className="mobile-icon" aria-label="Delete workspace" title="Delete workspace"><Trash2 size={19} /></button>
-        </> : <form onSubmit={(event) => { event.preventDefault(); void createWorkspace(); }} className="flex w-full items-center gap-1">
-          <input autoFocus className="flex-1 min-w-0" value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} aria-label="Workspace name" placeholder="Workspace name" />
-          <button type="submit" disabled={workspaceBusy || !workspaceDraft.trim()} className="mobile-icon" aria-label="Create workspace" title="Create workspace"><Check size={20} /></button>
-          <button type="button" onClick={() => setWorkspaceDraft(null)} className="mobile-icon" aria-label="Cancel workspace" title="Cancel"><X size={20} /></button>
-        </form>}
-      </div>
+
+      <AnimatePresence>
+        {workspaceSheet && (
+          <>
+            <motion.div
+              className="mobile-scrim"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => { setWorkspaceSheet(false); setWorkspaceDraft(null); }}
+            />
+            <motion.div
+              role="dialog"
+              aria-label="Workspaces"
+              className="mobile-sheet"
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 420, damping: 38 }}
+            >
+              <div className="mobile-sheet-grip" aria-hidden="true" />
+              <div className="mobile-sheet-title">Workspaces</div>
+              <ul className="mobile-sheet-list" aria-label="Workspaces">
+                {workspaces.map((workspace) => (
+                  <li key={workspace.id}>
+                    <button
+                      className={`mobile-sheet-row ${workspace.id === active?.id ? "is-active" : ""}`}
+                      disabled={workspaceBusy}
+                      onClick={() => void changeWorkspace(workspace.id)}
+                      aria-current={workspace.id === active?.id ? "true" : undefined}
+                    >
+                      <span className="mobile-workspace-dot" style={{ background: workspace.color }} aria-hidden="true" />
+                      <span className="flex-1 truncate text-left">{workspace.name}</span>
+                      {workspace.id === active?.id && <Check size={18} aria-hidden="true" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {workspaceDraft === null ? (
+                <div className="mobile-sheet-actions">
+                  <button onClick={() => setWorkspaceDraft("")} className="btn-primary mobile-wide"><Plus size={18} /> New workspace</button>
+                  <button
+                    disabled={!active || workspaceBusy || workspaces.length < 2}
+                    onClick={() => { setWorkspaceSheet(false); setDeletingWorkspace(true); }}
+                    className="btn mobile-wide"
+                  >
+                    <Trash2 size={18} /> Delete “{active?.name}”
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={(event) => { event.preventDefault(); void createWorkspace(); }} className="mobile-sheet-actions">
+                  <input autoFocus className="field mobile-wide" value={workspaceDraft} onChange={(event) => setWorkspaceDraft(event.target.value)} aria-label="Workspace name" placeholder="Workspace name" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setWorkspaceDraft(null)} className="btn flex-1"><X size={18} /> Cancel</button>
+                    <button type="submit" disabled={workspaceBusy || !workspaceDraft.trim()} className="btn-primary flex-1"><Check size={18} /> Create</button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       <main className="mobile-content" id="mobile-tab-panel" role="tabpanel" aria-labelledby={`mobile-tab-${tab}`}>
         {(widgetError || error) && <p role="alert" className="mobile-error">{error ?? `Widget refresh failed: ${widgetError}`}</p>}
         {!ready && <div className="text-xs text-ink-500 p-4">Loading…</div>}

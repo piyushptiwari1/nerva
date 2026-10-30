@@ -134,6 +134,9 @@ pub struct Timer {
     /// Total ms of the current phase.
     #[serde(default)]
     pub phase_duration_ms: i64,
+    /// Wall-clock ms of the `timer.created` event.
+    #[serde(default)]
+    pub created_ms: i64,
     /// Set once the engine has recomputed this timer at least once since
     /// load. `tick()` only reports phase transitions after that, so a
     /// replayed timer that is already mid-session doesn't fire a stale
@@ -195,6 +198,7 @@ impl Timer {
             phase_kind: first.kind,
             phase_remaining_ms: first.duration_ms,
             phase_duration_ms: first.duration_ms,
+            created_ms: 0,
             ticked: false,
         }
     }
@@ -290,6 +294,7 @@ impl TimerEngine {
                     .unwrap_or_default();
                 let mut t = Timer::new(id.clone(), name, color, duration, ws, phases);
                 t.task_id = ev.payload["task_id"].as_str().map(|s| s.to_string());
+                t.created_ms = ev.ts_ms;
                 self.timers.insert(id, t);
             }
             "timer.started" => {

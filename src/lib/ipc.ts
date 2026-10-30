@@ -65,6 +65,7 @@ export interface Timer {
   phase_kind: PhaseKind;
   phase_remaining_ms: number;
   phase_duration_ms: number;
+  created_ms: number;
 }
 
 export interface Workspace {
