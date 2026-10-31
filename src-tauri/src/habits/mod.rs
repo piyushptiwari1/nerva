@@ -46,6 +46,18 @@ pub struct Habit {
     pub color: String,
     pub created_ms: i64,
     pub archived: bool,
+    /// "After I pour my coffee" — the trigger that makes the habit obvious.
+    #[serde(default)]
+    pub cue: Option<String>,
+    /// Two-minute version to fall back on ("put on running shoes").
+    #[serde(default)]
+    pub tiny: Option<String>,
+    /// "I am someone who…" — the identity the habit votes for.
+    #[serde(default)]
+    pub identity: Option<String>,
+    /// Daily reminder wall-clock time "HH:MM", if set.
+    #[serde(default)]
+    pub reminder_hhmm: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +91,13 @@ pub struct HabitStats {
     /// 30-day sparkline: value per day, oldest → newest. For Bool this is
     /// 0.0/1.0; for Count/Amount it's the raw value (caller renders it).
     pub sparkline_30d: Vec<f64>,
+    /// Consecutive unlogged/missed days ending yesterday (today excluded so a
+    /// not-yet-logged day isn't a miss). "Never miss twice": 2+ is the alarm.
+    pub misses_in_a_row: u32,
+    /// Most recent completed day, ISO.
+    pub last_completed_day: Option<String>,
+    /// Days since the habit was created (inclusive of today).
+    pub days_tracked: u32,
 }
 
 #[derive(Default)]
@@ -144,6 +163,10 @@ impl HabitsProjection {
                         .to_string(),
                     created_ms: ev.ts_ms,
                     archived: false,
+                    cue: text(&ev.payload["cue"]),
+                    tiny: text(&ev.payload["tiny"]),
+                    identity: text(&ev.payload["identity"]),
+                    reminder_hhmm: text(&ev.payload["reminder_hhmm"]).filter(|s| valid_hhmm(s)),
                 };
                 self.habits.insert(id, h);
             }
@@ -155,6 +178,19 @@ impl HabitsProjection {
                     }
                     if let Some(c) = ev.payload["color"].as_str() {
                         h.color = c.to_string();
+                    }
+                    if ev.payload.get("cue").is_some() {
+                        h.cue = text(&ev.payload["cue"]);
+                    }
+                    if ev.payload.get("tiny").is_some() {
+                        h.tiny = text(&ev.payload["tiny"]);
+                    }
+                    if ev.payload.get("identity").is_some() {
+                        h.identity = text(&ev.payload["identity"]);
+                    }
+                    if ev.payload.get("reminder_hhmm").is_some() {
+                        h.reminder_hhmm =
+                            text(&ev.payload["reminder_hhmm"]).filter(|s| valid_hhmm(s));
                     }
                     if ev.payload.get("target").is_some() {
                         h.target = ev.payload["target"]
@@ -350,6 +386,32 @@ impl HabitsProjection {
             sparkline_30d.push(v);
         }
 
+        // --- misses in a row (ending yesterday) and last completion ---
+        let mut misses_in_a_row = 0u32;
+        let mut last_completed_day = None;
+        if let Some(map) = map {
+            let created_day = day_from_ms(h.created_ms);
+            let mut d = previous_day(today_iso);
+            // Bounded: never walk before the habit existed, and cap at a year.
+            for _ in 0..366 {
+                if d < created_day {
+                    break;
+                }
+                match map.get(&d) {
+                    Some(e) if is_complete(e) => break,
+                    Some(e) if e.skipped => {}
+                    _ => misses_in_a_row += 1,
+                }
+                d = previous_day(&d);
+            }
+            last_completed_day = map
+                .iter()
+                .rev()
+                .find(|(_, e)| is_complete(e))
+                .map(|(day, _)| day.clone());
+        }
+        let days_tracked = days_between(&day_from_ms(h.created_ms), today_iso).max(0) as u32 + 1;
+
         Some(HabitStats {
             habit_id: habit_id.to_string(),
             current_streak: current,
@@ -359,7 +421,38 @@ impl HabitsProjection {
             total_completions: completed_all,
             weekday_rate,
             sparkline_30d,
+            misses_in_a_row,
+            last_completed_day,
+            days_tracked,
         })
+    }
+}
+
+fn text(v: &serde_json::Value) -> Option<String> {
+    v.as_str()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+pub fn valid_hhmm(s: &str) -> bool {
+    let Some((h, m)) = s.split_once(':') else {
+        return false;
+    };
+    matches!((h.parse::<u32>(), m.parse::<u32>()), (Ok(h), Ok(m)) if h < 24 && m < 60 && s.len() == 5)
+}
+
+/// UTC calendar day of a Unix-ms timestamp; good enough for "since creation".
+fn day_from_ms(ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(ms)
+        .map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "1970-01-01".into())
+}
+
+fn days_between(from_iso: &str, to_iso: &str) -> i64 {
+    let parse = |s: &str| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok();
+    match (parse(from_iso), parse(to_iso)) {
+        (Some(a), Some(b)) => (b - a).num_days(),
+        _ => 0,
     }
 }
 

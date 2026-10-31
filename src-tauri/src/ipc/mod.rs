@@ -2653,6 +2653,14 @@ pub struct CreateHabitArgs {
     pub unit: Option<String>,
     pub color: Option<String>,
     pub workspace_id: Option<String>,
+    #[serde(default)]
+    pub cue: Option<String>,
+    #[serde(default)]
+    pub tiny: Option<String>,
+    #[serde(default)]
+    pub identity: Option<String>,
+    #[serde(default)]
+    pub reminder_hhmm: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2662,6 +2670,14 @@ pub struct UpdateHabitArgs {
     pub color: Option<String>,
     pub target: Option<Option<f64>>,
     pub unit: Option<Option<String>>,
+    #[serde(default)]
+    pub cue: Option<Option<String>>,
+    #[serde(default)]
+    pub tiny: Option<Option<String>>,
+    #[serde(default)]
+    pub identity: Option<Option<String>>,
+    #[serde(default)]
+    pub reminder_hhmm: Option<Option<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2722,6 +2738,11 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
             ));
         }
     }
+    if let Some(r) = &args.reminder_hhmm {
+        if !crate::habits::valid_hhmm(r) {
+            return Err(NervaError::Invalid("reminder time must be HH:MM".into()));
+        }
+    }
     let id = Uuid::new_v4().to_string();
     let workspaces = state.workspaces.lock();
     let ws = workspaces.resolve(args.workspace_id)?;
@@ -2733,6 +2754,10 @@ pub fn habit_create(state: State, args: CreateHabitArgs) -> Result<Habit> {
         "unit": args.unit,
         "color": args.color.unwrap_or_else(|| "#7c9cff".to_string()),
         "workspace_id": ws,
+        "cue": args.cue,
+        "tiny": args.tiny,
+        "identity": args.identity,
+        "reminder_hhmm": args.reminder_hhmm,
     });
     let evt_id = state.store.append_event("habit.created", &payload)?;
     let ev = StoredEvent {
@@ -2784,6 +2809,31 @@ pub fn habit_update(state: State, args: UpdateHabitArgs) -> Result<Habit> {
                 Some(s) => serde_json::Value::String(s),
                 None => serde_json::Value::Null,
             },
+        );
+    }
+    for (key, value) in [
+        ("cue", args.cue),
+        ("tiny", args.tiny),
+        ("identity", args.identity),
+    ] {
+        if let Some(v) = value {
+            payload.insert(
+                key.into(),
+                v.map(serde_json::Value::String)
+                    .unwrap_or(serde_json::Value::Null),
+            );
+        }
+    }
+    if let Some(r) = args.reminder_hhmm {
+        if let Some(s) = &r {
+            if !crate::habits::valid_hhmm(s) {
+                return Err(NervaError::Invalid("reminder time must be HH:MM".into()));
+            }
+        }
+        payload.insert(
+            "reminder_hhmm".into(),
+            r.map(serde_json::Value::String)
+                .unwrap_or(serde_json::Value::Null),
         );
     }
     let payload = serde_json::Value::Object(payload);

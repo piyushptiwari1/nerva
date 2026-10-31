@@ -7,6 +7,7 @@ import { isMobile } from "@/lib/platform";
 import { inWorkspace } from "@/lib/workspaces";
 import { SectionHead } from "@/components/SectionHead";
 import { UpNext } from "@/components/UpNext";
+import { haptic } from "@/lib/haptics";
 import { PictureInPicture2, X } from "lucide-react";
 
 const PRESETS: Array<{ label: string; ms: number; color: string }> = [
@@ -36,6 +37,7 @@ export function TimerStage() {
   }, [creating]);
 
   async function spawnPreset(p: typeof PRESETS[number]) {
+    haptic.complete();
     await ipc.timerCreate({
       name: p.label,
       duration_ms: p.ms,
@@ -49,6 +51,7 @@ export function TimerStage() {
 
   async function spawnCustom() {
     if (!customName.trim() || customMin <= 0) return;
+    haptic.complete();
     await ipc.timerCreate({
       name: customName.trim(),
       duration_ms: customMin * 60_000,
@@ -271,22 +274,24 @@ function TimerCard({ timer, onChange, hero = false, compact = false }: { timer: 
   const label = phaseLabel(timer);
 
   async function toggle() {
-    if (timer.status === "running") await ipc.timerPause(timer.id);
-    else if (timer.status === "paused") await ipc.timerResume(timer.id);
-    else if (timer.status === "idle") await ipc.timerStart(timer.id);
+    if (timer.status === "running") { haptic.select(); await ipc.timerPause(timer.id); }
+    else if (timer.status === "paused") { haptic.start(); await ipc.timerResume(timer.id); }
+    else if (timer.status === "idle") { haptic.start(); await ipc.timerStart(timer.id); }
     else if (timer.status === "completed") {
+      haptic.start();
       await ipc.timerReset(timer.id);
       await ipc.timerStart(timer.id);
     }
     await onChange();
   }
-  async function reset() { await ipc.timerReset(timer.id); await onChange(); }
+  async function reset() { haptic.warn(); await ipc.timerReset(timer.id); await onChange(); }
   async function remove() {
     if (
       timer.status === "running" &&
       !window.confirm(`Delete the running timer "${timer.name}"?`)
     )
       return;
+    haptic.warn();
     await ipc.timerDelete(timer.id);
     await onChange();
   }

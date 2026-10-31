@@ -15,6 +15,7 @@ import { ALL_SECTIONS, useLayout, usePanes } from "@/store/layout";
 import { FeedbackForm } from "@/components/Feedback";
 import { BUY_URL, planLabel, useLicense } from "@/lib/license";
 import { isMobile } from "@/lib/platform";
+import { haptic, hapticPrefs, setHapticPrefs } from "@/lib/haptics";
 
 type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "data" | "pro" | "feedback" | "diag" | "about";
 const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "data", "pro", "feedback", "diag", "about"];
@@ -435,6 +436,7 @@ function TimersTab({ bundle, onChange }: TabProps) {
 
   return (
     <section className="flex flex-col gap-4 text-sm">
+      {isMobile() && <HapticsField />}
       <Field
         label="Default timer durations (minutes)"
         help="Comma-separated list, shown as quick presets when creating a timer. Auto-sorted + deduped on save."
@@ -530,6 +532,7 @@ function AudioTab() {
           ))}
         </div>
       </Field>
+      <HapticsField />
       <Field label="Completion ding volume" help="Plays when a timer reaches zero.">
         <div className="flex items-center gap-2">
           <input
@@ -942,6 +945,23 @@ function Field({
       {children}
       {help && <div className="mt-1 text-[10px] text-ink-500">{help}</div>}
     </div>
+  );
+}
+
+function HapticsField() {
+  const [prefs, setPrefs] = useState(hapticPrefs);
+  function update(next: Partial<typeof prefs>) {
+    const merged = setHapticPrefs(next);
+    setPrefs(merged);
+    if (next.haptics || next.sounds) haptic.complete();
+  }
+  return (
+    <Field label="Sounds & haptics" help="A short tick when you log, complete or start something. Timer alerts are separate and always play.">
+      <div className="flex flex-wrap gap-4">
+        <Toggle label="Vibration" on={prefs.haptics} onChange={(v) => update({ haptics: v })} />
+        <Toggle label="Interface sounds" on={prefs.sounds} onChange={(v) => update({ sounds: v })} />
+      </div>
+    </Field>
   );
 }
 

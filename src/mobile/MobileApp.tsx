@@ -16,6 +16,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WhatsNew } from "@/components/WhatsNew";
 import { useNativeWidgets, useWidgetDeepLink } from "./widgets";
 import { WidgetsPane } from "./WidgetsPane";
+import { NotificationNudge } from "./NotificationNudge";
+import { haptic } from "@/lib/haptics";
 import { initTelemetry } from "@/lib/telemetry";
 import { initReminders } from "@/store/reminders";
 import { ReminderToasts } from "@/components/ReminderToasts";
@@ -90,7 +92,7 @@ export function MobileApp() {
   async function changeWorkspace(id: string) {
     setWorkspaceBusy(true);
     setError(null);
-    try { await activateWorkspace(id); setWorkspaceSheet(false); }
+    try { await activateWorkspace(id); haptic.select(); setWorkspaceSheet(false); }
     catch (failure) { setError(String(failure)); }
     finally { setWorkspaceBusy(false); }
   }
@@ -207,6 +209,7 @@ export function MobileApp() {
       </AnimatePresence>
       <main className="mobile-content" id="mobile-tab-panel" role="tabpanel" aria-labelledby={`mobile-tab-${tab}`}>
         {(widgetError || error) && <p role="alert" className="mobile-error">{error ?? `Widget refresh failed: ${widgetError}`}</p>}
+        <NotificationNudge ready={ready} />
         {!ready && <div className="text-xs text-ink-500 p-4">Loading…</div>}
         {ready && tab === "focus" && (
           <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
@@ -240,7 +243,7 @@ export function MobileApp() {
               role="tab"
               aria-controls="mobile-tab-panel"
               aria-selected={selected}
-              onClick={() => setTab(id)}
+              onClick={() => { if (!selected) haptic.select(); setTab(id); }}
               className={selected ? "selected" : ""}
             >
               <Icon size={21} aria-hidden="true" />

@@ -230,6 +230,10 @@ export interface Habit {
   color: string;
   created_ms: number;
   archived: boolean;
+  cue: string | null;
+  tiny: string | null;
+  identity: string | null;
+  reminder_hhmm: string | null;
 }
 
 export interface HabitEntry {
@@ -249,6 +253,9 @@ export interface HabitStats {
   total_completions: number;
   weekday_rate: number[];  // length 7, Mon..Sun
   sparkline_30d: number[]; // length 30, oldest→newest
+  misses_in_a_row: number;
+  last_completed_day: string | null;
+  days_tracked: number;
 }
 
 // ---- commands ----
@@ -390,6 +397,10 @@ export const ipc = {
     unit?: string | null;
     color?: string;
     workspace_id?: string;
+    cue?: string | null;
+    tiny?: string | null;
+    identity?: string | null;
+    reminder_hhmm?: string | null;
   }) => mutate<Habit>("habit_create", { args }, "habit:changed"),
   habitUpdate: (args: {
     id: string;
@@ -397,6 +408,10 @@ export const ipc = {
     color?: string;
     target?: number | null;
     unit?: string | null;
+    cue?: string | null;
+    tiny?: string | null;
+    identity?: string | null;
+    reminder_hhmm?: string | null;
   }) => mutate<Habit>("habit_update", { args }, "habit:changed"),
   habitDelete: (id: string) => mutate<void>("habit_delete", { id }, "habit:changed"),
   habitLog: (args: { habit_id: string; day: string; value: number; skipped?: boolean }) =>

@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useMotionValue, useTransform, type PanInfo } f
 import { Check, Flag, CalendarClock, Trash2, X } from "lucide-react";
 import type { Task, TaskPriority } from "@/lib/ipc";
 import { toLocalInput, whenLabel } from "@/lib/when";
+import { haptic } from "@/lib/haptics";
 
 interface Props {
   task: Task;
@@ -37,12 +38,14 @@ export function MobileTaskRow({ task, onToggle, onDelete, onRename, onSetPriorit
   function onDragEnd(_: unknown, info: PanInfo) {
     dragged.current = Math.abs(info.offset.x) > 8;
     if (info.offset.x < -120 || info.velocity.x < -600) {
+      haptic.warn();
       onDelete();
     }
   }
 
   function openSheet() {
     if (dragged.current) { dragged.current = false; return; }
+    haptic.tap();
     setTitle(task.title);
     setDue(task.due_ms ? toLocalInput(task.due_ms) : "");
     setOpen(true);
@@ -72,7 +75,7 @@ export function MobileTaskRow({ task, onToggle, onDelete, onRename, onSetPriorit
           className="mobile-task-row"
         >
           <button
-            onClick={onToggle}
+            onClick={() => { if (isDone) haptic.select(); else haptic.complete(); onToggle(); }}
             className={`mobile-task-check ${isDone ? "is-done" : ""}`}
             aria-label={isDone ? `Mark ${task.title} as to do` : `Mark ${task.title} done`}
           >
