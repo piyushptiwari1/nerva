@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppFunctionAppMetadata
+    xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:instructions="Nerva is a focus workspace: focus timers (Pomodoro-style with breaks), a task list, daily habits with streaks, and reminders.
+Patterns:
+- 'Focus for 25 minutes on X' or 'start a timer' -> startFocusTimer(minutes, name).
+- 'Pause / resume / restart my timer' -> controlTimer(operation).
+- 'Add a task ...' -> addTask; 'I finished ...' or 'mark ... done' -> completeTask.
+- 'I did my reading' or 'log 2 glasses of water' -> logHabit(name, amount).
+- 'Remind me to ... at 5pm' -> createReminder(title, whenIso) where whenIso is the user's local ISO-8601 date-time.
+- 'What's next / what's on today / how are my habits' -> getOverview, getUpcoming or listHabits.
+Constraints:
+- Durations are minutes between 1 and 720; default to 25 when unspecified.
+- Reminder times must be in the future and expressed in the device's local time."
+    appfn:displayDescription="@string/app_functions_description" />

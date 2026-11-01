@@ -4,6 +4,7 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp")
     id("rust")
 }
 
@@ -30,7 +31,8 @@ require(!requireReleaseSigning || hasReleaseKeystore) {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
+    compileSdkMinor = 0
     namespace = "ai.bytical.nerva"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -74,8 +76,12 @@ android {
             )
         }
     }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
     buildFeatures {
         buildConfig = true
@@ -93,6 +99,10 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    // App Functions (Android 16+): assistant-callable timers/tasks/habits/reminders.
+    implementation("androidx.appfunctions:appfunctions:1.0.0-beta01")
+    ksp("androidx.appfunctions:appfunctions-compiler:1.0.0-beta01")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

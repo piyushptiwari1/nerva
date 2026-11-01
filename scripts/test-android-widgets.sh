@@ -60,6 +60,15 @@ run_test newInstallIsIsolatedFromLegacyData ai.bytical.nerva.widgets.WidgetIsola
 run_test launcherConfigurationSavesEveryWidgetKind ai.bytical.nerva.widgets.WidgetScreenTest
 run_test quickCaptureSavesThroughNativeScreens ai.bytical.nerva.widgets.WidgetScreenTest
 "$ADB" shell am force-stop "$APP_ID"
+# Assistant (App Functions) operations run headless against the shared core.
+run_test timerLifecycleByVoice ai.bytical.nerva.assistant.AssistantActionsTest
+run_test tasksAndHabitsResolveByFuzzyTitle ai.bytical.nerva.assistant.AssistantActionsTest
+run_test remindersAppearInUpcomingAndOverview ai.bytical.nerva.assistant.AssistantActionsTest
+run_test whenParsingAcceptsLocalForms ai.bytical.nerva.assistant.AssistantActionsTest
+if [ "$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" -ge 36 ]; then
+  "$ADB" shell dumpsys app_function 2>/dev/null | tee "$OUTPUT/app_function.txt" | grep -q "$APP_ID" || { echo "App Functions not registered for $APP_ID"; exit 1; }
+fi
+"$ADB" shell am force-stop "$APP_ID"
 "$ADB" shell cmd appops set "$APP_ID" SCHEDULE_EXACT_ALARM deny
 "$ADB" shell pm revoke "$APP_ID" android.permission.POST_NOTIFICATIONS
 run_test deniedPermissionsFallBackAndPauseCancels ai.bytical.nerva.widgets.WidgetAlarmTest

@@ -55,6 +55,17 @@
             </intent-filter>
         </receiver>
         <service android:name="ai.bytical.nerva.widgets.WidgetCollectionService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
+        <receiver android:name="ai.bytical.nerva.assistant.ReminderAlarmReceiver" android:exported="false" />
+        <!-- Android 16+ App Functions: lets Gemini run timers, tasks, habits and reminders. -->
+        <service
+            android:name="ai.bytical.nerva.assistant.NervaAppFunctionService"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+            android:exported="true">
+            <property android:name="android.app.appfunctions.schema" android:value="app_functions_schema.xsd" />
+            <property android:name="android.app.appfunctions.v2" android:value="nerva_app_functions.xml" />
+            <intent-filter><action android:name="android.app.appfunctions.AppFunctionService" /></intent-filter>
+        </service>
+        <property android:name="android.app.appfunctions.app_metadata" android:resource="@xml/app_functions_metadata" />
         <activity android:name="ai.bytical.nerva.widgets.WidgetConfigureActivity" android:theme="@style/Theme.Nerva.WidgetEditor" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
         </activity>

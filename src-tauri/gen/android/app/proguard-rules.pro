@@ -19,3 +19,13 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# App Functions: the system binds the generated service by name and the
+# library instantiates generated inventory/invoker classes reflectively.
+-keep class ai.bytical.nerva.assistant.** { *; }
+-keep class androidx.appfunctions.** { *; }
+-keep class **_AppFunctionInventory* { *; }
+-keep class **_AppFunctionInvoker* { *; }
+-keep class **AppFunctionSerializableFactory* { *; }
+-keep class **$$AppFunctionInventory_Impl* { *; }
+-keep class **$$AppFunctionInvoker_Impl* { *; }

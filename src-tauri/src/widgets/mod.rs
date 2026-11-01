@@ -32,6 +32,20 @@ pub enum WidgetCommand {
     TimerCreate {
         minutes: u32,
         workspace_id: Option<String>,
+        name: Option<String>,
+        #[serde(default)]
+        start: bool,
+    },
+    ReminderCreate {
+        title: String,
+        due_ms: i64,
+        repeat: Option<String>,
+        tz_offset_min: Option<i32>,
+        workspace_id: Option<String>,
+    },
+    Upcoming {
+        horizon_ms: Option<i64>,
+        workspace_id: Option<String>,
     },
     TaskSet {
         id: String,
@@ -140,6 +154,8 @@ pub fn execute(state: &AppState, command: WidgetCommand) -> Result<Value> {
         WidgetCommand::TimerCreate {
             minutes,
             workspace_id,
+            name,
+            start,
         } => {
             if !(1..=720).contains(&minutes) {
                 return Err(NervaError::Invalid(
@@ -147,10 +163,14 @@ pub fn execute(state: &AppState, command: WidgetCommand) -> Result<Value> {
                 ));
             }
             validate_workspace(state, workspace_id.as_deref())?;
+            let name = name
+                .map(|n| n.trim().chars().take(120).collect::<String>())
+                .filter(|n| !n.is_empty())
+                .unwrap_or_else(|| format!("{minutes} min focus"));
             let timer = ipc::timer_create_for(
                 state,
                 ipc::CreateTimerArgs {
-                    name: format!("{minutes} min focus"),
+                    name,
                     duration_ms: i64::from(minutes) * 60_000,
                     color: None,
                     workspace_id,
@@ -158,7 +178,50 @@ pub fn execute(state: &AppState, command: WidgetCommand) -> Result<Value> {
                     auto_breaks: None,
                 },
             )?;
+            let timer = if start {
+                ipc::timer_start_for(state, timer.id.clone())?
+            } else {
+                timer
+            };
             Ok(json!(timer))
+        }
+        WidgetCommand::ReminderCreate {
+            title,
+            due_ms,
+            repeat,
+            tz_offset_min,
+            workspace_id,
+        } => {
+            if title.chars().count() > 512 {
+                return Err(NervaError::Invalid("reminder title is too long".into()));
+            }
+            validate_workspace(state, workspace_id.as_deref())?;
+            Ok(json!(ipc::reminder_create_for(
+                state,
+                ipc::CreateReminderArgs {
+                    title,
+                    due_ms,
+                    repeat,
+                    tz_offset_min,
+                    task_id: None,
+                    workspace_id,
+                }
+            )?))
+        }
+        WidgetCommand::Upcoming {
+            horizon_ms,
+            workspace_id,
+        } => {
+            validate_workspace(state, workspace_id.as_deref())?;
+            let horizon = horizon_ms
+                .unwrap_or(7 * crate::reminders::DAY_MS)
+                .clamp(60_000, 90 * crate::reminders::DAY_MS);
+            Ok(json!(crate::reminders::scheduler::upcoming(
+                state,
+                crate::store::now_ms(),
+                horizon,
+                workspace_id.as_deref(),
+            )))
         }
         WidgetCommand::TaskSet { id, done } => {
             let task = state
@@ -346,6 +409,36 @@ mod tests {
             json!({ "action": "timer", "id": timer["id"], "operation": "resume" }),
         );
         assert_eq!(resumed["status"], "running");
+    }
+
+    #[test]
+    fn assistant_commands_create_named_started_timer_reminder_and_list_upcoming() {
+        let directory = TempDir::new().unwrap();
+        let runtime = state(&directory);
+        let timer = command(
+            &runtime,
+            json!({ "action": "timer_create", "minutes": 25, "name": "  Write intro  ", "start": true }),
+        );
+        assert_eq!(timer["name"], "Write intro");
+        assert_eq!(timer["status"], "running");
+        let due = crate::store::now_ms() + 3_600_000;
+        let reminder = command(
+            &runtime,
+            json!({ "action": "reminder_create", "title": "Call Sam", "due_ms": due, "repeat": "daily" }),
+        );
+        assert_eq!(reminder["title"], "Call Sam");
+        let upcoming = command(&runtime, json!({ "action": "upcoming" }));
+        let items = upcoming.as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"], reminder["id"]);
+        assert!(execute(
+            &runtime,
+            serde_json::from_value(
+                json!({ "action": "reminder_create", "title": "  ", "due_ms": due })
+            )
+            .unwrap()
+        )
+        .is_err());
     }
 
     #[test]

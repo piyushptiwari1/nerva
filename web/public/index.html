@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Nerva by Bytical — Free Pomodoro &amp; Deep-Work Focus App for Linux and Windows | Timers, Sticky Notes, Habits</title>
-  <meta name="description" content="Nerva by Bytical is a free, offline-first focus app for Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, a year-long habit heatmap, tasks and a command palette. No account, no cloud, Apache-2.0." />
-  <meta name="keywords" content="pomodoro app linux, focus timer windows, deep work app, pomodoro timer that survives reboot, multi timer app, offline habit tracker desktop, sticky notes app, focus app with breaks, free alternative to Session app, flowtime timer, productivity app linux, tauri app, Nerva by Bytical" />
+  <title>Nerva by Bytical — Free Pomodoro Focus Timer, Habit Tracker &amp; Sticky Notes for Linux, Windows and Android | Works with Gemini</title>
+  <meta name="description" content="Nerva by Bytical is a free, offline-first focus workspace for Linux, Windows and Android. Pomodoro timers with automatic breaks that survive sleep and reboot, habits built on Atomic Habits (never miss twice), reminders, floating sticky markdown notes, tasks, home-screen widgets — and on Android 16+ you can just tell Gemini: “focus for 25 minutes”, “remind me at 5”, “I did my reading”. No account, no cloud, Apache-2.0." />
+  <meta name="keywords" content="pomodoro app linux, pomodoro timer android, focus timer windows, deep work app, pomodoro timer that survives reboot, multi timer app, habit tracker atomic habits, never miss twice habit app, offline habit tracker, sticky notes app, reminders app android, gemini connected app, control app with gemini, android app functions, focus app with breaks, free alternative to Forest Session Focus To-Do, flowtime timer, productivity app linux, tauri app, Nerva by Bytical" />
   <meta name="author" content="Bytical Solutions Private Limited" />
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
   <meta name="theme-color" content="#0a0b0d" />
@@ -22,17 +22,18 @@
   <link rel="mask-icon" href="/favicon.png" color="#0a0b0d" />
 
   <meta property="og:type" content="website" />
+  <meta property="og:locale" content="en_US" />
   <meta property="og:site_name" content="Nerva by Bytical" />
-  <meta property="og:title" content="Nerva by Bytical — the focus workspace that never forgets" />
-  <meta property="og:description" content="Pomodoro timers with automatic breaks that survive reboots. Floating sticky markdown notes. Habit heatmap. Tasks. Free, offline-first desktop app for Linux &amp; Windows." />
+  <meta property="og:title" content="Nerva by Bytical — the focus workspace that never forgets. Now talks to Gemini." />
+  <meta property="og:description" content="Pomodoro timers that survive reboots, habits built on Atomic Habits, reminders, sticky notes, tasks. Free and offline-first on Linux, Windows and Android — and on Android 16+ just tell Gemini what to do." />
   <meta property="og:image" content="https://nerva.bytical.ai/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:url" content="https://nerva.bytical.ai/" />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Nerva — focus workspace for deep work" />
-  <meta name="twitter:description" content="Multi-timer engine + sticky markdown notes + habit heatmap + tasks. Native, offline-first, privacy-first." />
+  <meta name="twitter:title" content="Nerva — focus workspace for deep work, now with Gemini" />
+  <meta name="twitter:description" content="Timers that survive reboots · habits that never miss twice · reminders · sticky notes · tasks. Free, offline-first, Linux · Windows · Android. Say it to Gemini, Nerva does it." />
   <meta name="twitter:image" content="https://nerva.bytical.ai/og.png" />
 
   <script type="application/ld+json">
@@ -46,7 +47,7 @@
     "operatingSystem": "Linux, Windows, Android",
     "inLanguage": "en",
     "isAccessibleForFree": true,
-    "description": "Free, offline-first focus workspace for deep work on Linux and Windows. Pomodoro timers with automatic breaks that survive sleep and reboot, floating sticky markdown notes, year-long habit heatmap, tasks, command palette. No account required.",
+    "description": "Free, offline-first focus workspace for deep work on Linux, Windows and Android. Pomodoro timers with automatic breaks that survive sleep and reboot, habits built on Atomic Habits, reminders, floating sticky markdown notes, tasks, home-screen widgets and Gemini voice control on Android 16+. No account required.",
     "url": "https://nerva.bytical.ai/",
     "downloadUrl": "https://nerva.bytical.ai/download/linux/deb",
     "softwareVersion": "0.1.16",
@@ -57,9 +58,12 @@
       "Pomodoro timers with automatic 25/5 breaks inside one session (long timers), wall-clock math that survives sleep and reboot",
       "Parallel focus timers",
       "Sticky markdown notes that float above any window",
-      "Year-long habit heatmap with streaks",
+      "One-tap habit tracker built on Atomic Habits: cue, two-minute version, identity, never-miss-twice, streaks and a year heatmap",
       "Tasks with priority and due times",
       "Reminders: once, daily, weekdays or weekly, with system notifications on desktop and Android",
+      "Works with Gemini on Android 16+: start timers, add or complete tasks, log habits, set reminders and ask what is next by voice or text",
+      "Android home-screen widgets for Focus, Tasks, Habits and Notes",
+      "Haptic and sound feedback on phones",
       "One-file local backup and restore",
       "World clocks in the title bar and resizable, customisable dashboard",
       "Ask Nerva: local Ollama or bring-your-own OpenAI / Anthropic / Gemini key",
@@ -82,7 +86,9 @@
       {"@type":"Question","name":"Will my notes survive a crash?","acceptedAnswer":{"@type":"Answer","text":"Yes. Notes autosave every 250 ms into an append-only event log. On next launch the app replays the log and restores your exact state."}},
       {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}},
       {"@type":"Question","name":"Does Nerva do Pomodoro?","acceptedAnswer":{"@type":"Answer","text":"Yes. Any timer of 30 minutes or more is automatically structured into 25-minute focus blocks with 5-minute breaks (15 minutes every fourth) inside one session that always ends on focus, with distinct sounds for break and back-to-work. Timers under 30 minutes are never split. It can be turned off per timer or globally."}},
-      {"@type":"Question","name":"Can I use my own OpenAI, Claude or Gemini API key in Nerva?","acceptedAnswer":{"@type":"Answer","text":"Yes. Ask Nerva uses a local Ollama model by default and can switch to OpenAI, Anthropic, Google Gemini, OpenRouter or any OpenAI-compatible endpoint. Keys are stored only on your device."}}
+      {"@type":"Question","name":"Can I use my own OpenAI, Claude or Gemini API key in Nerva?","acceptedAnswer":{"@type":"Answer","text":"On desktop, yes. Ask Nerva uses a local Ollama model by default and can switch to OpenAI, Anthropic, Google Gemini, OpenRouter or any OpenAI-compatible endpoint. Keys are stored only on your device."}},
+      {"@type":"Question","name":"Can I control Nerva with Gemini?","acceptedAnswer":{"@type":"Answer","text":"Yes, on Android 16 or newer. Nerva Mobile registers Android App Functions, so once it is enabled under Gemini > Connected apps you can say things like 'focus for 25 minutes on the report', 'remind me to call Sam at 5', 'add a task: renew passport', 'I did my reading' or 'what's next today'. Everything runs on your phone; no API key or account is needed. Gemini lists apps installed from Google Play; the Play listing is in progress."}},
+      {"@type":"Question","name":"Does Nerva follow Atomic Habits?","acceptedAnswer":{"@type":"Answer","text":"Yes. Each habit can carry a cue ('after coffee'), a two-minute version, and the identity it supports ('I am a reader'). Logging is one tap, the tracker shows misses in a row so you never miss twice, and milestones at 7, 21, 66 and 365 days reinforce the streak."}}
     ]
   }
   </script>
@@ -164,6 +170,13 @@
     .note{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink-dim)}
     .note code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-size:13px}
 
+    .say-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+    .say{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;transition:all .15s}
+    .say:hover{border-color:rgba(124,156,255,0.4);transform:translateY(-2px)}
+    .say-q{font-size:16px;font-weight:600;color:var(--ink);line-height:1.35}
+    .say-q::before{content:"● ";color:var(--accent);font-size:11px;vertical-align:middle;animation:pulseDot 1.6s ease-in-out infinite}
+    .say-a{font-size:14px;color:var(--ink-dim)}
+
     .faq{max-width:760px;margin:0 auto}
     .faq details{border-bottom:1px solid var(--border);padding:20px 0}
     .faq summary{cursor:pointer;font-size:17px;font-weight:600;display:flex;justify-content:space-between;align-items:center;list-style:none;color:var(--ink)}
@@ -216,6 +229,7 @@
     </div>
     <div class="links">
       <a href="#features">Features</a>
+      <a href="#gemini">Gemini</a>
       <a href="#downloads">Download</a>
       <a href="#pro">Pro</a>
       <a href="/changelog">Changelog</a>
@@ -229,12 +243,12 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="eyebrow">v0.1 · Linux & Windows · Apache-2.0</span>
+    <span class="eyebrow">v0.1 · Linux · Windows · Android · Apache-2.0</span>
     <h1>The focus workspace that never forgets.</h1>
-    <p class="tag">A persistent desktop workspace for deep work — parallel timers, sticky markdown notes, habit heatmap, and tasks. All offline. All yours.</p>
+    <p class="tag">Parallel timers that survive reboots, habits built on <em>Atomic Habits</em>, reminders, sticky markdown notes and tasks — on your desktop and your phone. Offline. Open source. And on Android, just tell Gemini.</p>
     <div class="hero-cta">
       <a href="#downloads" class="btn btn-primary">Download free →</a>
-      <a href="https://github.com/piyushptiwari1/nerva" class="btn btn-ghost" rel="noopener">★ Star on GitHub</a>
+      <a href="#gemini" class="btn btn-ghost">“Hey Gemini, focus for 25 minutes” →</a>
     </div>
     <div class="trust"><strong>No account.</strong> No cloud. Your content never leaves the device; only an anonymous daily launch count (opt-out). Native Rust core. ≈ 80 MB RAM idle.</div>
 
@@ -736,6 +750,28 @@
   </div>
 </section>
 
+<section id="gemini" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-eyebrow">Android 16+ · Works with Gemini</div>
+    <h2>Just say it. Nerva does it.</h2>
+    <p class="section-tag">Nerva Mobile exposes its timers, tasks, habits and reminders to your phone’s assistant through Android App Functions. No API key, no account, nothing leaves the phone — Gemini simply calls Nerva for you.</p>
+    <div class="say-grid">
+      <div class="say"><span class="say-q">“Hey Gemini, focus for 25 minutes on the report.”</span><span class="say-a">Starts a 25-minute focus timer named “Report” — with automatic breaks if you ask for longer.</span></div>
+      <div class="say"><span class="say-q">“Pause my timer.” · “Resume.” · “Restart it.”</span><span class="say-a">Controls the running session, hands-free.</span></div>
+      <div class="say"><span class="say-q">“Add a task: renew passport.”</span><span class="say-a">Lands on your list and your Tasks widget instantly.</span></div>
+      <div class="say"><span class="say-q">“I finished the landlord email.”</span><span class="say-a">Marks the matching task done — partial titles are fine.</span></div>
+      <div class="say"><span class="say-q">“I did my reading today.” · “Log two glasses of water.”</span><span class="say-a">Logs the habit, keeps the streak, and tells you if you were about to miss twice.</span></div>
+      <div class="say"><span class="say-q">“Remind me to call Sam at 5 pm.” · “…every weekday at 9.”</span><span class="say-a">Creates the reminder; Nerva notifies you even if the app is closed.</span></div>
+      <div class="say"><span class="say-q">“What’s next today?” · “How are my habits going?”</span><span class="say-a">Reads back your active timer, open tasks, habit progress and the next 24 hours.</span></div>
+      <div class="say"><span class="say-q">“What am I working on?”</span><span class="say-a">One sentence, ready to be spoken aloud.</span></div>
+    </div>
+    <div class="note" style="margin-top:24px">
+      <strong>How to enable:</strong> install Nerva Mobile on Android 16 or newer, open Gemini → your profile → <em>Connected apps</em> and switch on Nerva. Then type or say <code>@Nerva</code> followed by what you want.
+      <strong>Good to know:</strong> Gemini lists connected apps that were installed from Google Play; the Play listing for Nerva Mobile is in progress, so the direct APK registers the functions today but will appear in Gemini once the Play release is live. On desktop, Ask Nerva keeps working with your own local or hosted model.
+    </div>
+  </div>
+</section>
+
 <section style="padding-top:0">
   <div class="wrap">
     <div class="section-eyebrow">Everything else, briefly</div>
@@ -779,8 +815,8 @@
       </div>
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M5 19l.8 1.7L7.5 21l-1.7.8L5 23l-.8-1.2L2.5 21l1.7-.3z"/></svg></div>
-        <h4>Ask Nerva — your model, your key</h4>
-        <p>Local Ollama by default. Or plug in OpenAI, Anthropic, Gemini, OpenRouter or any OpenAI-compatible server. Keys never leave your machine.</p>
+        <h4>Ask Nerva on desktop — your model, your key</h4>
+        <p>Local Ollama by default. Or plug in OpenAI, Anthropic, Gemini, OpenRouter or any OpenAI-compatible server. Keys never leave your machine. On Android, skip the keys entirely and <a href="#gemini">talk to Gemini</a>.</p>
       </div>
       <div class="tile">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
@@ -831,7 +867,7 @@
         <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> Android 7+ <span style="font-size:.7em;opacity:.7">beta</span></h3>
         <a class="primary" href="/download/android/apk" download>Download .apk</a>
         <div class="alts">
-          Nerva Mobile: Focus, Tasks, Habits and Note home-screen widgets. Google Play &amp; iOS: <a href="https://github.com/piyushptiwari1/nerva/blob/main/docs/MOBILE.md" rel="noopener">planned</a>.
+          Nerva Mobile: Focus, Tasks, Habits and Note home-screen widgets, haptics, reminders — and on Android 16+ <a href="#gemini">Gemini can drive it</a>. Google Play &amp; iOS: <a href="https://github.com/piyushptiwari1/nerva/blob/main/docs/MOBILE.md" rel="noopener">planned</a>.
           <p style="margin-top:12px"><strong>Already using v0.1.14?</strong> This is a separate installation, not an in-place update. The old app and its data stay intact; data is not imported automatically. Keep the old app installed if you need its content. <a href="https://github.com/piyushptiwari1/nerva/releases/download/v0.1.14/Nerva_0.1.14_android.apk" rel="noopener">Legacy APK</a>.</p>
         </div>
       </div>
@@ -944,8 +980,16 @@
         <p>Yes, without making you think about it. Any timer of 30 minutes or more is automatically structured into 25-minute focus blocks with 5-minute breaks (15 minutes every fourth) inside <em>one</em> session that always ends on focus. Start a “2h sprint” and you get 4 focus blocks and 3 breaks with distinct sounds for “break” and “back to work”. Timers under 30 minutes are never split. Turn it off per timer or globally in Settings → Timers.</p>
       </details>
       <details>
+        <summary>Can I control Nerva with Gemini?</summary>
+        <p>Yes, on Android 16 or newer. Nerva Mobile registers <em>Android App Functions</em>, so once you switch it on under Gemini → Connected apps you can say “focus for 25 minutes on the report”, “remind me to call Sam at 5”, “add a task: renew passport”, “I did my reading” or “what’s next today”. Everything runs on your phone; there is no API key, no account and nothing is uploaded. Gemini only lists connected apps installed from Google Play — the Play listing is in progress. See the <a href="#gemini">examples</a>.</p>
+      </details>
+      <details>
+        <summary>Does Nerva follow <em>Atomic Habits</em>?</summary>
+        <p>Yes. Each habit can carry a cue (“after coffee”), a two-minute version for bad days, and the identity it supports (“I am a reader”). Logging is one tap, the tracker shows misses in a row so you never miss twice, and milestones at 7, 21, 66 and 365 days make the streak visible. Phones add a gentle tick and vibration on every log.</p>
+      </details>
+      <details>
         <summary>Can I use my own OpenAI / Claude / Gemini key?</summary>
-        <p>Yes. Ask Nerva runs on a local Ollama model by default; in Settings → Nerva AI you can switch to OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint (LM Studio, Groq…). Keys are stored only on your device and never included in telemetry. Note search always uses local embeddings so your notes are never sent to a third party for indexing.</p>
+        <p>On desktop, yes. Ask Nerva runs on a local Ollama model by default; in Settings → Nerva AI you can switch to OpenAI, Anthropic, Google Gemini, OpenRouter, or any OpenAI-compatible endpoint (LM Studio, Groq…). Keys are stored only on your device and never included in telemetry. Note search always uses local embeddings so your notes are never sent to a third party for indexing. On Android there is nothing to configure — Gemini talks to Nerva directly.</p>
       </details>
       <details>
         <summary>How do I report a bug or request a feature?</summary>

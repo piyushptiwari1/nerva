@@ -17,10 +17,10 @@ import { BUY_URL, planLabel, useLicense } from "@/lib/license";
 import { isMobile } from "@/lib/platform";
 import { haptic, hapticPrefs, setHapticPrefs } from "@/lib/haptics";
 
-type Tab = "ai" | "timers" | "audio" | "focus" | "layout" | "data" | "pro" | "feedback" | "diag" | "about";
+type Tab = "ai" | "gemini" | "timers" | "audio" | "focus" | "layout" | "data" | "pro" | "feedback" | "diag" | "about";
 const DESKTOP_TABS: Tab[] = ["ai", "timers", "audio", "focus", "layout", "data", "pro", "feedback", "diag", "about"];
-// Phones: the things you reach for on a phone first — data, timers, Pro — AI last.
-const MOBILE_TABS: Tab[] = ["data", "timers", "pro", "ai", "feedback", "diag", "about"];
+// Phones: no model/API-key setup — the phone's assistant drives Nerva via App Functions.
+const MOBILE_TABS: Tab[] = ["gemini", "data", "timers", "pro", "feedback", "diag", "about"];
 const TABS: Tab[] = isMobile() ? MOBILE_TABS : DESKTOP_TABS;
 
 /**
@@ -124,6 +124,8 @@ export function SettingsPane() {
                   >
                     {t === "ai"
                       ? "Nerva AI"
+                      : t === "gemini"
+                      ? "Gemini"
                       : t === "diag"
                       ? "Diagnostics"
                       : t[0].toUpperCase() + t.slice(1)}
@@ -137,6 +139,7 @@ export function SettingsPane() {
                 {!loading && bundle && (
                   <>
                     {tab === "ai" && <AiTab bundle={bundle} onChange={setBundle} />}
+                    {tab === "gemini" && <GeminiTab />}
                     {tab === "timers" && <TimersTab bundle={bundle} onChange={setBundle} />}
                     {tab === "audio" && <AudioTab />}
                     {tab === "focus" && <FocusTab />}
@@ -945,6 +948,62 @@ function Field({
       {children}
       {help && <div className="mt-1 text-[10px] text-ink-500">{help}</div>}
     </div>
+  );
+}
+
+const GEMINI_EXAMPLES: [string, string][] = [
+  ["Focus for 25 minutes on the report", "starts a named timer"],
+  ["Pause my timer", "also resume / restart"],
+  ["Add a task: renew passport", "lands on your list and widget"],
+  ["I finished the landlord email", "marks the matching task done"],
+  ["I did my reading today", "logs the habit, keeps the streak"],
+  ["Log two glasses of water", "adds to a count or amount habit"],
+  ["Remind me to call Sam at 5 pm", "once, or every weekday at 9"],
+  ["What's next today?", "timer, tasks, habits, next 24 h"],
+];
+
+function GeminiTab() {
+  const [copied, setCopied] = useState<string | null>(null);
+  function copy(text: string) {
+    void navigator.clipboard?.writeText(`@Nerva ${text}`).then(() => {
+      haptic.select();
+      setCopied(text);
+      window.setTimeout(() => setCopied(null), 1200);
+    });
+  }
+  return (
+    <section className="flex flex-col gap-4 text-sm">
+      <Field
+        label="Talk to Nerva through Gemini"
+        help="On Android 16 and newer, Nerva registers App Functions so your phone's assistant can run timers, tasks, habits and reminders. Nothing to configure here: no model, no API key, nothing leaves the phone."
+      >
+        <ol className="list-decimal pl-5 text-xs text-ink-300 flex flex-col gap-1">
+          <li>Open the Gemini app → your profile → <strong>Connected apps</strong>.</li>
+          <li>Switch on <strong>Nerva</strong>.</li>
+          <li>Say or type <code className="font-mono text-ink-100">@Nerva</code> and what you want.</li>
+        </ol>
+      </Field>
+      <Field label="Try saying" help="Tap a phrase to copy it with the @Nerva prefix.">
+        <ul className="flex flex-col gap-1.5">
+          {GEMINI_EXAMPLES.map(([say, does]) => (
+            <li key={say}>
+              <button
+                type="button"
+                onClick={() => copy(say)}
+                className="w-full text-left control-chip !justify-between !min-h-[44px] px-3 py-2 rounded-lg"
+              >
+                <span className="text-ink-100">“{say}”</span>
+                <span className="text-[11px] text-ink-500 shrink-0 ml-3">{copied === say ? "Copied" : does}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Field>
+      <p className="text-[11px] text-ink-500">
+        Gemini lists connected apps that were installed from Google Play. Until Nerva Mobile is on Play, a sideloaded install registers the functions but may not appear in the list.
+        Nerva still notifies you directly for every reminder and timer.
+      </p>
+    </section>
   );
 }
 

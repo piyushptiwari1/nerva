@@ -1,12 +1,18 @@
 import java.io.File
+import javax.inject.Inject
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
 
-open class BuildTask : DefaultTask() {
+// Gradle 9 removed Project.exec; the ExecOperations service is the replacement.
+abstract class BuildTask : DefaultTask() {
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @Input
     var rootDirRel: String? = null
     @Input
@@ -49,14 +55,17 @@ open class BuildTask : DefaultTask() {
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
         val args = listOf("run", "--", "tauri", "android", "android-studio-script");
+        val workingDirectory = File(project.projectDir, rootDirRel)
+        val debug = project.logger.isEnabled(LogLevel.DEBUG)
+        val info = project.logger.isEnabled(LogLevel.INFO)
 
-        project.exec {
-            workingDir(File(project.projectDir, rootDirRel))
+        execOperations.exec {
+            workingDir(workingDirectory)
             executable(executable)
             args(args)
-            if (project.logger.isEnabled(LogLevel.DEBUG)) {
+            if (debug) {
                 args("-vv")
-            } else if (project.logger.isEnabled(LogLevel.INFO)) {
+            } else if (info) {
                 args("-v")
             }
             if (release) {

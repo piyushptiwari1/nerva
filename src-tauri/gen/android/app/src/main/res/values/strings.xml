@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Nerva Mobile</string>
     <string name="main_activity_title">Nerva Mobile by Bytical</string>
+    <string name="app_functions_description">Start focus timers, add or complete tasks, log habits and set reminders in Nerva.</string>
 </resources>

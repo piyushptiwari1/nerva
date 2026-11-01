@@ -26,7 +26,12 @@ class WidgetsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun refresh(invoke: Invoke) {
         WidgetWorker.run(activity) {
-            try { NervaWidgets.refreshAll(activity); invoke.resolve() }
+            try {
+                NervaWidgets.refreshAll(activity)
+                // The running app schedules reminder notifications itself.
+                ai.bytical.nerva.assistant.ReminderAlarms.cancelAll(activity)
+                invoke.resolve()
+            }
             catch (error: Exception) { invoke.reject(error.message ?: "Could not refresh widgets") }
         }
     }
