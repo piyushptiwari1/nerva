@@ -86,6 +86,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    lint {
+        // AGP 9.1 lint crashes analysing Kotlin 2.2 scripts ("findFirCompiledSymbol only works on
+        // compiled declarations"); release correctness is covered by CI instrumentation instead.
+        checkReleaseBuilds = false
+    }
     testBuildType = "debug"
 }
 
