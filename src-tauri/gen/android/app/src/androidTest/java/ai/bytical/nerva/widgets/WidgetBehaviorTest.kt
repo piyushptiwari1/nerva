@@ -111,8 +111,11 @@ class WidgetBehaviorTest {
             assertEquals(WidgetConfig.load(context, id).workspace, workspace)
             for (theme in listOf("light", "dark")) {
                 val config = WidgetConfig.load(context, id).copy(theme = theme)
-                // Smallest resizable tier, the default tier, and a tall one.
-                for ((width, height) in listOf(110 to 70, kind.defaultWidthDp to kind.defaultHeightDp, 300 to 300)) {
+                // Smallest resizable size declared by the provider, the default tier, and a tall one.
+                val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(id)
+                val density = context.resources.displayMetrics.density
+                val smallest = (info.minResizeWidth / density).toInt() to (info.minResizeHeight / density).toInt()
+                for ((width, height) in listOf(smallest, kind.defaultWidthDp to kind.defaultHeightDp, 300 to 300)) {
                     for (fontScale in listOf(1f, 1.5f, 2f)) {
                         render(kind, id, config, renderedSnapshot, width, height, fontScale)
                     }
