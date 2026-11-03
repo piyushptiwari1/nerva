@@ -150,7 +150,8 @@ class WidgetScreenTest {
                 if (webview == null) { handler.postDelayed(this, 100); return }
                 webview.evaluateJavascript(script) { response ->
                     val data = runCatching { JSONObject(JSONArray("[$response]").getString(0)) }.getOrDefault(JSONObject())
-                    if (data.has("value") && data.optString("text").contains("Workspace")) { report = data; ready.countDown() }
+                    // The phone shell is ready once the bottom tab bar has rendered.
+                    if (data.has("value") && data.optString("text").contains("Habits")) { report = data; ready.countDown() }
                     else if (data.has("error")) { report = data; ready.countDown() }
                     else if (!closed) handler.postDelayed(this, 100)
                 }
