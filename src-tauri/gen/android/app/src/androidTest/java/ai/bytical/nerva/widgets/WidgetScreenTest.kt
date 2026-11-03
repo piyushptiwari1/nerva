@@ -48,12 +48,12 @@ class WidgetScreenTest {
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
             try {
                 interact(activity, "${kind.label} appearance") {
-                    val theme = find(activity.window.decorView) { it is Spinner && it.contentDescription == "Widget appearance" } as? Spinner
-                    theme?.setSelection(2)
-                    theme != null
+                    val dark = find(activity.window.decorView) { it is com.google.android.material.chip.Chip && it.text.toString() == "Dark" } as? com.google.android.material.chip.Chip
+                    dark?.isChecked = true
+                    dark != null
                 }
                 interact(activity, "${kind.label} save") {
-                    find(activity.window.decorView) { it is TextView && it.text.toString() == "Save widget" && it.isEnabled }
+                    find(activity.window.decorView) { it is TextView && it.text.toString() == "Add to home screen" && it.isEnabled }
                         ?.performClick() ?: false
                 }
                 val saved = CountDownLatch(1)
