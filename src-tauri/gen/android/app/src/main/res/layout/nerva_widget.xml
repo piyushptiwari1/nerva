@@ -20,8 +20,8 @@
 
         <!-- Focus, 2x2 tier: full-width time and phase; play/pause lives in the header action slot. -->
         <LinearLayout android:id="@+id/widget_timer_small" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical" android:visibility="gone">
-            <Chronometer android:id="@+id/widget_countdown_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:textSize="34sp" android:textColor="#192330" android:maxLines="1" android:countDown="true" android:letterSpacing="-0.03" android:paddingEnd="8dp" />
-            <TextView android:id="@+id/widget_remaining_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="34sp" android:fontFamily="sans-serif-medium" android:textColor="#192330" android:maxLines="1" android:letterSpacing="-0.03" android:paddingEnd="8dp" android:visibility="gone" />
+            <Chronometer android:id="@+id/widget_countdown_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:textSize="28sp" android:textColor="#192330" android:maxLines="1" android:countDown="true" android:letterSpacing="-0.03" android:paddingEnd="8dp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/widget_remaining_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="28sp" android:fontFamily="sans-serif-medium" android:textColor="#192330" android:maxLines="1" android:letterSpacing="-0.03" android:paddingEnd="8dp" android:includeFontPadding="false" android:visibility="gone" />
             <TextView android:id="@+id/widget_phase_small" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#596575" android:maxLines="1" android:ellipsize="end" android:paddingEnd="8dp" />
         </LinearLayout>
 

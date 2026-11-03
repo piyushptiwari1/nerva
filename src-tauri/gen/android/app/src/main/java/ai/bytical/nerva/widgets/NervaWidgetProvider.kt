@@ -116,7 +116,7 @@ object NervaWidgets {
                 views.setChronometer(countdownId, SystemClock.elapsedRealtime() + remaining, null, running)
                 views.setChronometerCountDown(countdownId, true)
                 views.setTextViewText(remainingId, duration(remaining))
-                val digits = if (stacked) (if (largeText) 24f else 34f) else if (tier == Tier.MEDIUM) 40f else 48f
+                val digits = if (stacked) (if (largeText) 22f else 28f) else if (tier == Tier.MEDIUM) 40f else 48f
                 views.setTextViewTextSize(countdownId, TypedValue.COMPLEX_UNIT_SP, digits)
                 views.setTextViewTextSize(remainingId, TypedValue.COMPLEX_UNIT_SP, digits)
                 val status = timer.getString("status")
