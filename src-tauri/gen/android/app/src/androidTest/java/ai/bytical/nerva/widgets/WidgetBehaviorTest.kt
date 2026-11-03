@@ -322,9 +322,12 @@ class WidgetBehaviorTest {
             val primaryId = if (stacked) R.id.widget_action else R.id.widget_primary
             for (control in listOf(primaryId, R.id.widget_action, R.id.widget_configure, R.id.widget_undo).distinct()) {
                 val button = view.findViewById<View>(control)
-                if (button.visibility == View.VISIBLE) {
+                // Controls inside a hidden section (e.g. the timer block on a Tasks widget) are never measured.
+                val effectivelyVisible = generateSequence(button as View?) { it.parent as? View }
+                    .takeWhile { it !== container }.all { it.visibility == View.VISIBLE }
+                if (effectivelyVisible) {
                     val minimum = if (control == R.id.widget_primary) 55 else 39
-                    assertTrue("${minimum + 1}dp target", button.width >= minimum * density && button.height >= minimum * density)
+                    assertTrue("${minimum + 1}dp target for ${context.resources.getResourceEntryName(control)} on ${kind.label} at ${widthDp}x${heightDp} font $fontScale: ${button.width}x${button.height}px", button.width >= minimum * density && button.height >= minimum * density)
                     assertTrue(button.contentDescription.isNotBlank())
                     val rectangle = Rect()
                     button.getDrawingRect(rectangle)
