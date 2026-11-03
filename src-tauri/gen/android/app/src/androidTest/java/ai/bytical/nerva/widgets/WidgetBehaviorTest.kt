@@ -348,7 +348,9 @@ class WidgetBehaviorTest {
                 phase.getDrawingRect(rectangle)
                 container.offsetDescendantRectToMyCoords(phase, rectangle)
                 assertTrue("Phase overlaps controls at font $fontScale", bounds.none { Rect.intersects(it, rectangle) })
-                if (phase.visibility == View.VISIBLE) assertTrue("Phase text clipped at font $fontScale", phase.layout.getLineBottom(phase.lineCount - 1) <= phase.height - phase.compoundPaddingTop - phase.compoundPaddingBottom)
+                if (phase.visibility == View.VISIBLE) assertTrue(
+                    "Phase text clipped at ${widthDp}x${heightDp} font $fontScale (stacked=$stacked, text='${phase.text}', lines=${phase.lineCount}, lineBottom=${phase.layout.getLineBottom(phase.lineCount - 1)}, height=${phase.height}, parentHeight=${(phase.parent as View).height})",
+                    phase.layout.getLineBottom(phase.lineCount - 1) <= phase.height - phase.compoundPaddingTop - phase.compoundPaddingBottom)
             }
             assertTrue(view.findViewById<TextView>(R.id.widget_title).text.isNotBlank())
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
