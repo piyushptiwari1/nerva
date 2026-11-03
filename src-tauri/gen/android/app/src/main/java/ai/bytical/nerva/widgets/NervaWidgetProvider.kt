@@ -67,7 +67,7 @@ object NervaWidgets {
         val config = preview ?: WidgetConfig.load(context, widgetId)
         val palette = config.palette(context)
         val views = RemoteViews(context.packageName, R.layout.nerva_widget)
-        listOf(R.id.widget_timer, R.id.widget_list, R.id.widget_note, R.id.widget_empty, R.id.widget_undo, R.id.widget_action).forEach {
+        listOf(R.id.widget_timer, R.id.widget_timer_small, R.id.widget_list, R.id.widget_note, R.id.widget_empty, R.id.widget_undo, R.id.widget_action).forEach {
             views.setViewVisibility(it, View.GONE)
         }
         views.setInt(android.R.id.background, "setBackgroundResource", if (palette.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light)
@@ -100,17 +100,25 @@ object NervaWidgets {
                 val timer = snapshot.getJSONArray("timers").objects().firstOrNull { it.getString("id") == config.source && config.includes(it) }
                 if (timer == null) { empty(views, "Tap ⚙ to choose a session"); return views }
                 views.setTextViewText(R.id.widget_title, timer.getString("name"))
-                views.setViewVisibility(R.id.widget_timer, View.VISIBLE)
+                // 2x2 tier stacks time over the control; larger tiers put them side by side.
+                val stacked = tier == Tier.SMALL
+                views.setViewVisibility(R.id.widget_timer_small, if (stacked) View.VISIBLE else View.GONE)
+                views.setViewVisibility(R.id.widget_timer, if (stacked) View.GONE else View.VISIBLE)
+                val countdownId = if (stacked) R.id.widget_countdown_small else R.id.widget_countdown
+                val remainingId = if (stacked) R.id.widget_remaining_small else R.id.widget_remaining
+                val phaseId = if (stacked) R.id.widget_phase_small else R.id.widget_phase
+                val primaryId = if (stacked) R.id.widget_action else R.id.widget_primary
+                if (stacked) views.setViewVisibility(R.id.widget_action, View.VISIBLE)
                 val running = timer.getString("status") == "running"
                 val remaining = timer.getLong("phase_remaining_ms").coerceAtLeast(0)
-                views.setViewVisibility(R.id.widget_countdown, if (running) View.VISIBLE else View.GONE)
-                views.setViewVisibility(R.id.widget_remaining, if (running) View.GONE else View.VISIBLE)
-                views.setChronometer(R.id.widget_countdown, SystemClock.elapsedRealtime() + remaining, null, running)
-                views.setChronometerCountDown(R.id.widget_countdown, true)
-                views.setTextViewText(R.id.widget_remaining, duration(remaining))
-                val digits = if (tier == Tier.SMALL) 34f else if (tier == Tier.MEDIUM) 40f else 48f
-                views.setTextViewTextSize(R.id.widget_countdown, TypedValue.COMPLEX_UNIT_SP, digits)
-                views.setTextViewTextSize(R.id.widget_remaining, TypedValue.COMPLEX_UNIT_SP, digits)
+                views.setViewVisibility(countdownId, if (running) View.VISIBLE else View.GONE)
+                views.setViewVisibility(remainingId, if (running) View.GONE else View.VISIBLE)
+                views.setChronometer(countdownId, SystemClock.elapsedRealtime() + remaining, null, running)
+                views.setChronometerCountDown(countdownId, true)
+                views.setTextViewText(remainingId, duration(remaining))
+                val digits = if (stacked) (if (largeText) 24f else 34f) else if (tier == Tier.MEDIUM) 40f else 48f
+                views.setTextViewTextSize(countdownId, TypedValue.COMPLEX_UNIT_SP, digits)
+                views.setTextViewTextSize(remainingId, TypedValue.COMPLEX_UNIT_SP, digits)
                 val status = timer.getString("status")
                 val phase = if (timer.getString("phase_kind") == "break") "Break" else "Focus"
                 val finish = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(snapshot.getLong("generated_ms") + remaining))
@@ -125,14 +133,13 @@ object NervaWidgets {
                     !WidgetAlarms.exactAllowed(context) -> " · approx. alerts"
                     else -> ""
                 }
-                views.setTextViewText(R.id.widget_phase, description + alertState)
-                views.setViewVisibility(R.id.widget_phase, if (tier == Tier.SMALL && largeText) View.GONE else View.VISIBLE)
+                views.setTextViewText(phaseId, description + alertState)
+                views.setViewVisibility(phaseId, if (stacked && largeText) View.GONE else View.VISIBLE)
                 views.setProgressBar(R.id.widget_progress, 100, (100 * (1.0 - remaining.toDouble() / timer.optLong("phase_duration_ms", 1).coerceAtLeast(1))).toInt().coerceIn(0, 100), false)
-                views.setViewVisibility(R.id.widget_progress, if (tier == Tier.SMALL) View.GONE else View.VISIBLE)
                 val operation = when (status) { "running" -> "pause"; "paused" -> "resume"; "completed", "cancelled" -> "restart"; else -> "start" }
-                views.setImageViewResource(R.id.widget_primary, if (running) R.drawable.widget_ic_pause else R.drawable.widget_ic_play)
-                views.setContentDescription(R.id.widget_primary, "$operation ${timer.getString("name")}")
-                views.setOnClickPendingIntent(R.id.widget_primary, WidgetUi.action(context, widgetId, JSONObject().put("action", "timer").put("id", config.source).put("operation", operation), "timer-$operation"))
+                views.setImageViewResource(primaryId, if (running) R.drawable.widget_ic_pause else R.drawable.widget_ic_play)
+                views.setContentDescription(primaryId, "$operation ${timer.getString("name")}")
+                views.setOnClickPendingIntent(primaryId, WidgetUi.action(context, widgetId, JSONObject().put("action", "timer").put("id", config.source).put("operation", operation), "timer-$operation"))
             }
             WidgetKind.TASKS, WidgetKind.HABITS -> {
                 val rows = WidgetCollections.rows(kind, config, snapshot)

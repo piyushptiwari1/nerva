@@ -317,7 +317,10 @@ class WidgetBehaviorTest {
             container.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
             container.layout(0, 0, width, height)
             val bounds = mutableListOf<Rect>()
-            for (control in listOf(R.id.widget_primary, R.id.widget_action, R.id.widget_configure, R.id.widget_undo)) {
+            val stacked = view.findViewById<View>(R.id.widget_timer_small).visibility == View.VISIBLE
+            // At the 2x2 tier the Focus control is the 44x40 header action, not the 56dp button.
+            val primaryId = if (stacked) R.id.widget_action else R.id.widget_primary
+            for (control in listOf(primaryId, R.id.widget_action, R.id.widget_configure, R.id.widget_undo).distinct()) {
                 val button = view.findViewById<View>(control)
                 if (button.visibility == View.VISIBLE) {
                     val minimum = if (control == R.id.widget_primary) 55 else 39
@@ -332,7 +335,7 @@ class WidgetBehaviorTest {
                 }
             }
             if (kind == WidgetKind.FOCUS) {
-                val digits = view.findViewById<TextView>(R.id.widget_remaining)
+                val digits = view.findViewById<TextView>(if (stacked) R.id.widget_remaining_small else R.id.widget_remaining)
                 if (digits.visibility == View.VISIBLE) {
                     val rectangle = Rect()
                     digits.getDrawingRect(rectangle)
@@ -340,12 +343,12 @@ class WidgetBehaviorTest {
                     assertTrue("Countdown overlaps controls at font $fontScale", bounds.none { Rect.intersects(it, rectangle) })
                     assertTrue("Countdown text clipped at font $fontScale", digits.layout.getLineBottom(0) <= digits.height - digits.compoundPaddingTop - digits.compoundPaddingBottom)
                 }
-                val phase = view.findViewById<TextView>(R.id.widget_phase)
+                val phase = view.findViewById<TextView>(if (stacked) R.id.widget_phase_small else R.id.widget_phase)
                 val rectangle = Rect()
                 phase.getDrawingRect(rectangle)
                 container.offsetDescendantRectToMyCoords(phase, rectangle)
                 assertTrue("Phase overlaps controls at font $fontScale", bounds.none { Rect.intersects(it, rectangle) })
-                assertTrue("Phase text clipped at font $fontScale", phase.layout.getLineBottom(phase.lineCount - 1) <= phase.height - phase.compoundPaddingTop - phase.compoundPaddingBottom)
+                if (phase.visibility == View.VISIBLE) assertTrue("Phase text clipped at font $fontScale", phase.layout.getLineBottom(phase.lineCount - 1) <= phase.height - phase.compoundPaddingTop - phase.compoundPaddingBottom)
             }
             assertTrue(view.findViewById<TextView>(R.id.widget_title).text.isNotBlank())
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
