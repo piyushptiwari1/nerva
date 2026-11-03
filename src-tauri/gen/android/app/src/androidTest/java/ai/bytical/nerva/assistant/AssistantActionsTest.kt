@@ -85,11 +85,12 @@ class AssistantActionsTest {
 
     @Test
     fun whenParsingAcceptsLocalForms() {
-        val now = 1_800_000_000_000L
+        val now = 1_800_000_000_000L // 2027-01-15
         assertTrue(AssistantActions.parseWhen("07:30", now) > now)
-        assertTrue(AssistantActions.parseWhen("2027-01-02", now) > now)
-        assertTrue(AssistantActions.parseWhen("2027-01-02T08:15", now) > now)
-        assertTrue(AssistantActions.parseWhen("2027-01-02T08:15:00+05:30", now) > now)
+        assertTrue(AssistantActions.parseWhen("2028-01-02", now) > now)
+        assertTrue(AssistantActions.parseWhen("2028-01-02T08:15", now) > now)
+        assertTrue(AssistantActions.parseWhen("2028-01-02T08:15:00+05:30", now) > now)
+        assertTrue(AssistantActions.parseWhen("2026-01-02T08:15", now) < now)
         assertThrows(AssistantArgumentException::class.java) { AssistantActions.parseWhen("next tuesday", now) }
     }
 }

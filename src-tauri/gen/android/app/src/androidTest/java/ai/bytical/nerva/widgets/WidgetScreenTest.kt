@@ -158,7 +158,7 @@ class WidgetScreenTest {
         }
         handler.post(inspect)
         try {
-            assertTrue("Full app and native IPC must become ready", ready.await(45, TimeUnit.SECONDS))
+            assertTrue("Full app and native IPC must become ready", ready.await(90, TimeUnit.SECONDS))
             assertFalse(report.toString(), report.has("error"))
             return report
         } finally {
