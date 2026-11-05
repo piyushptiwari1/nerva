@@ -113,6 +113,10 @@
       "exceptionDomain": "",
       "signingIdentity": null,
       "providerShortName": null
+    },
+    "android": {
+      "minSdkVersion": 24,
+      "versionCode": 101602
     }
   },
   "plugins": {

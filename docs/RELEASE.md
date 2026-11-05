@@ -41,6 +41,14 @@ The release workflow checks signing secrets and the pinned public
 `ANDROID_CERT_SHA256` before any publishing build runs. Standard CI covers
 the rejection cases with `node --test scripts/test-android-signing.mjs`.
 
+### Google Play versionCode
+
+Play requires a strictly increasing `versionCode`. It is set explicitly in
+`src-tauri/tauri.conf.json` → `bundle.android.versionCode` using the scheme
+`MMmmppBB` without leading zeros (`0.1.16` build 2 = `101602`, `0.1.17` build 0 =
+`101700`). Bump it on every bundle uploaded to Play, even when `version`
+is unchanged. `bash scripts/build-android-bundle.sh` builds the signed .aab.
+
 ## Windows Signing and Rebuilds
 
 Windows CI imports the persistent PFX into the runner's certificate store,

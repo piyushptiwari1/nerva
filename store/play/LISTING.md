@@ -43,7 +43,7 @@ No account. No cloud. Your timers, notes, tasks and habits live in a local datab
 OPEN SOURCE
 Apache-2.0. Full source on GitHub. Same core as Nerva for Linux and Windows.
 
-Free forever for everything in the app today. An optional Pro licence (bought on nerva.bytical.ai) funds development and adds Google Drive sync across devices.
+Free forever for everything in the app today. Pro members get Google Drive sync across devices; paste your existing licence key under Settings → Pro.
 
 ## Graphic assets
 - store/play/icon-512.png (512×512)
@@ -54,7 +54,12 @@ Free forever for everything in the app today. An optional Pro licence (bought on
 Category: Utility/Productivity. No violence, sexual content, language, controlled substances, gambling, user-generated content shared with others, user interaction/location sharing. → Expected rating: Everyone / PEGI 3.
 
 ## Target audience
-13+ (not designed for children). Not a “Families” app.
+18+ (declared in Console on 2026-11-05; avoids the under-18 appeal questionnaire). Not a “Families” app.
+
+## Console state (2026-11-05)
+Account 5598000196237799590 · App 4974610463619152053 · Internal testing track 4699102438261338665 (release 1016 live; opt-in https://play.google.com/apps/internaltest/4699102438261338665).
+Done: privacy URL, sign-in details (reviewer key secrets/license-play-review.key), ads=No, content rating Everyone/PEGI 3, target 18+, data safety (email/diagnostics/app interactions/device ID — collected, optional, not shared), government=No, financial=None, health=None, trader=Yes, category Productivity, contact hello@bytical.ai + website.
+Production gate: personal accounts must run a CLOSED test with ≥12 opted-in testers for 14 days before "Apply for production".
 
 ## Data safety form
 Does the app collect or share user data? → Yes (collect), No (share with third parties).
