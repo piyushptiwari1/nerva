@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://nerva.bytical.ai/</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en-US" href="https://nerva.bytical.ai/" />
@@ -15,14 +15,20 @@
   </url>
   <url>
     <loc>https://nerva.bytical.ai/changelog</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://nerva.bytical.ai/llms.txt</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://nerva.bytical.ai/privacy</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

@@ -364,7 +364,8 @@ code, pre, kbd, .font-mono { font-family: "JetBrains Mono Variable", "JetBrains 
 .habit-row.is-done { background: color-mix(in srgb, var(--control-bg), rgb(var(--accent)) 6%); }
 .habit-ring { position: relative; width: 48px; height: 48px; flex-shrink: 0; display: grid; place-items: center; border-radius: 999px; color: var(--habit-color); transition: transform var(--dur-slow) var(--ease-spring); }
 .habit-ring:active { transform: scale(0.9); }
-.habit-ring svg { position: absolute; inset: 4px; transform: rotate(-90deg); }
+.habit-ring > svg { position: absolute; inset: 4px; transform: rotate(-90deg); }
+.habit-ring-icon svg { display: block; }
 .habit-ring-track { fill: none; stroke: var(--hairline-strong); stroke-width: 3; }
 .habit-ring-fill { fill: none; stroke: var(--habit-color); stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--habit-progress, 0) * 100); transition: stroke-dashoffset var(--dur-slow) var(--ease-out); }
 .habit-row.is-done .habit-ring-fill { stroke-dashoffset: 0; }

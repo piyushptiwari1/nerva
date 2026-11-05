@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Privacy Policy — Nerva by Bytical</title>
+  <meta name="description" content="What Nerva stores, what it sends, and what it never does. Nerva is an offline-first focus app: your timers, notes, tasks and habits stay on your device." />
+  <meta name="theme-color" content="#0a0b0d" />
+  <link rel="canonical" href="https://nerva.bytical.ai/privacy" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="robots" content="index, follow" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0a0b0d; color: #e4e6ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; padding: 32px 20px 64px; }
+    main { max-width: 720px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    header img { width: 40px; height: 40px; border-radius: 8px; }
+    header a { color: inherit; text-decoration: none; font-weight: 600; font-size: 18px; }
+    h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 19px; margin: 32px 0 8px; }
+    p, li { color: #c3c7cf; }
+    .meta { color: #8a93a6; font-size: 14px; margin-bottom: 28px; }
+    .box { background: #15171c; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 18px; margin: 16px 0; }
+    .box strong { color: #ecf0f6; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+    th { color: #8a93a6; font-weight: 500; }
+    a { color: #a8bdff; }
+    code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header><img src="/favicon.png" alt="" /><a href="/">Nerva by Bytical</a></header>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Applies to the Nerva desktop app (Linux, Windows), Nerva Mobile (Android) and nerva.bytical.ai. Last updated 5 November 2026.</p>
+
+  <div class="box"><strong>The short version.</strong> Nerva is offline-first. Your timers, notes, tasks, habits and reminders are stored only on your device in a local database. There is no account. We never receive the content you type. The only things that leave your device are listed below, and each one is either anonymous, opt-in, or something you explicitly start.</div>
+
+  <h2>Who we are</h2>
+  <p>Nerva is made by Bytical Solutions Private Limited, India (“Bytical”, “we”). Contact: <a href="mailto:hello@bytical.ai">hello@bytical.ai</a>. Source code: <a href="https://github.com/piyushptiwari1/nerva" rel="noopener">github.com/piyushptiwari1/nerva</a>.</p>
+
+  <h2>What the app stores on your device</h2>
+  <p>Everything you create — workspaces, timers, notes, tasks, habits and their history, reminders, settings — lives in a local SQLite database in the app's private storage. On Android that location is inaccessible to other apps. You can export it as a single file (Settings → Data) and delete it by uninstalling the app or using Settings → Diagnostics → Reset.</p>
+
+  <h2>What leaves your device</h2>
+  <table>
+    <tr><th>Data</th><th>When</th><th>Why</th><th>Control</th></tr>
+    <tr><td>Anonymous launch beacon: app version, operating system, platform, UI language. No identifier, no device fingerprint. Our server records the country from the request.</td><td>At most once per day while the app is open</td><td>To know roughly how many installations are in use</td><td>Settings → About → switch off</td></tr>
+    <tr><td>Weekly usage counts (e.g. “12 notes, 3 habits”), with a random pseudonym. Never content.</td><td>Only if you opt in on first launch</td><td>Product decisions</td><td>Opt-in; decline once and it never asks again; switch off in Settings → About</td></tr>
+    <tr><td>Feedback you write, your rating, and the email you optionally give</td><td>Only when you press Send</td><td>To read and reply</td><td>You choose what to send</td></tr>
+    <tr><td>Update check: current version</td><td>Desktop, on launch</td><td>To offer a new version</td><td>Standard auto-update; you confirm installs</td></tr>
+    <tr><td>Google Drive sync (Pro, optional): your backup file is uploaded to <em>your own</em> Google Drive using the <code>drive.file</code> scope, which lets Nerva see only the file it created</td><td>Only after you sign in to Drive in Settings → Data</td><td>Sync between your devices</td><td>Disconnect in Settings → Data; delete the file in your Drive</td></tr>
+    <tr><td>Pro licence: your email (for the receipt and key), the plan, a device id (random UUID) and device name</td><td>When you buy Pro and when a device activates</td><td>Issue and verify the licence</td><td>Deactivate devices in Settings → Pro</td></tr>
+    <tr><td>Ask Nerva (desktop): the prompt you type plus lightweight context (workspace name, running timers, open task titles) is sent to the AI provider <em>you</em> configured — local Ollama by default, or your own OpenAI / Anthropic / Google / OpenRouter key</td><td>Only when you ask a question</td><td>To answer it</td><td>Choose a local model; keys stay on your device</td></tr>
+  </table>
+
+  <h2>Gemini and Android App Functions</h2>
+  <p>On Android 16 and newer, Nerva Mobile registers Android App Functions so your phone's assistant (e.g. Gemini) can start timers, add tasks, log habits, set reminders and read your schedule when you ask it to. These calls happen entirely on your phone between the assistant and Nerva; Nerva does not send anything to Google for this. What the assistant itself does with your request is governed by Google's privacy policy. You can turn Nerva off under Gemini → Connected apps at any time.</p>
+
+  <h2>Notifications, alarms and permissions</h2>
+  <p>Nerva Mobile asks for notification permission so timer and reminder alerts reach you, and uses exact alarms so they fire on time with the screen off. Vibration is used for optional haptic feedback. No location, contacts, camera, microphone or storage permissions are requested.</p>
+
+  <h2>Payments</h2>
+  <p>Pro purchases are processed by PayU. We receive the transaction id, amount, your email and the payment status; we never see your card details. Invoices are emailed to the address you gave.</p>
+
+  <h2>The website</h2>
+  <p>nerva.bytical.ai uses Segment for page-view analytics and records download counts with country derived from the request. Server logs are kept by Vercel for a short period for security and debugging.</p>
+
+  <h2>Where data is kept and for how long</h2>
+  <p>App data: on your device only, until you delete it. Beacon and usage counts: aggregated counts kept indefinitely; raw events for 90 days. Feedback: until handled. Licence records: for the life of the licence plus 7 years for tax. Drive sync files: in your Drive, under your control.</p>
+
+  <h2>Children</h2>
+  <p>Nerva is a general-audience productivity tool and is not directed at children under 13.</p>
+
+  <h2>Your rights</h2>
+  <p>Because the app holds no account, most of your data is already in your hands. For licence or feedback records, email <a href="mailto:hello@bytical.ai">hello@bytical.ai</a> to access, correct or delete them.</p>
+
+  <h2>Changes</h2>
+  <p>We will update this page when the app's behaviour changes and note the date at the top. Material changes are also listed in the <a href="/changelog">changelog</a>.</p>
+</main>
+</body>
+</html>
