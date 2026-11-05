@@ -767,13 +767,15 @@ function ProTab() {
               ? `${exp ? `Valid until ${new Date(exp * 1000).toLocaleDateString()}` : "Lifetime licence"}${status?.email_hint ? ` · ${status.email_hint}` : ""}${
                   tokenExp ? ` · device check renews ${new Date(tokenExp * 1000).toLocaleDateString()}` : ""
                 }`
-              : "Everything you use today stays free forever. Pro adds encrypted Google Drive backup and multi-device restore (shipping next), and helps fund development."}
+              : isMobile()
+                ? "Everything you use today stays free forever. Pro adds Google Drive sync across your devices. Already a Pro member on desktop? Paste your key below."
+                : "Everything you use today stays free forever. Pro adds encrypted Google Drive backup and multi-device restore (shipping next), and helps fund development."}
             {!isPro && status?.reason && key ? ` · ${status.reason}` : ""}
           </div>
         </div>
       </div>
 
-      {!isPro && (
+      {!isPro && !isMobile() && (
         <Field label="Get Nerva Pro" help="Monthly, yearly or lifetime via PayU (INR; international cards accepted). Your key arrives by email and on the purchase page.">
           <a
             href={BUY_URL}
@@ -1293,7 +1295,11 @@ function DriveField({ pro }: { pro: boolean }) {
         {!pro && (
           <>
             <button disabled className="btn opacity-60 cursor-not-allowed">Connect Google Drive</button>
-            <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">Get Nerva Pro</a>
+            {mobile ? (
+              <span className="text-[11px] text-ink-500">Requires Nerva Pro — activate your key in Settings → Pro.</span>
+            ) : (
+              <a href={BUY_URL} target="_blank" rel="noreferrer" className="text-[11px] text-accent-glow hover:underline">Get Nerva Pro</a>
+            )}
           </>
         )}
         {pro && st && !canBrowser && !canCode && (
