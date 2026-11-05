@@ -87,7 +87,7 @@
       {"@type":"Question","name":"Is there a Mac version?","acceptedAnswer":{"@type":"Answer","text":"Not yet — macOS support is on the roadmap. Today Nerva ships for Linux (Ubuntu 22.04 / 24.04, Fedora, Arch) and Windows 10 / 11."}},
       {"@type":"Question","name":"Does Nerva do Pomodoro?","acceptedAnswer":{"@type":"Answer","text":"Yes. Any timer of 30 minutes or more is automatically structured into 25-minute focus blocks with 5-minute breaks (15 minutes every fourth) inside one session that always ends on focus, with distinct sounds for break and back-to-work. Timers under 30 minutes are never split. It can be turned off per timer or globally."}},
       {"@type":"Question","name":"Can I use my own OpenAI, Claude or Gemini API key in Nerva?","acceptedAnswer":{"@type":"Answer","text":"On desktop, yes. Ask Nerva uses a local Ollama model by default and can switch to OpenAI, Anthropic, Google Gemini, OpenRouter or any OpenAI-compatible endpoint. Keys are stored only on your device."}},
-      {"@type":"Question","name":"Can I control Nerva with Gemini?","acceptedAnswer":{"@type":"Answer","text":"Yes, on Android 16 or newer. Nerva Mobile registers Android App Functions, so once it is enabled under Gemini > Connected apps you can say things like 'focus for 25 minutes on the report', 'remind me to call Sam at 5', 'add a task: renew passport', 'I did my reading' or 'what's next today'. Everything runs on your phone; no API key or account is needed. Gemini lists apps installed from Google Play; the Play listing is in progress."}},
+      {"@type":"Question","name":"Can I control Nerva with Gemini?","acceptedAnswer":{"@type":"Answer","text":"Yes, on Android 16 or newer. Nerva Mobile registers Android App Functions, so once it is enabled under Gemini > Connected apps you can say things like 'focus for 25 minutes on the report', 'remind me to call Sam at 5', 'add a task: renew passport', 'I did my reading' or 'what's next today'. Everything runs on your phone; no API key or account is needed. Gemini lists apps installed from Google Play; Nerva Mobile is coming to the Play Store."}},
       {"@type":"Question","name":"Does Nerva follow Atomic Habits?","acceptedAnswer":{"@type":"Answer","text":"Yes. Each habit can carry a cue ('after coffee'), a two-minute version, and the identity it supports ('I am a reader'). Logging is one tap, the tracker shows misses in a row so you never miss twice, and milestones at 7, 21, 66 and 365 days reinforce the streak."}}
     ]
   }
@@ -176,6 +176,10 @@
     .say-q{font-size:16px;font-weight:600;color:var(--ink);line-height:1.35}
     .say-q::before{content:"● ";color:var(--accent);font-size:11px;vertical-align:middle;animation:pulseDot 1.6s ease-in-out infinite}
     .say-a{font-size:14px;color:var(--ink-dim)}
+    .notify{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+    .notify input{flex:1;min-width:200px;padding:9px 12px;border-radius:8px;background:#161a21;color:#ecf0f6;border:1px solid rgba(255,255,255,.1);font:inherit;font-size:13px}
+    .notify button{padding:9px 14px;border-radius:8px;background:transparent;color:#a8bdff;border:1px solid rgba(255,255,255,.14);cursor:pointer;font:inherit;font-size:13px;font-weight:600}
+    .notify-status{font-size:12px;color:var(--ink-dim)}
 
     .faq{max-width:760px;margin:0 auto}
     .faq details{border-bottom:1px solid var(--border);padding:20px 0}
@@ -243,7 +247,7 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="eyebrow">v0.1 · Linux · Windows · Android · Apache-2.0</span>
+    <span class="eyebrow">v0.1.16 · Linux · Windows · Android · Coming to Google Play · Apache-2.0</span>
     <h1>The focus workspace that never forgets.</h1>
     <p class="tag">Parallel timers that survive reboots, habits built on <em>Atomic Habits</em>, reminders, sticky markdown notes and tasks — on your desktop and your phone. Offline. Open source. And on Android, just tell Gemini.</p>
     <div class="hero-cta">
@@ -767,7 +771,7 @@
     </div>
     <div class="note" style="margin-top:24px">
       <strong>How to enable:</strong> install Nerva Mobile on Android 16 or newer, open Gemini → your profile → <em>Connected apps</em> and switch on Nerva. Then type or say <code>@Nerva</code> followed by what you want.
-      <strong>Good to know:</strong> Gemini lists connected apps that were installed from Google Play; the Play listing for Nerva Mobile is in progress, so the direct APK registers the functions today but will appear in Gemini once the Play release is live. On desktop, Ask Nerva keeps working with your own local or hosted model.
+      <strong>Coming to Google Play:</strong> Gemini lists connected apps installed from Google Play. Nerva Mobile is on its way to the Play Store now — the direct APK already registers every function, and <code>@Nerva</code> lights up in Gemini the day the Play release goes live. <a href="#notify">Get a one-line email when it does</a>. On desktop, Ask Nerva keeps working with your own local or hosted model.
     </div>
   </div>
 </section>
@@ -864,10 +868,11 @@
         </div>
       </div>
       <div class="dl-card">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> Android 7+ <span style="font-size:.7em;opacity:.7">beta</span></h3>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> Android 7+ <span style="font-size:.7em;opacity:.7">beta · Play soon</span></h3>
         <a class="primary" href="/download/android/apk" download>Download .apk</a>
         <div class="alts">
-          Nerva Mobile: Focus, Tasks, Habits and Note home-screen widgets, haptics, reminders — and on Android 16+ <a href="#gemini">Gemini can drive it</a>. Google Play &amp; iOS: <a href="https://github.com/piyushptiwari1/nerva/blob/main/docs/MOBILE.md" rel="noopener">planned</a>.
+          Nerva Mobile: Focus, Tasks, Habits and Note home-screen widgets, haptics, reminders — and on Android 16+ <a href="#gemini">Gemini can drive it</a>. <strong>Coming to Google Play</strong> (internal testing now; same signing key, so this APK updates in place). iOS: <a href="https://github.com/piyushptiwari1/nerva/blob/main/docs/MOBILE.md" rel="noopener">planned</a>.
+          <form id="notify" class="notify" aria-label="Notify me when Nerva is on Google Play"><input type="email" required placeholder="email — tell me when it's on Play" /><button type="submit">Notify me</button><span class="notify-status"></span></form>
           <p style="margin-top:12px"><strong>Already using v0.1.14?</strong> This is a separate installation, not an in-place update. The old app and its data stay intact; data is not imported automatically. Keep the old app installed if you need its content. <a href="https://github.com/piyushptiwari1/nerva/releases/download/v0.1.14/Nerva_0.1.14_android.apk" rel="noopener">Legacy APK</a>.</p>
         </div>
       </div>
@@ -981,7 +986,7 @@
       </details>
       <details>
         <summary>Can I control Nerva with Gemini?</summary>
-        <p>Yes, on Android 16 or newer. Nerva Mobile registers <em>Android App Functions</em>, so once you switch it on under Gemini → Connected apps you can say “focus for 25 minutes on the report”, “remind me to call Sam at 5”, “add a task: renew passport”, “I did my reading” or “what’s next today”. Everything runs on your phone; there is no API key, no account and nothing is uploaded. Gemini only lists connected apps installed from Google Play — the Play listing is in progress. See the <a href="#gemini">examples</a>.</p>
+        <p>Yes, on Android 16 or newer. Nerva Mobile registers <em>Android App Functions</em>, so once you switch it on under Gemini → Connected apps you can say “focus for 25 minutes on the report”, “remind me to call Sam at 5”, “add a task: renew passport”, “I did my reading” or “what’s next today”. Everything runs on your phone; there is no API key, no account and nothing is uploaded. Gemini only lists connected apps installed from Google Play — Nerva Mobile is coming to the Play Store now; <a href="#notify">get notified</a>. See the <a href="#gemini">examples</a>.</p>
       </details>
       <details>
         <summary>Does Nerva follow <em>Atomic Habits</em>?</summary>
@@ -1048,6 +1053,20 @@
           body: JSON.stringify({ kind: kind, stars: value || undefined, text: text || undefined, email: email || undefined, source: 'web' }) });
         st.textContent = res.ok ? 'Thank you \u2014 received.' : 'Could not send (' + res.status + '). Try GitHub issues.';
         if (res.ok) { document.getElementById('fbtext').value = ''; value = 0; paint(0); }
+      } catch (_) { st.textContent = 'Network error \u2014 try again.'; }
+    });
+    // "Notify me when it's on Play" reuses the feedback sink as kind=other.
+    var notify = document.getElementById('notify');
+    if (notify) notify.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var st = notify.querySelector('.notify-status');
+      var email = notify.querySelector('input').value.trim();
+      st.textContent = 'Saving\u2026';
+      try {
+        var res = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ kind: 'other', text: 'Notify me when Nerva Mobile is on Google Play', email: email, source: 'web-play-notify' }) });
+        st.textContent = res.ok ? 'Noted \u2014 one email when it lands.' : 'Could not save (' + res.status + ').';
+        if (res.ok) notify.querySelector('input').value = '';
       } catch (_) { st.textContent = 'Network error \u2014 try again.'; }
     });
   })();

@@ -10,7 +10,7 @@
 
 ## Key facts (for accurate answers)
 
-- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, winget) and Android 7+ (APK sideload, beta since v0.1.14; Google Play planned). macOS builds but is untested. iOS is planned.
+- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, winget) and Android 7+ (APK sideload, beta since v0.1.14; Google Play listing in progress as of November 2026 — same signing certificate, sideloaded installs update in place). macOS builds but is untested. iOS is planned.
 - Android v0.1.15: Nerva Mobile has native Focus, Tasks, Habits and Note home-screen widgets, source/theme selection, timer controls, task completion/undo, habit logging and native quick capture. It uses package ai.bytical.nerva.mobile and permanent signing. It installs separately from the legacy v0.1.14 app (ai.bytical.nerva); no automatic data transfer. Keep the legacy app installed to retain its data.
 - Price: free. No account, no cloud, no ads. Telemetry is opt-in only and contains counts, never content. Optional **Nerva Pro** licence (₹249/month, ₹1,999/year, ₹4,999 lifetime via PayU) funds development and unlocks encrypted Google Drive backup/multi-device restore as it ships. Everything free today stays free.
 - Latest release notes: https://nerva.bytical.ai/changelog (the app shows a "What's new" card after each update).
