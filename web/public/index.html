@@ -1055,7 +1055,7 @@
         if (res.ok) { document.getElementById('fbtext').value = ''; value = 0; paint(0); }
       } catch (_) { st.textContent = 'Network error \u2014 try again.'; }
     });
-    // "Notify me when it's on Play" reuses the feedback sink as kind=other.
+    // "Join the Play beta" reuses the feedback sink as kind=other; emails get added to the tester list by hand.
     var notify = document.getElementById('notify');
     if (notify) notify.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -1064,8 +1064,8 @@
       st.textContent = 'Saving\u2026';
       try {
         var res = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ kind: 'other', text: 'Notify me when Nerva Mobile is on Google Play', email: email, source: 'web-play-notify' }) });
-        st.textContent = res.ok ? 'Noted \u2014 one email when it lands.' : 'Could not save (' + res.status + ').';
+          body: JSON.stringify({ kind: 'other', text: 'Add me to the Nerva Mobile Google Play beta (tester list)', email: email, source: 'web-play-beta' }) });
+        st.textContent = res.ok ? 'Added \u2014 within a day the Play button will install for this Gmail.' : 'Could not save (' + res.status + ').';
         if (res.ok) notify.querySelector('input').value = '';
       } catch (_) { st.textContent = 'Network error \u2014 try again.'; }
     });
