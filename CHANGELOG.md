@@ -4,7 +4,7 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
-## v0.1.16 — 2026-10-28
+## v0.1.16 — 2026-11-06
 
 ### New
 - **Reminders.** “Remind me” sits above your timers: once, daily, weekdays or weekly. Task deadlines alert too. System notifications on desktop and Android (scheduled with the OS so they fire when the app is closed); snooze or finish from the in-app banner. Nothing fires twice after a restart.
@@ -13,7 +13,7 @@ GitHub release body are generated from this file — keep each version under a
 - **Real usage, honestly counted.** Once a day the app sends an anonymous launch beacon (version, OS, platform, language — no identifier). Switch it off in Settings → About. The website wording now describes exactly this.
 - **Habits, the Atomic Habits way.** One tap logs a habit. Each habit can carry a cue (“after coffee”), a two-minute version for bad days and the identity it supports. The tracker shows misses in a row so you never miss twice, milestones at 7/21/66/100/365 days, a year heatmap and weekday pattern, and an optional daily reminder time.
 - **Phone feel.** A gentle tick and vibration when you log, complete or start something (Settings → Timers → Sounds & haptics). A one-time prompt asks for notification permission so timer and reminder alerts actually arrive.
-- **Works with Gemini (Android 16+).** Nerva Mobile registers Android App Functions: start/pause/resume timers, add or complete tasks, log habits, set reminders and ask “what’s next” by voice or text once Nerva is enabled under Gemini → Connected apps. Reminders created this way notify you even with the app closed. Gemini lists connected apps installed from Google Play; the Play listing is in progress. The phone Settings “Nerva AI” tab is replaced by a Gemini how-to; desktop Ask Nerva is unchanged.
+- **Works with Gemini (Android 16+).** Nerva Mobile registers Android App Functions: start/pause/resume timers, add or complete tasks, log habits, set reminders and ask “what’s next” by voice or text once Nerva is enabled under Gemini → Connected apps. Reminders created this way notify you even with the app closed. Gemini lists connected apps installed from Google Play; Nerva Mobile is in closed beta on Google Play (join at nerva.bytical.ai) and the direct APK below is signed with the same key, so Play can take over an existing install. On Play, external Pro purchase links are hidden; licence-key activation still works. The phone Settings “Nerva AI” tab is replaced by a Gemini how-to; desktop Ask Nerva is unchanged.
 
 ### Changed
 - **Phone shell.** Compact header with a workspace chip and sheet, a phone type scale with 48px targets, swipe-to-complete task rows with a detail sheet, and timers that are created first and started when you are ready. Home-screen widgets come in right-sized tiers (2×2 Focus/Note, 4×2 Tasks/Habits) with inline actions and an undo pill.
