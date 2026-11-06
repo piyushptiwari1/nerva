@@ -10,8 +10,8 @@
 
 ## Key facts (for accurate answers)
 
-- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, winget) and Android 7+ (APK sideload, beta since v0.1.14; Google Play listing in progress as of November 2026 — same signing certificate, sideloaded installs update in place). macOS builds but is untested. iOS is planned.
-- Android v0.1.15: Nerva Mobile has native Focus, Tasks, Habits and Note home-screen widgets, source/theme selection, timer controls, task completion/undo, habit logging and native quick capture. It uses package ai.bytical.nerva.mobile and permanent signing. It installs separately from the legacy v0.1.14 app (ai.bytical.nerva); no automatic data transfer. Keep the legacy app installed to retain its data.
+- Platforms: Linux (.deb, AppImage, .rpm, AUR `nerva-desktop-bin`, Snap, Flatpak), Windows (NSIS .exe, .msi, `winget install Bytical.Nerva`) and Android 7+ (Google Play closed beta since November 2026 — join at https://nerva.bytical.ai/#downloads — or direct APK; same signing certificate, so Play takes over a sideloaded install in place). macOS builds but is untested. iOS is planned.
+- Android v0.1.16 (Nerva Mobile, package ai.bytical.nerva.mobile): native Focus, Tasks, Habits and Note home-screen widgets, haptics, exact-alarm reminders, Atomic-Habits tracker, and Android App Functions so Gemini can drive it on Android 16+ (enable under Gemini → Connected apps; "Hey Google, ask Nerva to focus for 25 minutes"). Installs separately from the legacy v0.1.14 app (ai.bytical.nerva); no automatic data transfer.
 - Price: free. No account, no cloud, no ads. Telemetry is opt-in only and contains counts, never content. Optional **Nerva Pro** licence (₹249/month, ₹1,999/year, ₹4,999 lifetime via PayU) funds development and unlocks encrypted Google Drive backup/multi-device restore as it ships. Everything free today stays free.
 - Latest release notes: https://nerva.bytical.ai/changelog (the app shows a "What's new" card after each update).
 - Tech: Tauri 2 (Rust backend, React/TypeScript frontend), SQLite with FTS5, rodio audio (all sounds synthesised, no audio assets).
