@@ -119,8 +119,8 @@ modules:
     sources:
       - type: file
         dest-filename: nerva.deb
-        url: https://github.com/piyushptiwari1/nerva/releases/download/v0.1.16/Nerva_0.1.16_amd64.deb
-        sha256: 023db76eed73c49cdb2a17adbb20202b64db63066879becbf89632936703826b
+        url: https://github.com/piyushptiwari1/nerva/releases/download/v0.1.17/Nerva_0.1.17_amd64.deb
+        sha256: 7a8bb0b1f6b41f79faec4a0a4196bf7e1e0682739618fb153db01aa353d96650
         only-arches: [x86_64]
       - type: file
         path: ai.bytical.nerva.metainfo.xml
