@@ -1,6 +1,6 @@
 [package]
 name = "nerva"
-version = "0.1.16"
+version = "0.1.17"
 description = "Nerva — persistent focus workspace"
 authors = ["Nerva contributors"]
 edition = "2021"

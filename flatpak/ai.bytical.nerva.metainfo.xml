@@ -93,6 +93,11 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.17" date="2026-11-08">
+      <description>
+        <p>Desktop layout adapts to the window size (stage keeps 420px, stacks below ~1100px); habit detail card opens centred instead of clipping inside the sidebar.</p>
+      </description>
+    </release>
     <release version="0.1.16" date="2026-11-06">
       <description>
         <p>Reminders with system notifications, one-file backup and restore, Google Drive sync for Pro, Atomic-Habits tracker, resizable layout and a visual redesign with bundled fonts. On Android: Gemini App Functions and a Google Play beta.</p>

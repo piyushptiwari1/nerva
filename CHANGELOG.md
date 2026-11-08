@@ -4,6 +4,13 @@ All notable changes to Nerva by Bytical. The in-app "What's new" dialog and the
 GitHub release body are generated from this file — keep each version under a
 `## vX.Y.Z` heading with `### ` sub-sections and plain bullets.
 
+## v0.1.17 — 2026-11-08
+
+### Fixed
+- **Desktop layout adapts to the window.** Sidebar and notes widths you drag are now fitted to the current window, so the Focus stage always keeps at least 420px. Below roughly 1100px the layout stacks: sidebar and timers on top, notes full-width underneath. Previously a wide saved layout squeezed the centre pane to a sliver on smaller screens.
+- **Habit detail card no longer clips.** The analytics sheet (streak, misses in a row, best, 30 days, heatmap) opened inside the sidebar and was cut off at its edge; it now opens centred over the whole window on desktop and as a full-width bottom sheet on the phone. The four stat tiles wrap to two columns when the sheet is narrow.
+- **Google Play.** Nerva Mobile is live in closed beta on Google Play; this build carries the matching Play version code.
+
 ## v0.1.16 — 2026-11-06
 
 ### New
