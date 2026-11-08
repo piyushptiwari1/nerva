@@ -16,9 +16,10 @@ Distribution surfaces (all driven by one tag push):
 |---|---|---|---|
 | GitHub Releases | Linux + Windows + Android | version tag, after signing preflight | $0 |
 | Vercel landing page | n/a | explicit production deploy from repo root | $0 |
-| winget | Windows | tag → CI auto-PRs winget-pkgs | $0 |
-| Snap Store | Linux | `snapcraft upload` after each build | $0 |
-| AUR | Linux | manual `git push` to AUR repo | $0 |
+| winget | Windows | tag → CI auto-PRs winget-pkgs (`winget-publish` job) | $0 |
+| Snap Store | Linux | tag → CI repacks the .deb and publishes to `stable` (`snap-publish` job) | $0 |
+| AUR | Linux | tag → CI bumps `nerva-desktop-bin` and pushes to AUR (`aur-publish` job); PKGBUILD/.SRCINFO + flatpak sha synced back to `main` | $0 |
+| Google Play | Android | `bash scripts/build-android-bundle.sh` → upload .aab to the closed track in Play Console (not automated) | $25 one-time (done) |
 | Microsoft Store | Windows | manual `.msixupload` to Partner Center (review 1–3 days) | $0 (one-time $99 enrollment already done) |
 | Flathub | Linux | manual PR (review weeks) — defer to v0.2 | $0 |
 
@@ -94,7 +95,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `WINDOWS_CERTIFICATE_THUMBPRINT` | contents of `secrets/bytical-codesign.thumbprint.txt` |
 | `TAURI_SIGNING_PRIVATE_KEY` | contents of `secrets/tauri-updater.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | updater-key password you chose |
-| `WINGET_TOKEN` | a GitHub PAT with `public_repo` scope (for the winget-pkgs PR) |
+| `WINGET_TOKEN` | a GitHub PAT for `piyushptiwari1` with `repo` **and `workflow`** scope (the winget-pkgs fork contains workflow files; without `workflow` the sync step fails and no PR is opened — 0.1.16 had to be filed by hand) |
 | `ANDROID_KEYSTORE_B64` | configured by `bash scripts/setup-android-signing.sh github` |
 | `ANDROID_KEY_ALIAS` | configured by the same script |
 | `ANDROID_KEY_PASSWORD` | generated locally and piped directly to GitHub by the same script |

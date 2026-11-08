@@ -402,6 +402,8 @@ jobs:
         with:
           identifier: Bytical.Nerva
           installers-regex: '(-setup\.exe|\.msi)$'
+          # PAT for piyushptiwari1 with `repo` + `workflow` scopes. Without `workflow` the
+          # fork sync fails ("Upstream commits contain workflow changes") and no PR is filed.
           token: ${{ secrets.WINGET_TOKEN }}
         continue-on-error: true   # don't block the release if PR submission fails
 
