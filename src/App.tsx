@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/store/app";
 import { usePalette } from "@/store/palette";
 import { useSettingsUi } from "@/store/settings";
@@ -24,13 +24,26 @@ import { initReminders } from "@/store/reminders";
 import { initTelemetry } from "@/lib/telemetry";
 import { flushFeedbackQueue, markInstalled } from "@/lib/feedback";
 import { useLicense } from "@/lib/license";
-import { useLayout, usePanes } from "@/store/layout";
+import { useLayout, usePanes, fitPanes } from "@/store/layout";
 import { PaneResizer } from "@/components/PaneResizer";
+
+/** Live viewport width; drives pane fitting so the stage never collapses. */
+function useViewportWidth() {
+  const [w, setW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return w;
+}
 
 export default function App() {
   const { ready, bootstrap, refreshTimers } = useApp();
   const showTimeline = useLayout((s) => s.showTimeline);
   const panes = usePanes();
+  const vw = useViewportWidth();
+  const fit = fitPanes(vw, panes.sidebar, panes.notes);
   const togglePalette = usePalette((s) => s.toggle);
   const toggleSettings = useSettingsUi((s) => s.toggle);
   const toggleHabits = useHabitsUi((s) => s.toggle);
@@ -100,16 +113,28 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-ink-950 text-ink-100 bg-grid">
       <ErrorBoundary scope="CommandBar"><CommandBar /></ErrorBoundary>
-      <div
-        className={`flex-1 min-h-0 grid gap-0 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}
-        style={{ gridTemplateColumns: `${panes.sidebar}px 12px minmax(0,1fr) 12px ${panes.notes}px` }}
-      >
-        <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
-        <PaneResizer side="left" value={panes.sidebar} onChange={panes.setSidebar} onReset={panes.reset} label="Resize sidebar" />
-        <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
-        <PaneResizer side="right" value={panes.notes} onChange={panes.setNotes} onReset={panes.reset} label="Resize notes" />
-        <ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary>
-      </div>
+      {fit.mode === "wide" ? (
+        <div
+          className={`flex-1 min-h-0 grid gap-0 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}
+          style={{ gridTemplateColumns: `${fit.sidebar}px 12px minmax(0,1fr) 12px ${fit.notes}px` }}
+        >
+          <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
+          <PaneResizer side="left" value={panes.sidebar} onChange={panes.setSidebar} onReset={panes.reset} label="Resize sidebar" />
+          <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
+          <PaneResizer side="right" value={panes.notes} onChange={panes.setNotes} onReset={panes.reset} label="Resize notes" />
+          <ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary>
+        </div>
+      ) : (
+        // Narrow window: sidebar + stage share the top row, notes take a full-width row below.
+        <div
+          className={`flex-1 min-h-0 grid gap-2 px-3 pt-2 ${showTimeline ? "" : "pb-3"}`}
+          style={{ gridTemplateColumns: `${fit.sidebar}px minmax(0,1fr)`, gridTemplateRows: "minmax(0,3fr) minmax(0,2fr)" }}
+        >
+          <ErrorBoundary scope="Sidebar"><Sidebar /></ErrorBoundary>
+          <ErrorBoundary scope="TimerStage"><TimerStage /></ErrorBoundary>
+          <div className="col-span-2 min-h-0"><ErrorBoundary scope="NotesPanel"><NotesPanel /></ErrorBoundary></div>
+        </div>
+      )}
       {showTimeline && <ErrorBoundary scope="TimelineBar"><TimelineBar /></ErrorBoundary>}
       <ErrorBoundary scope="CommandPalette"><CommandPalette /></ErrorBoundary>
       <ErrorBoundary scope="AskNerva"><AskNerva /></ErrorBoundary>

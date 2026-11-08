@@ -128,3 +128,27 @@ export const usePanes = create<PanesState>()(
     { name: "nerva-panes" },
   ),
 );
+
+/** The centre stage never gets squeezed below this; side panes give way first. */
+export const CENTRE_MIN = 420;
+const GUTTERS = 2 * 12 + 2 * 12; // two resizers + px-3 padding
+
+/**
+ * Fit the persisted pane widths to the current viewport. Persisted values
+ * come from whatever screen they were dragged on; on a smaller window the
+ * centre pane would otherwise collapse. Both side panes shrink in proportion
+ * down to their minimums; below that the layout stacks (`mode: "narrow"`).
+ */
+export function fitPanes(viewport: number, sidebar: number, notes: number) {
+  const avail = viewport - GUTTERS;
+  if (avail - sidebar - notes >= CENTRE_MIN) return { sidebar, notes, mode: "wide" as const };
+  const minSide = PANE_LIMITS.sidebar[0] + PANE_LIMITS.notes[0];
+  const room = avail - CENTRE_MIN;
+  if (room < minSide) return { sidebar: PANE_LIMITS.sidebar[0], notes: PANE_LIMITS.notes[0], mode: "narrow" as const };
+  const k = room / (sidebar + notes);
+  return {
+    sidebar: Math.max(PANE_LIMITS.sidebar[0], Math.floor(sidebar * k)),
+    notes: Math.max(PANE_LIMITS.notes[0], Math.floor(notes * k)),
+    mode: "wide" as const,
+  };
+}

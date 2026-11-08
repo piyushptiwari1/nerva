@@ -390,6 +390,7 @@ code, pre, kbd, .font-mono { font-family: "JetBrains Mono Variable", "JetBrains 
 .habit-today { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--hairline); background: linear-gradient(135deg, color-mix(in srgb, var(--habit-color) 14%, transparent), transparent 60%), var(--control-bg); }
 .habit-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .habit-stat { padding: 10px 10px 8px; border-radius: 12px; border: 1px solid var(--hairline); background: var(--control-bg); min-width: 0; }
+.habit-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: rgb(var(--ink-400)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .habit-stat.is-warn { border-color: rgb(var(--focus) / .5); }
 .habit-stat.is-danger { border-color: rgb(var(--danger) / .6); background: rgb(var(--danger) / .08); }
 .habit-stat-value { font-size: 22px; line-height: 1.1; color: rgb(var(--ink-100)); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
@@ -402,8 +403,11 @@ code, pre, kbd, .font-mono { font-family: "JetBrains Mono Variable", "JetBrains 
 .habit-weekday { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .habit-weekday-bar { width: 100%; height: 44px; border-radius: 6px; background: var(--hairline); display: flex; align-items: flex-end; overflow: hidden; }
 .habit-weekday-bar > span { display: block; width: 100%; border-radius: 6px 6px 0 0; }
-.habit-dialog { position: fixed; z-index: 71; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, 92vw); max-height: 86vh; overflow-y: auto; padding: 16px 18px 18px; border-radius: 18px; }
+/* Centred via inset+margin, not transform: framer-motion writes its own transform (scale/y) inline and would override translate(-50%,-50%). */
+.habit-dialog { position: fixed; z-index: 71; inset: 0; margin: auto; height: fit-content; width: min(440px, 92vw); max-height: 86vh; overflow-y: auto; padding: 16px 18px 18px; border-radius: 18px; container-type: inline-size; }
 .habit-dialog-wide { width: min(560px, 94vw); }
+.habit-stats { container-type: inline-size; }
+@container (max-width: 480px) { .habit-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .habit-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .habit-risk { display: none; } }
 
 /* ── Controls ─────────────────────────────────────────────────────────────

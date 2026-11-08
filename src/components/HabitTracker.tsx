@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, Flame, Minus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { ipc, type Habit, type HabitEntry, type HabitKind, type HabitStats } from "@/lib/ipc";
@@ -245,7 +246,9 @@ function milestoneLine(n: number): string {
 
 function Sheet({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   const mobile = isMobile();
-  return (
+  // Portal: ancestors use transform/backdrop-filter, which would turn position:fixed into
+  // "fixed inside the sidebar" (the dialog ended up clipped at the pane's right edge).
+  return createPortal(
     <>
       <motion.div className="mobile-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
       <motion.div
@@ -264,7 +267,8 @@ function Sheet({ title, onClose, children, wide }: { title: string; onClose: () 
         </div>
         {children}
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -470,7 +474,7 @@ function HabitDetailSheet({ habit, stats, today, entry, onClose, onEdit, onLog, 
 function Stat({ label, value, hint, accent, tone, icon }: { label: string; value: string; hint?: string; accent?: string; tone?: "ok" | "warn" | "danger"; icon?: React.ReactNode }) {
   return (
     <div className={`habit-stat ${tone ? `is-${tone}` : ""}`} title={hint}>
-      <div className="text-[11px] uppercase tracking-wider text-ink-400">{label}</div>
+      <div className="habit-stat-label">{label}</div>
       <div className="habit-stat-value display-num" style={accent ? { color: accent } : undefined}>{icon}{value}</div>
       {hint && <div className="habit-stat-hint">{hint}</div>}
     </div>
