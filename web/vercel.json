@@ -23,6 +23,7 @@
     { "source": "/download/windows/exe",    "destination": "/api/download?p=windows&f=exe" },
     { "source": "/download/android/apk",    "destination": "/api/download?p=android&f=apk" },
     { "source": "/cert",                    "destination": "/api/download?p=cert&f=crt" },
+    { "source": "/updater/latest.json",     "destination": "/api/updater" },
     { "source": "/support/thanks",          "destination": "/support/thanks.html" },
     { "source": "/support/failed",          "destination": "/support/failed.html" },
     { "source": "/pro/thanks",              "destination": "/pro/thanks.html" },
